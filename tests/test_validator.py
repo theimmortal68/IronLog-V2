@@ -327,3 +327,96 @@ def test_equipment_in_manifest_passes():
         make_group(0, GroupType.STRAIGHT, exercises=[make_exercise(1, 0, [make_set(0)])]),
     ])
     assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.EQUIPMENT_NOT_IN_MANIFEST] == []
+
+
+# ---------------------------------------------------------------------------
+# Task 4 — HT safety pair (HT_BOTTOM_OVER_LIMIT + HT_BAND_NOT_REGISTERED)
+# ---------------------------------------------------------------------------
+
+def test_ht_bottom_over_limit_rejects():
+    ctx = ValidationContext(
+        movements={1: make_movement(1, lift_category=LiftCategory.HIP_THRUST)},
+        band_bottom_lb={1: 14.0},  # #0 Orange
+        ht_bottom_clamp=220.0,
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_plates=220.0, band_pair_id=1)]),
+            # 220 + 14 = 234 bottom > 220 clamp
+        ]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.HT_BOTTOM_OVER_LIMIT]
+    assert len(rejects) == 1
+    assert rejects[0].set_index == 0
+    assert rejects[0].movement_id == 1
+    assert "234" in rejects[0].message
+    assert "220" in rejects[0].message
+    assert "plates+band at bottom position" in rejects[0].message
+    assert rejects[0].corrected_value is None
+
+
+def test_ht_bottom_under_limit_passes():
+    ctx = ValidationContext(
+        movements={1: make_movement(1, lift_category=LiftCategory.HIP_THRUST)},
+        band_bottom_lb={1: 14.0},
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_plates=180.0, band_pair_id=1)]),
+        ]),
+    ])
+    assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.HT_BOTTOM_OVER_LIMIT] == []
+
+
+def test_ht_composite_progression_also_triggers():
+    """Lift_category fallback: if not HIP_THRUST, progression_mode==COMPOSITE
+    still triggers HT-safety checks."""
+    ctx = ValidationContext(
+        movements={1: make_movement(1, progression_mode=ProgressionMode.COMPOSITE)},
+        band_bottom_lb={1: 14.0},
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_plates=220.0, band_pair_id=1)]),
+        ]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.HT_BOTTOM_OVER_LIMIT]
+    assert len(rejects) == 1
+
+
+def test_ht_unregistered_band_rejects():
+    """Fail loud rather than substituting 0 — bottom safety check cannot be
+    silently bypassed."""
+    ctx = ValidationContext(
+        movements={1: make_movement(1, lift_category=LiftCategory.HIP_THRUST)},
+        band_bottom_lb={1: 14.0},  # only band 1 registered
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_plates=100.0, band_pair_id=99)]),
+        ]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.HT_BAND_NOT_REGISTERED]
+    assert len(rejects) == 1
+    assert "99" in rejects[0].message
+    assert rejects[0].set_index == 0
+    # And the bottom-over-limit check must NOT have run with a silent 0:
+    assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.HT_BOTTOM_OVER_LIMIT] == []
+
+
+def test_ht_incomplete_prescription_skipped():
+    """If either target_plates or band_pair_id is None, both HT rules skip."""
+    ctx = ValidationContext(
+        movements={1: make_movement(1, lift_category=LiftCategory.HIP_THRUST)},
+        band_bottom_lb={1: 14.0},
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [
+                make_set(0, target_plates=220.0, band_pair_id=None),  # missing band
+                make_set(1, target_plates=None, band_pair_id=1),       # missing plates
+            ]),
+        ]),
+    ])
+    result = validate(session, ctx)
+    assert [v for v in result.rejects if v.rule in (RuleCode.HT_BOTTOM_OVER_LIMIT, RuleCode.HT_BAND_NOT_REGISTERED)] == []
