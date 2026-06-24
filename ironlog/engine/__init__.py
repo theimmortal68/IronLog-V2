@@ -5,3 +5,7 @@ from .progression import (                                          # noqa: F401
     resolve_objective, should_attempt_progression, step_down_tier,
     reset_tier_on_rebuild, maybe_reset_tier_on_breakthrough,
 )
+from .validator import (                                            # noqa: F401
+    MovementInfo, RuleCode, ValidationContext, ValidationResult,
+    Violation, ViolationKind, WeeklyTallies, validate,
+)

@@ -561,3 +561,84 @@ def test_tallies_none_skips_cross_session_entirely():
     cross_session = [v for v in result.violations
                      if v.rule in (RuleCode.KNEE_FREQUENCY, RuleCode.PULL_PUSH_RATIO)]
     assert cross_session == []
+
+
+# ---------------------------------------------------------------------------
+# Task 7 — cross-cutting tests
+# ---------------------------------------------------------------------------
+
+def test_missing_movement_skips_movement_dependent_rules():
+    """Exercise references a movement not in ctx.movements. Movement-dependent
+    rules silently skip that exercise; group-level rules still fire."""
+    ctx = ValidationContext()  # movements is empty
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=2, exercises=[  # GIANT_SET_ROUNDS will fire
+            make_exercise(99, 0, [make_set(0, target_load=10.0)]),  # movement 99 unknown
+        ]),
+    ])
+    result = validate(session, ctx)
+    # Movement-dependent rules (PRIMARY_NOT_FIRST, EQUIPMENT_*, HT_*, LOAD_*, RPE_*, SINGLE_KB)
+    # should NOT fire — they all key off the missing MovementInfo.
+    movement_dependent_rules = {
+        RuleCode.PRIMARY_NOT_FIRST, RuleCode.SINGLE_KB,
+        RuleCode.EQUIPMENT_NOT_IN_MANIFEST,
+        RuleCode.HT_BOTTOM_OVER_LIMIT, RuleCode.HT_BAND_NOT_REGISTERED,
+        RuleCode.LOAD_BELOW_FLOOR, RuleCode.LOAD_OVER_CAP, RuleCode.RPE_OVER_CAP,
+    }
+    for v in result.violations:
+        assert v.rule not in movement_dependent_rules, f"unexpected: {v}"
+    # GIANT_SET_ROUNDS (group-level, no movement lookup) SHOULD fire:
+    assert [v for v in result.rejects if v.rule == RuleCode.GIANT_SET_ROUNDS] != []
+
+
+def test_apply_loop_round_trip():
+    """Build a session triggering LOAD_BELOW_FLOOR + RPE_OVER_CAP on the same
+    set, apply both clamps via (rule)-dispatch, re-run validate(), expect
+    is_structurally_valid==True and zero clamps."""
+    ctx = ValidationContext(
+        movements={1: make_movement(1, load_floor=45.0)},
+        phase_hard_cap=8.0,
+    )
+    bad_set = make_set(0, target_load=35.0, target_rpe=9.0)
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[make_exercise(1, 0, [bad_set])]),
+    ])
+    result = validate(session, ctx)
+    assert len(result.clamps) == 2  # below floor + rpe over cap
+    assert result.is_structurally_valid is True  # no REJECTs
+
+    # Apply each clamp by (rule) dispatch
+    for v in result.clamps:
+        target_set = session.groups[v.group_index].exercises[0].planned_sets[v.set_index]
+        if v.rule in (RuleCode.LOAD_BELOW_FLOOR, RuleCode.LOAD_OVER_CAP):
+            target_set.target_load = v.corrected_value
+        elif v.rule == RuleCode.RPE_OVER_CAP:
+            target_set.target_rpe = v.corrected_value
+
+    # Re-validate — clean
+    result2 = validate(session, ctx)
+    assert result2.clamps == []
+    assert result2.is_structurally_valid is True
+
+
+def test_validator_imports_via_engine_package():
+    """The public names are re-exported from ironlog.engine (matches the
+    pattern for loading, progression, etc.)."""
+    from ironlog.engine import (
+        validate as eng_validate,
+        ValidationContext as eng_ctx,
+        ValidationResult as eng_result,
+        Violation as eng_violation,
+        ViolationKind as eng_kind,
+        RuleCode as eng_rule,
+        MovementInfo as eng_minfo,
+        WeeklyTallies as eng_tallies,
+    )
+    assert eng_validate is validate
+    assert eng_ctx is ValidationContext
+    assert eng_result is ValidationResult
+    assert eng_violation is Violation
+    assert eng_kind is ViolationKind
+    assert eng_rule is RuleCode
+    assert eng_minfo is MovementInfo
+    assert eng_tallies is WeeklyTallies
