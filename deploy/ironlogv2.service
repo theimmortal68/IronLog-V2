@@ -1,0 +1,26 @@
+[Unit]
+Description=IronLog V2 FastAPI server (uvicorn, port 8000)
+Documentation=https://github.com/theimmortal68/IronLog-V2
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=jstout
+Group=jstout
+WorkingDirectory=/home/jstout/projects/IronLog-V2
+ExecStart=/home/jstout/projects/IronLog-V2/.venv/bin/uvicorn ironlog.api.app:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Hardening (safe defaults for a local-LAN dev service)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/jstout/projects/IronLog-V2
+
+[Install]
+WantedBy=multi-user.target
