@@ -184,3 +184,146 @@ def test_primary_first_then_accessory_passes():
     ])
     result = validate(session, ctx)
     assert [v for v in result.rejects if v.rule == RuleCode.PRIMARY_NOT_FIRST] == []
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — group-shape & manifest REJECTs
+# ---------------------------------------------------------------------------
+
+def test_giant_set_rounds_must_be_3():
+    ctx = ValidationContext(movements={
+        1: make_movement(1),
+        2: make_movement(2),
+    })
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=2, exercises=[
+            make_exercise(1, 0, [make_set(0)]),
+            make_exercise(2, 1, [make_set(0)]),
+        ]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_ROUNDS]
+    assert len(rejects) == 1
+    assert "rounds=2" in rejects[0].message
+    assert rejects[0].group_index == 0
+
+
+def test_giant_set_rounds_3_passes():
+    ctx = ValidationContext(movements={1: make_movement(1)})
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[make_exercise(1, 0, [make_set(0)])]),
+    ])
+    assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_ROUNDS] == []
+
+
+def test_giant_set_concurrency_rejects_4_exercises():
+    ctx = ValidationContext(movements={i: make_movement(i) for i in range(1, 5)})
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
+            make_exercise(i, idx, [make_set(0)]) for idx, i in enumerate(range(1, 5))
+        ]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_CONCURRENCY]
+    assert len(rejects) == 1
+    assert "4 exercises" in rejects[0].message
+
+
+def test_giant_set_concurrency_rejects_empty():
+    ctx = ValidationContext()
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_CONCURRENCY]
+    assert len(rejects) == 1
+
+
+def test_giant_set_concurrency_1_to_3_passes():
+    ctx = ValidationContext(movements={i: make_movement(i) for i in range(1, 4)})
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
+            make_exercise(i, idx, [make_set(0)]) for idx, i in enumerate(range(1, 4))
+        ]),
+    ])
+    assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_CONCURRENCY] == []
+
+
+def test_single_kb_rejects_2_kettlebells_in_giant_set():
+    KB_EQUIP_ID = 12
+    ctx = ValidationContext(
+        kettlebell_equipment_id=KB_EQUIP_ID,
+        movements={
+            1: make_movement(1, load_equipment_id=KB_EQUIP_ID),
+            2: make_movement(2, load_equipment_id=KB_EQUIP_ID),
+        },
+    )
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
+            make_exercise(1, 0, [make_set(0)]),
+            make_exercise(2, 1, [make_set(0)]),
+        ]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.SINGLE_KB]
+    assert len(rejects) == 1
+    assert "2 kettlebell" in rejects[0].message
+    assert rejects[0].group_index == 0
+
+
+def test_single_kb_one_kb_in_giant_set_passes():
+    KB_EQUIP_ID = 12
+    ctx = ValidationContext(
+        kettlebell_equipment_id=KB_EQUIP_ID,
+        movements={
+            1: make_movement(1, load_equipment_id=KB_EQUIP_ID),
+            2: make_movement(2, load_equipment_id=1),  # not KB
+        },
+    )
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
+            make_exercise(1, 0, [make_set(0)]),
+            make_exercise(2, 1, [make_set(0)]),
+        ]),
+    ])
+    assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.SINGLE_KB] == []
+
+
+def test_single_kb_skipped_when_no_kb_equipment_id():
+    """If ctx.kettlebell_equipment_id is None, the rule is a no-op even with
+    multiple exercises sharing the same load_equipment_id."""
+    ctx = ValidationContext(
+        kettlebell_equipment_id=None,
+        movements={
+            1: make_movement(1, load_equipment_id=12),
+            2: make_movement(2, load_equipment_id=12),
+        },
+    )
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
+            make_exercise(1, 0, [make_set(0)]),
+            make_exercise(2, 1, [make_set(0)]),
+        ]),
+    ])
+    assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.SINGLE_KB] == []
+
+
+def test_equipment_not_in_manifest_rejects():
+    ctx = ValidationContext(
+        movements={1: make_movement(1, load_equipment_id=99)},
+        manifest_equipment_ids={1, 2, 3},
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[make_exercise(1, 0, [make_set(0)])]),
+    ])
+    rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.EQUIPMENT_NOT_IN_MANIFEST]
+    assert len(rejects) == 1
+    assert rejects[0].movement_id == 1
+    assert "99" in rejects[0].message
+
+
+def test_equipment_in_manifest_passes():
+    ctx = ValidationContext(
+        movements={1: make_movement(1, load_equipment_id=2)},
+        manifest_equipment_ids={1, 2, 3},
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[make_exercise(1, 0, [make_set(0)])]),
+    ])
+    assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.EQUIPMENT_NOT_IN_MANIFEST] == []

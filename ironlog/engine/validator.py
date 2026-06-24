@@ -159,10 +159,86 @@ def _check_primary_not_first(session: Session, ctx: ValidationContext) -> List[V
     return violations
 
 
+def _check_giant_set_rounds(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """GIANT_SET groups must have rounds == 3."""
+    violations: List[Violation] = []
+    for group in session.groups:
+        if group.group_type == GroupType.GIANT_SET and group.rounds != 3:
+            violations.append(Violation(
+                kind=ViolationKind.REJECT,
+                rule=RuleCode.GIANT_SET_ROUNDS,
+                message=f"GIANT_SET rounds={group.rounds}, expected 3",
+                group_index=group.order_index,
+            ))
+    return violations
+
+
+def _check_giant_set_concurrency(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """GIANT_SET groups must have 1..=3 exercises (room geometry)."""
+    violations: List[Violation] = []
+    for group in session.groups:
+        if group.group_type == GroupType.GIANT_SET:
+            n = len(group.exercises)
+            if not 1 <= n <= 3:
+                violations.append(Violation(
+                    kind=ViolationKind.REJECT,
+                    rule=RuleCode.GIANT_SET_CONCURRENCY,
+                    message=f"GIANT_SET has {n} exercises, expected 1-3 (room geometry)",
+                    group_index=group.order_index,
+                ))
+    return violations
+
+
+def _check_single_kb(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """At most one kettlebell-loaded exercise per GIANT_SET. Skipped if
+    ctx.kettlebell_equipment_id is None (no KB equipment registered)."""
+    if ctx.kettlebell_equipment_id is None:
+        return []
+    violations: List[Violation] = []
+    for group in session.groups:
+        if group.group_type != GroupType.GIANT_SET:
+            continue
+        count = 0
+        for ex in group.exercises:
+            info = ctx.movements.get(ex.movement_id)
+            if info and info.load_equipment_id == ctx.kettlebell_equipment_id:
+                count += 1
+        if count >= 2:
+            violations.append(Violation(
+                kind=ViolationKind.REJECT,
+                rule=RuleCode.SINGLE_KB,
+                message=f"GIANT_SET has {count} kettlebell movements; only 1 KB station available",
+                group_index=group.order_index,
+            ))
+    return violations
+
+
+def _check_equipment_not_in_manifest(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """Every loaded movement's equipment must be in the active-phase manifest."""
+    violations: List[Violation] = []
+    for group in session.groups:
+        for ex in group.exercises:
+            info = ctx.movements.get(ex.movement_id)
+            if info is None or info.load_equipment_id is None:
+                continue
+            if info.load_equipment_id not in ctx.manifest_equipment_ids:
+                violations.append(Violation(
+                    kind=ViolationKind.REJECT,
+                    rule=RuleCode.EQUIPMENT_NOT_IN_MANIFEST,
+                    message=f"Equipment id {info.load_equipment_id} not in active manifest",
+                    group_index=group.order_index,
+                    movement_id=ex.movement_id,
+                ))
+    return violations
+
+
 def validate(session: Session, ctx: ValidationContext) -> ValidationResult:
     """Validate a proposed session against all 12 hard rules.
     Returns ALL violations; never early-exits on a REJECT."""
     violations: List[Violation] = []
     violations.extend(_check_primary_not_first(session, ctx))
-    # Tasks 3-7 will fill these in.
+    violations.extend(_check_giant_set_rounds(session, ctx))
+    violations.extend(_check_giant_set_concurrency(session, ctx))
+    violations.extend(_check_single_kb(session, ctx))
+    violations.extend(_check_equipment_not_in_manifest(session, ctx))
     return ValidationResult(violations=violations)
