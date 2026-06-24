@@ -128,3 +128,59 @@ def test_rulecode_enum_has_all_12_members():
     assert actual == expected, f"missing: {expected - actual}, extra: {actual - expected}"
     # CONDITIONING_PLACEMENT is explicitly deferred per spec §10 — must not appear.
     assert "CONDITIONING_PLACEMENT" not in actual
+
+
+# ---------------------------------------------------------------------------
+# Task 2 — PRIMARY_NOT_FIRST
+# ---------------------------------------------------------------------------
+
+def test_primary_in_giant_set_rejects():
+    ctx = ValidationContext(movements={
+        1: make_movement(1, is_primary=True),
+        2: make_movement(2, is_primary=False),
+    })
+    session = make_session([
+        make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
+            make_exercise(1, 0, [make_set(0)]),
+            make_exercise(2, 1, [make_set(0)]),
+        ]),
+    ])
+    result = validate(session, ctx)
+    rejects = [v for v in result.rejects if v.rule == RuleCode.PRIMARY_NOT_FIRST]
+    assert len(rejects) == 1
+    assert rejects[0].movement_id == 1
+    assert "GIANT_SET" in rejects[0].message
+    assert rejects[0].corrected_value is None
+
+
+def test_primary_after_non_primary_rejects():
+    ctx = ValidationContext(movements={
+        1: make_movement(1, is_primary=False),
+        2: make_movement(2, is_primary=True),
+    })
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[make_exercise(1, 0, [make_set(0)])]),
+        make_group(1, GroupType.STRAIGHT, exercises=[make_exercise(2, 0, [make_set(0)])]),
+    ])
+    result = validate(session, ctx)
+    rejects = [v for v in result.rejects if v.rule == RuleCode.PRIMARY_NOT_FIRST]
+    assert len(rejects) == 1
+    assert rejects[0].movement_id == 2
+    assert "after non-primary" in rejects[0].message
+
+
+def test_primary_first_then_accessory_passes():
+    ctx = ValidationContext(movements={
+        1: make_movement(1, is_primary=True),
+        2: make_movement(2, is_primary=False),
+        3: make_movement(3, is_primary=False),
+    })
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[make_exercise(1, 0, [make_set(0)])]),
+        make_group(1, GroupType.GIANT_SET, rounds=3, exercises=[
+            make_exercise(2, 0, [make_set(0)]),
+            make_exercise(3, 1, [make_set(0)]),
+        ]),
+    ])
+    result = validate(session, ctx)
+    assert [v for v in result.rejects if v.rule == RuleCode.PRIMARY_NOT_FIRST] == []

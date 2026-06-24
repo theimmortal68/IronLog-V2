@@ -127,9 +127,42 @@ class ValidationResult:
         return not self.rejects
 
 
+def _check_primary_not_first(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """Strong form: all primary movements come before all non-primary movements
+    in the flat exercise sequence, AND primaries cannot appear inside GIANT_SET."""
+    violations: List[Violation] = []
+    non_primary_seen = False
+    for group in sorted(session.groups, key=lambda g: g.order_index):
+        for ex in sorted(group.exercises, key=lambda e: e.order_index):
+            info = ctx.movements.get(ex.movement_id)
+            if info is None:
+                continue
+            if info.is_primary:
+                if group.group_type == GroupType.GIANT_SET:
+                    violations.append(Violation(
+                        kind=ViolationKind.REJECT,
+                        rule=RuleCode.PRIMARY_NOT_FIRST,
+                        message="primary movement inside GIANT_SET group",
+                        group_index=group.order_index,
+                        movement_id=ex.movement_id,
+                    ))
+                elif non_primary_seen:
+                    violations.append(Violation(
+                        kind=ViolationKind.REJECT,
+                        rule=RuleCode.PRIMARY_NOT_FIRST,
+                        message="primary movement after non-primary movement (primaries must all come first)",
+                        group_index=group.order_index,
+                        movement_id=ex.movement_id,
+                    ))
+            else:
+                non_primary_seen = True
+    return violations
+
+
 def validate(session: Session, ctx: ValidationContext) -> ValidationResult:
     """Validate a proposed session against all 12 hard rules.
     Returns ALL violations; never early-exits on a REJECT."""
     violations: List[Violation] = []
-    # Tasks 2-7 will fill these in.
+    violations.extend(_check_primary_not_first(session, ctx))
+    # Tasks 3-7 will fill these in.
     return ValidationResult(violations=violations)
