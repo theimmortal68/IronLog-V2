@@ -58,6 +58,25 @@ These are the spine of the design. Breaking one silently corrupts behavior.
    (Landmine 25, Rev Hyper 180, Light Rev Hyper 90) are settled. Seed them; don't invent
    or "improve" them. If a number seems wrong, check `docs/` before changing it.
 
+## Client contract — there is an external consumer
+
+A separate **Android thin client** (repo `IronLog-V2-Client`, Kotlin/Compose) consumes
+this server's HTTP API over the home LAN. Its DTOs mirror this server's JSON shapes, so
+the API is a **shared contract**, not a private interface.
+
+- If you change an endpoint path, request body, or response shape — or rename/remove/retype
+  a field on `Movement`, `BandPair`, `PhasePolicy`, or the autoregulate request/response —
+  that is a **breaking change for the client**. Call it out explicitly in your change
+  summary so the client's `Models.kt` DTOs get updated in lockstep.
+- Keep response field names **snake_case** and stable (the client deserializes without
+  `@SerialName`). Adding new fields is safe (the client ignores unknown keys); renaming or
+  removing is not.
+- **Autoregulation is LADDER-only.** The client filters its autoregulate picker to
+  `progression_mode == LADDER`. If you extend `next_set_load` to handle COMPOSITE (HT) or
+  ASSISTED movements, say so — the client picker filter must change too.
+- The server must run with `uvicorn ironlog.api.app:app --host 0.0.0.0` for the phone to
+  reach it; the default (localhost) is invisible on the LAN.
+
 ## Conventions / gotchas
 
 - Python ≥3.10, SQLModel, FastAPI, pytest.
