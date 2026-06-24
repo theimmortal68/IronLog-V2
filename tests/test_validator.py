@@ -186,6 +186,29 @@ def test_primary_first_then_accessory_passes():
     assert [v for v in result.rejects if v.rule == RuleCode.PRIMARY_NOT_FIRST] == []
 
 
+def test_primary_after_unknown_movement_is_transparent():
+    """Documents PRIMARY_NOT_FIRST's safe-default behavior on missing movements.
+
+    When `ctx.movements.get(ex.movement_id)` returns None, the loop `continue`s
+    WITHOUT setting `non_primary_seen = True` — the unknown exercise is
+    transparent to the rule. So a primary appearing after an unknown movement is
+    NOT rejected. This is internally consistent with the §5 "skip
+    movement-dependent checks for that exercise" rule and prevents false
+    REJECTs from missing context; it's pinned by this test so future
+    maintainers don't accidentally "fix" it into stricter behavior.
+    """
+    ctx = ValidationContext(movements={
+        # movement 1 deliberately absent from ctx.movements (unknown)
+        2: make_movement(2, is_primary=True),
+    })
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[make_exercise(1, 0, [make_set(0)])]),
+        make_group(1, GroupType.STRAIGHT, exercises=[make_exercise(2, 0, [make_set(0)])]),
+    ])
+    result = validate(session, ctx)
+    assert [v for v in result.rejects if v.rule == RuleCode.PRIMARY_NOT_FIRST] == []
+
+
 # ---------------------------------------------------------------------------
 # Task 3 — group-shape & manifest REJECTs
 # ---------------------------------------------------------------------------
@@ -460,6 +483,7 @@ def test_load_over_cap_clamps():
     clamps = [v for v in validate(session, ctx).clamps if v.rule == RuleCode.LOAD_OVER_CAP]
     assert len(clamps) == 1
     assert clamps[0].corrected_value == 25.0
+    assert "30" in clamps[0].message and "25" in clamps[0].message
 
 
 def test_rpe_over_cap_clamps():
@@ -535,7 +559,8 @@ def test_pull_push_ratio_below_target_rejects():
     rejects = [v for v in validate(make_session(), ctx).rejects if v.rule == RuleCode.PULL_PUSH_RATIO]
     assert len(rejects) == 1
     assert "1.30" in rejects[0].message
-    assert "2" in rejects[0].message
+    # `{pull_push_target:.1f}` formats to "2.0"; assert the precise string, not a "2" substring
+    assert "2.0" in rejects[0].message
 
 
 def test_pull_push_ratio_at_target_passes():

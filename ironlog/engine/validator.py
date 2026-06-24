@@ -17,7 +17,8 @@ pure deterministic Python, no LLM in the loop. It does NOT auto-apply clamps,
 nor does it implement the repair loop — that's the generation loop's job
 (v0.5). The validator only reports.
 
-Clamp application contract (caller-side):
+Clamp application contract (caller-side; see
+docs/superpowers/specs/2026-06-24-validator-design.md §4.1 — canonical):
   consumer iterates ValidationResult.clamps and dispatches on rule:
     LOAD_BELOW_FLOOR | LOAD_OVER_CAP  -> write corrected_value to set.target_load
     RPE_OVER_CAP                       -> write corrected_value to set.target_rpe
@@ -160,7 +161,12 @@ def _check_primary_not_first(session: Session, ctx: ValidationContext) -> List[V
 
 
 def _check_giant_set_rounds(session: Session, ctx: ValidationContext) -> List[Violation]:
-    """GIANT_SET groups must have rounds == 3."""
+    """GIANT_SET groups must have rounds == 3.
+
+    Iterates session.groups in storage order (unsorted): violations carry
+    group_index so callers can sort if needed. Only _check_primary_not_first
+    requires explicit order_index sorting (it carries cross-exercise state).
+    """
     violations: List[Violation] = []
     for group in session.groups:
         if group.group_type == GroupType.GIANT_SET and group.rounds != 3:
@@ -174,7 +180,11 @@ def _check_giant_set_rounds(session: Session, ctx: ValidationContext) -> List[Vi
 
 
 def _check_giant_set_concurrency(session: Session, ctx: ValidationContext) -> List[Violation]:
-    """GIANT_SET groups must have 1..=3 exercises (room geometry)."""
+    """GIANT_SET groups must have 1..=3 exercises (room geometry).
+
+    Iteration is unsorted (same rationale as _check_giant_set_rounds): violations
+    carry group_index for callers that need ordering.
+    """
     violations: List[Violation] = []
     for group in session.groups:
         if group.group_type == GroupType.GIANT_SET:
