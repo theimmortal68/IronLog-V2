@@ -499,3 +499,65 @@ def test_no_target_load_skips_load_clamps():
         ]),
     ])
     assert validate(session, ctx).clamps == []
+
+
+# ---------------------------------------------------------------------------
+# Task 6 — cross-session REJECTs (deferred-binding tallies)
+# ---------------------------------------------------------------------------
+
+def test_knee_frequency_unmet_rejects():
+    ctx = ValidationContext(tallies=WeeklyTallies(
+        knee_counts={"NORDIC": 1, "TIB": 1, "KOT": 2, "SISSY": 0},
+        knee_targets={"NORDIC": 2, "TIB": 2, "KOT": 2, "SISSY": 1},
+    ))
+    rejects = [v for v in validate(make_session(), ctx).rejects if v.rule == RuleCode.KNEE_FREQUENCY]
+    # NORDIC owed 1, TIB owed 1, SISSY owed 1 → 3 rejects; KOT is met
+    assert len(rejects) == 3
+    msgs = " | ".join(v.message for v in rejects)
+    assert "NORDIC" in msgs
+    assert "TIB" in msgs
+    assert "SISSY" in msgs
+    assert "KOT" not in msgs
+
+
+def test_knee_frequency_met_passes():
+    ctx = ValidationContext(tallies=WeeklyTallies(
+        knee_counts={"NORDIC": 2, "TIB": 2},
+        knee_targets={"NORDIC": 2, "TIB": 2},
+    ))
+    assert [v for v in validate(make_session(), ctx).rejects if v.rule == RuleCode.KNEE_FREQUENCY] == []
+
+
+def test_pull_push_ratio_below_target_rejects():
+    ctx = ValidationContext(tallies=WeeklyTallies(
+        pull_volume=1300.0, push_volume=1000.0, pull_push_target=2.0,
+    ))
+    rejects = [v for v in validate(make_session(), ctx).rejects if v.rule == RuleCode.PULL_PUSH_RATIO]
+    assert len(rejects) == 1
+    assert "1.30" in rejects[0].message
+    assert "2" in rejects[0].message
+
+
+def test_pull_push_ratio_at_target_passes():
+    ctx = ValidationContext(tallies=WeeklyTallies(
+        pull_volume=2000.0, push_volume=1000.0, pull_push_target=2.0,
+    ))
+    assert [v for v in validate(make_session(), ctx).rejects if v.rule == RuleCode.PULL_PUSH_RATIO] == []
+
+
+def test_pull_push_zero_push_skipped():
+    """push_volume == 0 → skip (avoid div-by-zero)."""
+    ctx = ValidationContext(tallies=WeeklyTallies(
+        pull_volume=500.0, push_volume=0.0, pull_push_target=2.0,
+    ))
+    assert [v for v in validate(make_session(), ctx).rejects if v.rule == RuleCode.PULL_PUSH_RATIO] == []
+
+
+def test_tallies_none_skips_cross_session_entirely():
+    """ctx.tallies is None → KNEE_FREQUENCY and PULL_PUSH_RATIO emit nothing
+    regardless of session content."""
+    ctx = ValidationContext(tallies=None)
+    result = validate(make_session(), ctx)
+    cross_session = [v for v in result.violations
+                     if v.rule in (RuleCode.KNEE_FREQUENCY, RuleCode.PULL_PUSH_RATIO)]
+    assert cross_session == []

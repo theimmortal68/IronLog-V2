@@ -341,6 +341,37 @@ def _check_rpe_over_cap(session: Session, ctx: ValidationContext) -> List[Violat
     return violations
 
 
+def _check_knee_frequency(ctx: ValidationContext) -> List[Violation]:
+    """Each knee modality must hit its weekly target. Skipped if ctx.tallies is None."""
+    if ctx.tallies is None:
+        return []
+    violations: List[Violation] = []
+    for modality, target in ctx.tallies.knee_targets.items():
+        count = ctx.tallies.knee_counts.get(modality, 0)
+        if count < target:
+            violations.append(Violation(
+                kind=ViolationKind.REJECT,
+                rule=RuleCode.KNEE_FREQUENCY,
+                message=f"{modality} frequency unmet: {count}/{target} (owed {target - count})",
+            ))
+    return violations
+
+
+def _check_pull_push_ratio(ctx: ValidationContext) -> List[Violation]:
+    """Pull:push volume ratio must meet target. Skipped if push_volume == 0
+    (avoid div-by-zero) or if ctx.tallies is None."""
+    if ctx.tallies is None or ctx.tallies.push_volume == 0:
+        return []
+    ratio = ctx.tallies.pull_volume / ctx.tallies.push_volume
+    if ratio < ctx.tallies.pull_push_target:
+        return [Violation(
+            kind=ViolationKind.REJECT,
+            rule=RuleCode.PULL_PUSH_RATIO,
+            message=f"Pull:push ratio {ratio:.2f} below target {ctx.tallies.pull_push_target:.1f}",
+        )]
+    return []
+
+
 def validate(session: Session, ctx: ValidationContext) -> ValidationResult:
     """Validate a proposed session against all 12 hard rules.
     Returns ALL violations; never early-exits on a REJECT."""
@@ -354,4 +385,6 @@ def validate(session: Session, ctx: ValidationContext) -> ValidationResult:
     violations.extend(_check_load_below_floor(session, ctx))
     violations.extend(_check_load_over_cap(session, ctx))
     violations.extend(_check_rpe_over_cap(session, ctx))
+    violations.extend(_check_knee_frequency(ctx))
+    violations.extend(_check_pull_push_ratio(ctx))
     return ValidationResult(violations=violations)
