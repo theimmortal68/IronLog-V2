@@ -275,6 +275,72 @@ def _check_ht_safety(session: Session, ctx: ValidationContext) -> List[Violation
     return violations
 
 
+def _check_load_below_floor(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """target_load < movement.load_floor -> CLAMP up to load_floor."""
+    violations: List[Violation] = []
+    for group in session.groups:
+        for ex in group.exercises:
+            info = ctx.movements.get(ex.movement_id)
+            if info is None or info.load_floor is None:
+                continue
+            for ps in ex.planned_sets:
+                if ps.target_load is not None and ps.target_load < info.load_floor:
+                    violations.append(Violation(
+                        kind=ViolationKind.CLAMP,
+                        rule=RuleCode.LOAD_BELOW_FLOOR,
+                        message=f"Load {ps.target_load} below floor {info.load_floor}",
+                        group_index=group.order_index,
+                        movement_id=ex.movement_id,
+                        set_index=ps.set_index,
+                        corrected_value=info.load_floor,
+                    ))
+    return violations
+
+
+def _check_load_over_cap(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """target_load > movement.cap -> CLAMP down to cap."""
+    violations: List[Violation] = []
+    for group in session.groups:
+        for ex in group.exercises:
+            info = ctx.movements.get(ex.movement_id)
+            if info is None or info.cap is None:
+                continue
+            for ps in ex.planned_sets:
+                if ps.target_load is not None and ps.target_load > info.cap:
+                    violations.append(Violation(
+                        kind=ViolationKind.CLAMP,
+                        rule=RuleCode.LOAD_OVER_CAP,
+                        message=f"Load {ps.target_load} over cap {info.cap}",
+                        group_index=group.order_index,
+                        movement_id=ex.movement_id,
+                        set_index=ps.set_index,
+                        corrected_value=info.cap,
+                    ))
+    return violations
+
+
+def _check_rpe_over_cap(session: Session, ctx: ValidationContext) -> List[Violation]:
+    """target_rpe > ctx.phase_hard_cap (and not rpe_cap_exempt) -> CLAMP down."""
+    violations: List[Violation] = []
+    for group in session.groups:
+        for ex in group.exercises:
+            info = ctx.movements.get(ex.movement_id)
+            if info is None or info.rpe_cap_exempt:
+                continue
+            for ps in ex.planned_sets:
+                if ps.target_rpe is not None and ps.target_rpe > ctx.phase_hard_cap:
+                    violations.append(Violation(
+                        kind=ViolationKind.CLAMP,
+                        rule=RuleCode.RPE_OVER_CAP,
+                        message=f"RPE {ps.target_rpe} over phase cap {ctx.phase_hard_cap}",
+                        group_index=group.order_index,
+                        movement_id=ex.movement_id,
+                        set_index=ps.set_index,
+                        corrected_value=ctx.phase_hard_cap,
+                    ))
+    return violations
+
+
 def validate(session: Session, ctx: ValidationContext) -> ValidationResult:
     """Validate a proposed session against all 12 hard rules.
     Returns ALL violations; never early-exits on a REJECT."""
@@ -285,4 +351,7 @@ def validate(session: Session, ctx: ValidationContext) -> ValidationResult:
     violations.extend(_check_single_kb(session, ctx))
     violations.extend(_check_equipment_not_in_manifest(session, ctx))
     violations.extend(_check_ht_safety(session, ctx))
+    violations.extend(_check_load_below_floor(session, ctx))
+    violations.extend(_check_load_over_cap(session, ctx))
+    violations.extend(_check_rpe_over_cap(session, ctx))
     return ValidationResult(violations=violations)

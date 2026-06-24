@@ -420,3 +420,82 @@ def test_ht_incomplete_prescription_skipped():
     ])
     result = validate(session, ctx)
     assert [v for v in result.rejects if v.rule in (RuleCode.HT_BOTTOM_OVER_LIMIT, RuleCode.HT_BAND_NOT_REGISTERED)] == []
+
+
+# ---------------------------------------------------------------------------
+# Task 5 — CLAMP triad
+# ---------------------------------------------------------------------------
+
+def test_load_below_floor_clamps():
+    ctx = ValidationContext(movements={1: make_movement(1, load_floor=45.0)})
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_load=35.0)]),
+        ]),
+    ])
+    clamps = [v for v in validate(session, ctx).clamps if v.rule == RuleCode.LOAD_BELOW_FLOOR]
+    assert len(clamps) == 1
+    assert clamps[0].corrected_value == 45.0
+    assert clamps[0].set_index == 0
+    assert "35" in clamps[0].message and "45" in clamps[0].message
+
+
+def test_load_at_floor_does_not_clamp():
+    ctx = ValidationContext(movements={1: make_movement(1, load_floor=45.0)})
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_load=45.0)]),
+        ]),
+    ])
+    assert [v for v in validate(session, ctx).clamps if v.rule == RuleCode.LOAD_BELOW_FLOOR] == []
+
+
+def test_load_over_cap_clamps():
+    ctx = ValidationContext(movements={1: make_movement(1, cap=25.0)})
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_load=30.0)]),
+        ]),
+    ])
+    clamps = [v for v in validate(session, ctx).clamps if v.rule == RuleCode.LOAD_OVER_CAP]
+    assert len(clamps) == 1
+    assert clamps[0].corrected_value == 25.0
+
+
+def test_rpe_over_cap_clamps():
+    ctx = ValidationContext(
+        movements={1: make_movement(1)},
+        phase_hard_cap=8.0,
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_rpe=9.0)]),
+        ]),
+    ])
+    clamps = [v for v in validate(session, ctx).clamps if v.rule == RuleCode.RPE_OVER_CAP]
+    assert len(clamps) == 1
+    assert clamps[0].corrected_value == 8.0
+
+
+def test_rpe_cap_exempt_movement_does_not_clamp():
+    """HT and similar always-progress movements are exempt from the RPE cap."""
+    ctx = ValidationContext(
+        movements={1: make_movement(1, rpe_cap_exempt=True)},
+        phase_hard_cap=8.0,
+    )
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_rpe=9.5)]),
+        ]),
+    ])
+    assert [v for v in validate(session, ctx).clamps if v.rule == RuleCode.RPE_OVER_CAP] == []
+
+
+def test_no_target_load_skips_load_clamps():
+    ctx = ValidationContext(movements={1: make_movement(1, load_floor=45.0, cap=25.0)})
+    session = make_session([
+        make_group(0, GroupType.STRAIGHT, exercises=[
+            make_exercise(1, 0, [make_set(0, target_load=None)]),
+        ]),
+    ])
+    assert validate(session, ctx).clamps == []
