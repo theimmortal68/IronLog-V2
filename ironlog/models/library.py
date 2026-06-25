@@ -21,8 +21,8 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from .enums import (
     AssistSubtype, AssistUnit, BandCalStatus, CalibrationStatus, EquipPhase,
-    LiftCategory, LoadUnit, Objective, Phase, ProgressionMode, Region, Scheme,
-    Status,
+    KneeModality, LiftCategory, LoadUnit, Objective, Phase, ProgressionMode,
+    Region, Scheme, Status,
 )
 # ----------------------------------------------------------------------------
 # DEFINITION
@@ -58,6 +58,7 @@ class Movement(SQLModel, table=True):
     is_primary: bool = False
     is_tracked: bool = True
     status: Status = Status.ACTIVE
+    knee_modality: Optional[KneeModality] = None       # cross-session knee-frequency classification (v0.3)
 
     # equipment: the load-bearing item is a real FK (drives floor/step);
     # the full descriptive set is JSON tags.

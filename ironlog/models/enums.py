@@ -107,6 +107,19 @@ class BandCalStatus(str, Enum):
     MEASURED = "MEASURED"
 
 
+class KneeModality(str, Enum):
+    """Knee-modality classification for cross-session frequency tracking.
+
+    Movements tagged with one of these contribute toward weekly knee-frequency
+    targets (Nordic 2×/wk, tib 2×/wk, KOT 2×/wk, sissy 1×/wk per spec §4).
+    Most movements have knee_modality == None (not a knee-prioritized lift).
+    """
+    NORDIC = "NORDIC"   # Nordic hamstring curls
+    TIB = "TIB"         # tibialis anterior raises
+    KOT = "KOT"         # knees-over-toes (ATG split squat, sissy progressions)
+    SISSY = "SISSY"     # sissy squats
+
+
 # --- session / set-log layer ---
 
 class SessionStatus(str, Enum):
