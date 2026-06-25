@@ -102,6 +102,20 @@ def _best_e1rm_set(logged_sets: List[LoggedSet]) -> Optional[Tuple[LoggedSet, fl
     return best
 
 
+def _evaluate_phase_gate(es: EngineStateInput) -> Optional[Phase]:
+    """Report (never apply) an available phase transition. None = no gate met."""
+    if es.current_phase == Phase.CUT:
+        if es.bodyweight is not None and es.bodyweight <= es.cut_to_stab_target + es.cut_to_stab_tolerance:
+            return Phase.STAB
+        return None
+    if es.current_phase == Phase.STAB:
+        if (es.rhr_down and es.sleep_ok and es.no_rpe_creep
+                and es.bw_stable_2wk and es.strength_bounce and es.subjective_ok):
+            return Phase.REBUILD
+        return None
+    return None
+
+
 def _analyze_movement(mv: MovementAnalysisInput) -> MovementStateDelta:
     delta = MovementStateDelta(movement_id=mv.movement_id)
     anchor = _best_e1rm_set(mv.logged_sets)
@@ -150,5 +164,5 @@ def _analyze_movement(mv: MovementAnalysisInput) -> MovementStateDelta:
 def analyze_session(ctx: AnalysisContext) -> AnalysisResult:
     """Compute proposed state deltas for a logged session. Pure; never writes."""
     deltas = [_analyze_movement(mv) for mv in ctx.movements]
-    # Task 4 will add phase-gate evaluation here.
-    return AnalysisResult(movement_deltas=deltas)
+    phase = _evaluate_phase_gate(ctx.engine_state)
+    return AnalysisResult(movement_deltas=deltas, phase_transition_available=phase)

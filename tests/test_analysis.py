@@ -255,3 +255,72 @@ def test_combined_too_hard_anchor_updates_e1rm_and_misses():
     delta = _delta_for(analyze_session(make_context([mv])), 1)
     assert delta.new_e1rm is not None             # measurement records from the same anchor
     assert delta.new_consecutive_failed == 1       # prescription: MISS
+
+
+# ---------------------------------------------------------------------------
+# Task 4 — phase-gate evaluation + re-exports
+# ---------------------------------------------------------------------------
+
+def test_cut_to_stab_gate_met():
+    es = make_engine_state(current_phase=Phase.CUT, bodyweight=214.0,
+                           cut_to_stab_target=213.0, cut_to_stab_tolerance=2.0)  # 214 <= 215
+    result = analyze_session(make_context([], es))
+    assert result.phase_transition_available == Phase.STAB
+
+
+def test_cut_to_stab_gate_not_met_when_too_heavy():
+    es = make_engine_state(current_phase=Phase.CUT, bodyweight=220.0,
+                           cut_to_stab_target=213.0, cut_to_stab_tolerance=2.0)  # 220 > 215
+    result = analyze_session(make_context([], es))
+    assert result.phase_transition_available is None
+
+
+def test_cut_to_stab_gate_none_bodyweight_is_not_satisfied():
+    es = make_engine_state(current_phase=Phase.CUT, bodyweight=None)
+    result = analyze_session(make_context([], es))
+    assert result.phase_transition_available is None  # missing data is "unavailable", never "met"
+
+
+def test_stab_to_rebuild_gate_all_six_true():
+    es = make_engine_state(current_phase=Phase.STAB, rhr_down=True, sleep_ok=True,
+                           no_rpe_creep=True, bw_stable_2wk=True, strength_bounce=True,
+                           subjective_ok=True)
+    result = analyze_session(make_context([], es))
+    assert result.phase_transition_available == Phase.REBUILD
+
+
+def test_stab_to_rebuild_gate_one_false_blocks():
+    es = make_engine_state(current_phase=Phase.STAB, rhr_down=True, sleep_ok=True,
+                           no_rpe_creep=True, bw_stable_2wk=True, strength_bounce=True,
+                           subjective_ok=False)  # one flag false
+    result = analyze_session(make_context([], es))
+    assert result.phase_transition_available is None
+
+
+def test_no_gate_in_calibration_or_rebuild_phase():
+    for ph in (Phase.CALIBRATION, Phase.REBUILD):
+        es = make_engine_state(current_phase=ph, bodyweight=100.0, rhr_down=True, sleep_ok=True,
+                               no_rpe_creep=True, bw_stable_2wk=True, strength_bounce=True,
+                               subjective_ok=True)
+        result = analyze_session(make_context([], es))
+        assert result.phase_transition_available is None
+
+
+def test_engine_package_reexports_analysis_api():
+    from ironlog.engine import (
+        analyze_session as eng_fn, AnalysisContext as eng_ctx,
+        AnalysisResult as eng_res, MovementAnalysisInput as eng_mv,
+        LoggedSet as eng_ls, EngineStateInput as eng_es,
+        MovementStateDelta as eng_delta,
+    )
+    from ironlog.engine.analysis import (
+        analyze_session, AnalysisContext, AnalysisResult, MovementAnalysisInput,
+        LoggedSet, EngineStateInput, MovementStateDelta,
+    )
+    assert eng_fn is analyze_session
+    assert eng_ctx is AnalysisContext
+    assert eng_res is AnalysisResult
+    assert eng_mv is MovementAnalysisInput
+    assert eng_ls is LoggedSet
+    assert eng_es is EngineStateInput
+    assert eng_delta is MovementStateDelta

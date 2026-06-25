@@ -10,4 +10,8 @@ from .validator import (                                            # noqa: F401
     Violation, ViolationKind, WeeklyTallies, validate,
 )
 from .ledger import compute_tallies                                 # noqa: F401
+from .analysis import (                                            # noqa: F401
+    AnalysisContext, AnalysisResult, EngineStateInput, LoggedSet,
+    MovementAnalysisInput, MovementStateDelta, analyze_session,
+)
 from ..models.enums import KneeModality                             # noqa: F401
