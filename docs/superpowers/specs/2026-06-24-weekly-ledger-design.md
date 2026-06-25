@@ -167,6 +167,13 @@ This is "volume-load" / "tonnage" — the canonical strength-program work metric
 
 Pinned by `tests/test_ledger.py::test_pull_volume_is_load_times_reps` and `test_push_volume_is_load_times_reps`.
 
+**Zero or null `actual_load` (intentional design choice — silent under-count):**
+
+- `actual_load == 0` and `actual_reps == n`: contributes `0 × n == 0` to volume. The set still qualifies as a working set per §5.3 (load is non-null, reps are non-null, not a warmup) — so a knee-modality set with `actual_load=0` *does* count toward its modality's session-frequency, but adds zero to pull/push volume.
+- `actual_load is None`: skipped entirely by §5.3's gate; contributes nothing to volume *and* nothing to knee counts.
+
+For bodyweight or pure-band pull/push movements (e.g., a future bodyweight ROW variant) where load reads as 0 by design, the pull/push volume silently under-counts. **This is acceptable in v0.3** — bodyweight-load tracking convention is out of scope. None of the currently-seeded movements in `_HORIZONTAL_PULL` (ROW) or `_HORIZONTAL_PUSH` (BENCH, CG_PRESS) are bodyweight movements, so the under-count surfaces only if a future library entry uses these `lift_category` values for an unloaded variant. v0.5 may revisit if a bodyweight-load convention (e.g., a `bodyweight: bool` flag plus an `EngineState.bodyweight` lookup) lands on `Movement`. Pinned by `tests/test_ledger.py::test_zero_load_contributes_zero_volume`.
+
 ### 5.2 Pinned unit: knee counts = distinct sessions ("frequency")
 
 For each `KneeModality`, the count is `len({set_log.session_id for set_log in qualifying_logs_of_that_modality})`.
@@ -234,16 +241,17 @@ Both effects are documented in the module docstring per the v0.3 final-review fr
 
 ## 7. Testing
 
-`tests/test_ledger.py`, pytest, ~12 cases. Style matches `tests/test_validator.py` (in-memory construction via small factory helpers; explicit `RuleCode`-equivalent assertions on returned fields).
+`tests/test_ledger.py`, pytest, ~13 cases. Style matches `tests/test_validator.py` (in-memory construction via small factory helpers; explicit `RuleCode`-equivalent assertions on returned fields).
 
-**Core (6 cases — including all three pin tests):**
+**Core (7 cases — including all four pin tests):**
 
 1. `test_empty_input_returns_default_tallies` — `compute_tallies([], {}) == WeeklyTallies()` (default-valued dataclass; `knee_counts == {}`, both volumes 0.0, defaults preserved).
 2. `test_pull_volume_is_load_times_reps` *(pin)* — one ROW SetLog with `actual_load=100, actual_reps=10` → `pull_volume == 1000.0`. Documents the canonical metric.
 3. `test_push_volume_is_load_times_reps` *(pin)* — one BENCH SetLog 100×10 → `push_volume == 1000.0`. Add a CG_PRESS SetLog 50×8 → `push_volume == 1400.0` (cumulative, both lift_categories in `_HORIZONTAL_PUSH` count).
 4. `test_knee_counts_are_distinct_sessions` *(pin)* — three Nordic SetLogs sharing `session_id=1` → `knee_counts["NORDIC"] == 1`. Add Nordic SetLog with `session_id=2` → `knee_counts["NORDIC"] == 2`.
 5. `test_squat_contributes_to_neither_volume` *(pin)* — Back Squat SetLog 225×5 → `pull_volume == 0.0` AND `push_volume == 0.0`. Hip Thrust SetLog similarly contributes to neither.
-6. `test_multi_modality_knee_mix` — one Nordic session, one TIB session, two KOT sessions, no SISSY sessions → `knee_counts == {"NORDIC": 1, "TIB": 1, "KOT": 2}` (no SISSY key — zero-count modalities are absent, not present-with-0).
+6. `test_zero_load_contributes_zero_volume` *(pin)* — ROW SetLog with `actual_load=0, actual_reps=10, is_warmup=False` → `pull_volume == 0.0` (the set qualifies as working per §5.3 but `0 × 10 == 0`). Documents the bodyweight/banded under-count case from §5.1.
+7. `test_multi_modality_knee_mix` — one Nordic session, one TIB session, two KOT sessions, no SISSY sessions → `knee_counts == {"NORDIC": 1, "TIB": 1, "KOT": 2}` (no SISSY key — zero-count modalities are absent, not present-with-0).
 
 **Edge cases (6 cases):**
 
@@ -269,8 +277,8 @@ cd ~/projects/IronLog-V2
 .venv/bin/python -m ironlog.seed         # idempotent; adds the new knee_modality column with NULL defaults
 .venv/bin/pytest -q                       # baseline: 57 tests (post-cleanup)
 # after implementation:
-.venv/bin/pytest -q tests/test_ledger.py  # 12 new tests
-.venv/bin/pytest -q                       # full suite: ~69 tests, all green
+.venv/bin/pytest -q tests/test_ledger.py  # 13 new tests
+.venv/bin/pytest -q                       # full suite: ~70 tests, all green
 ```
 
 The seed needs a one-line edit only to acknowledge the new column (no existing movement is a knee-modality lift). No HTTP changes. No client impact. No migration script — SQLite + SQLModel `create_db_and_tables()` handles the column add on a fresh DB; existing DBs need a `DROP TABLE movement` or a manual ALTER (the v0.2 deploy DB is the only one to consider; one-shot fix at deploy time, captured in §11 deploy notes).
@@ -320,12 +328,26 @@ Cross-checked against `~/projects/IronLog-V2/CLAUDE.md`:
 
 The new `Movement.knee_modality` column is the only schema change.
 
-- **Fresh DB** (deleted and re-seeded): `python -m ironlog.seed` creates the table with the new column. No action needed.
-- **Existing DB on myflix** (the v0.2 production DB): one-shot fix at deploy time. Either:
-  - (a) `rm ironlog.db && python -m ironlog.seed` — the current DB only contains the 5 example movements + reference data; nothing user-generated is lost. Simplest. Recommended.
-  - (b) `sqlite3 ironlog.db 'ALTER TABLE movement ADD COLUMN knee_modality TEXT NULL'` — preserves existing rows. Fine if user data accumulates before v0.3 deploys.
+- **Fresh DB** (created from scratch): `python -m ironlog.seed` creates the table with the new column. No action needed.
+- **Existing DB on myflix** (the v0.2 production DB): one-shot fix at deploy time. **Preferred — non-destructive ALTER (safe regardless of logging state):**
+  ```
+  ssh myflix 'sqlite3 ~/projects/IronLog-V2/ironlog.db "ALTER TABLE movement ADD COLUMN knee_modality TEXT NULL"'
+  ssh myflix 'sudo systemctl restart ironlogv2.service'
+  ```
+  Preserves all existing rows including any logged sessions and set logs. **This should be the default path** once logging starts in v0.4+. Defaulting to ALTER makes it impossible to accidentally wipe user data in a future deploy.
+- **Acceptable shortcut — only while the DB has zero logged sessions:** verify first, then nuke-and-reseed:
+  ```
+  ssh myflix 'cd ~/projects/IronLog-V2 && \
+    [ "$(sqlite3 ironlog.db "SELECT COUNT(*) FROM setlog")" = "0" ] && \
+    [ "$(sqlite3 ironlog.db "SELECT COUNT(*) FROM session")" = "0" ] && \
+    sudo systemctl stop ironlogv2.service && rm ironlog.db && \
+    .venv/bin/python -m ironlog.seed && \
+    sudo systemctl start ironlogv2.service || \
+    echo "ABORT: db has logged data — use the ALTER path"'
+  ```
+  Faster for the v0.3 deploy specifically (current DB has only reference data + the 5 example movements), but the gated guard above prevents this path from ever wiping real data in a later deploy where someone forgets the DB now has sessions.
 
-The systemd unit (`ironlogv2.service`) needs no edit; it restarts uvicorn which picks up the new model on next start.
+The systemd unit (`ironlogv2.service`) needs no edit; it restarts uvicorn which picks up the new model on next start. Confirm via `ssh myflix 'systemctl is-active ironlogv2.service'` and `curl -sf http://myflix.media:8000/movements >/dev/null && echo UP`.
 
 ---
 
