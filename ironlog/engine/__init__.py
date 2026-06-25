@@ -9,3 +9,5 @@ from .validator import (                                            # noqa: F401
     MovementInfo, RuleCode, ValidationContext, ValidationResult,
     Violation, ViolationKind, WeeklyTallies, validate,
 )
+from .ledger import compute_tallies                                 # noqa: F401
+from ..models.enums import KneeModality                             # noqa: F401

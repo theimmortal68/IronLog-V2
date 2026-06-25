@@ -266,3 +266,14 @@ def test_mixed_multi_session_aggregation():
     assert result.pull_volume == 1880.0
     assert result.push_volume == 1360.0
     assert result.knee_counts == {"NORDIC": 2}
+
+
+def test_engine_package_reexports_ledger_api():
+    """compute_tallies and KneeModality are reachable from ironlog.engine
+    via identity. Pins the re-export surface (catches future redefinition
+    drift the same way Task 7 of v0.2 pinned the validator re-exports)."""
+    from ironlog.engine import compute_tallies as eng_compute, KneeModality as eng_km
+    from ironlog.engine.ledger import compute_tallies as ledger_compute
+    from ironlog.models.enums import KneeModality as models_km
+    assert eng_compute is ledger_compute
+    assert eng_km is models_km
