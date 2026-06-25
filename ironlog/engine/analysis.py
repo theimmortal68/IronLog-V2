@@ -107,9 +107,43 @@ def _analyze_movement(mv: MovementAnalysisInput) -> MovementStateDelta:
     anchor = _best_e1rm_set(mv.logged_sets)
     if anchor is None:
         return delta  # no anchor → everything untouched (None)
-    _anchor_set, anchor_e1rm = anchor
+    anchor_set, anchor_e1rm = anchor
     delta.new_e1rm = anchor_e1rm   # measurement: always-on, objective-independent
-    # Tasks 3 will add the outcome/gating/tier logic here, using `_anchor_set`.
+
+    # Prescription machinery is PROGRESS-gated.
+    if mv.objective != Objective.PROGRESS:
+        return delta
+
+    # Three-way outcome on the anchor set (mutually exclusive).
+    is_too_hard = anchor_set.feedback_tap == FeedbackTap.TOO_HARD
+    has_range = (anchor_set.target_reps_low is not None
+                 and anchor_set.target_reps_high is not None)
+    reps = anchor_set.actual_reps  # not None (anchor is a working set)
+
+    if is_too_hard or (has_range and reps < anchor_set.target_reps_low):
+        outcome = "MISS"
+    elif has_range and reps >= anchor_set.target_reps_high:
+        outcome = "CEILING"
+    else:
+        outcome = "NEITHER"
+
+    if outcome == "CEILING":
+        delta.new_consecutive_ceiling = mv.consecutive_ceiling_sessions + 1
+        delta.new_consecutive_failed = 0
+    elif outcome == "MISS":
+        delta.new_consecutive_ceiling = 0
+        new_failed = mv.consecutive_failed_progressions + 1
+        stepped = step_down_tier(mv.current_tier, mv.increment_ladder_len,
+                                 consecutive_fails=new_failed, threshold=2)
+        if stepped != mv.current_tier:
+            delta.new_tier = stepped
+            delta.new_consecutive_failed = 0   # streak consumed by the drop
+        else:
+            delta.new_consecutive_failed = new_failed
+    else:  # NEITHER
+        delta.new_consecutive_ceiling = 0
+        delta.new_consecutive_failed = 0
+
     return delta
 
 

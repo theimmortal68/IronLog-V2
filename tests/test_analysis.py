@@ -121,3 +121,137 @@ def test_no_qualifying_sets_leaves_e1rm_untouched():
     ])
     delta = _delta_for(analyze_session(make_context([mv])), 1)
     assert delta.new_e1rm is None
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — outcome determination, objective gating, tier step-down
+# ---------------------------------------------------------------------------
+
+def _progress_mv(**kw):
+    """A PROGRESS movement with a 3-rung ladder, defaults overridable."""
+    kw.setdefault("increment_ladder_len", 3)
+    return make_movement_input(objective=Objective.PROGRESS, **kw)
+
+
+def test_ceiling_increments_and_resets_failed():
+    mv = _progress_mv(consecutive_ceiling_sessions=1, consecutive_failed_progressions=2, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=8, feedback_tap=FeedbackTap.ON_TARGET,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # reps>=high, not TOO_HARD
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_consecutive_ceiling == 2   # 1 + 1
+    assert delta.new_consecutive_failed == 0     # reset
+    assert delta.new_tier is None                # ceiling does not step tier
+
+
+def test_miss_via_low_reps_increments_failed_and_resets_ceiling():
+    mv = _progress_mv(consecutive_ceiling_sessions=2, consecutive_failed_progressions=0, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=3, feedback_tap=FeedbackTap.ON_TARGET,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # reps<low
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_consecutive_failed == 1     # 0 + 1
+    assert delta.new_consecutive_ceiling == 0     # reset
+
+
+def test_miss_via_too_hard_even_when_reps_in_range():
+    mv = _progress_mv(consecutive_failed_progressions=0, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=6, feedback_tap=FeedbackTap.TOO_HARD,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # in-range but TOO_HARD
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_consecutive_failed == 1
+    assert delta.new_consecutive_ceiling == 0
+
+
+def test_neither_resets_both_counters():
+    mv = _progress_mv(consecutive_ceiling_sessions=2, consecutive_failed_progressions=1, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=6, feedback_tap=FeedbackTap.ON_TARGET,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # in-range, on-target
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_consecutive_ceiling == 0
+    assert delta.new_consecutive_failed == 0
+
+
+def test_neither_when_anchor_lacks_rep_range():
+    # No rep range and not TOO_HARD → can't classify hit/miss → NEITHER (both reset).
+    mv = _progress_mv(consecutive_ceiling_sessions=2, consecutive_failed_progressions=1, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=6, feedback_tap=FeedbackTap.ON_TARGET, target_rpe=8.0),
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_consecutive_ceiling == 0
+    assert delta.new_consecutive_failed == 0
+
+
+def test_mutual_exclusivity_never_ticks_both():
+    # Whatever the outcome, a ceiling increment and a failed increment never co-occur.
+    for tap, reps in [(FeedbackTap.ON_TARGET, 8), (FeedbackTap.ON_TARGET, 3), (FeedbackTap.TOO_HARD, 6)]:
+        mv = _progress_mv(consecutive_ceiling_sessions=5, consecutive_failed_progressions=5, logged_sets=[
+            make_logged_set(actual_load=100.0, actual_reps=reps, feedback_tap=tap,
+                            target_rpe=8.0, target_reps_low=5, target_reps_high=8),
+        ])
+        delta = _delta_for(analyze_session(make_context([mv])), 1)
+        incremented = sum([
+            delta.new_consecutive_ceiling == 6,
+            delta.new_consecutive_failed == 6,
+        ])
+        assert incremented <= 1, f"both ticked for tap={tap} reps={reps}"
+
+
+def test_maintain_leaves_counters_and_tier_untouched_but_updates_e1rm():
+    mv = make_movement_input(objective=Objective.MAINTAIN, consecutive_ceiling_sessions=1,
+                             consecutive_failed_progressions=1, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=8, feedback_tap=FeedbackTap.ON_TARGET,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # would be CEILING if PROGRESS
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_consecutive_ceiling is None   # untouched in MAINTAIN
+    assert delta.new_consecutive_failed is None
+    assert delta.new_tier is None
+    assert delta.new_e1rm is not None              # measurement still updates
+
+
+def test_second_consecutive_miss_steps_tier_down_and_resets_failed():
+    mv = _progress_mv(current_tier=0, increment_ladder_len=3,
+                      consecutive_failed_progressions=1, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=3, feedback_tap=FeedbackTap.ON_TARGET,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # MISS → failed 1→2
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_tier == 1                    # step_down_tier(0, 3, 2) == 1
+    assert delta.new_consecutive_failed == 0       # reset after the drop
+
+
+def test_first_miss_does_not_step_tier():
+    mv = _progress_mv(current_tier=0, increment_ladder_len=3,
+                      consecutive_failed_progressions=0, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=3, feedback_tap=FeedbackTap.ON_TARGET,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # MISS → failed 0→1
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_tier is None                 # step_down_tier(0, 3, 1) == 0 (unchanged)
+    assert delta.new_consecutive_failed == 1
+
+
+def test_tier_step_down_respects_ladder_bound_at_finest_rung():
+    # Already at the finest rung (tier == ladder_len - 1) → no drop even at threshold.
+    mv = _progress_mv(current_tier=2, increment_ladder_len=3,
+                      consecutive_failed_progressions=1, logged_sets=[
+        make_logged_set(actual_load=100.0, actual_reps=3, feedback_tap=FeedbackTap.ON_TARGET,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),  # MISS → failed 1→2
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_tier is None                 # step_down_tier(2, 3, 2) == 2 (unchanged) → None
+    assert delta.new_consecutive_failed == 2       # counter still ticks; no drop available
+
+
+def test_combined_too_hard_anchor_updates_e1rm_and_misses():
+    # The decoupling proof: anchor set is TOO_HARD → e1RM still records AND outcome is MISS.
+    mv = _progress_mv(consecutive_failed_progressions=0, logged_sets=[
+        make_logged_set(actual_load=200.0, actual_reps=4, feedback_tap=FeedbackTap.TOO_HARD,
+                        target_rpe=8.0, target_reps_low=5, target_reps_high=8),
+    ])
+    delta = _delta_for(analyze_session(make_context([mv])), 1)
+    assert delta.new_e1rm is not None             # measurement records from the same anchor
+    assert delta.new_consecutive_failed == 1       # prescription: MISS
