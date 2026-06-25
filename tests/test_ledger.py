@@ -148,6 +148,25 @@ def test_zero_load_contributes_zero_volume():
     assert result.pull_volume == 0.0
 
 
+def test_zero_load_still_counts_toward_knee_frequency():
+    """Companion to the zero-load volume pin: a working set with actual_load=0
+    contributes 0 to volume but STILL counts toward its movement's knee
+    frequency (§5.1 — "a knee-modality set with actual_load=0 does count
+    toward its modality's session-frequency").
+
+    Uses a movement that is BOTH a horizontal pull (lift_category=ROW) AND
+    knee-tagged (knee_modality=NORDIC) — no such movement exists in the
+    current seed, so this is defensive coverage of the dual-path interaction.
+    """
+    movements = {
+        1: make_movement(1, lift_category=LiftCategory.ROW, knee_modality=KneeModality.NORDIC),
+    }
+    logs = [make_setlog(session_id=1, movement_id=1, actual_load=0.0, actual_reps=10)]
+    result = compute_tallies(logs, movements)
+    assert result.pull_volume == 0.0           # 0 × 10 == 0 volume
+    assert result.knee_counts == {"NORDIC": 1}  # but still one knee-frequency session
+
+
 def test_multi_modality_knee_mix():
     """One Nordic, one TIB, two KOT sessions; SISSY unused.
 

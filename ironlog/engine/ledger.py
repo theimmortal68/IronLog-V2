@@ -13,8 +13,9 @@ the ledger's projection without any glue.
 
 Pinned units (canonical, in docstrings + tests):
   * Pull/push volume metric = load * reps per set, summed across qualifying
-    sets in the window. The validator's PULL_PUSH_RATIO rule expects this
-    "volume-load / tonnage" semantic. NOT sets-only, NOT reps-only.
+    sets in the window. This is volume-load / tonnage — the canonical
+    strength-program work metric (per spec §5.1). The validator's
+    PULL_PUSH_RATIO rule expects it. NOT sets-only, NOT reps-only.
   * Knee counts unit = distinct sessions ("frequency"), NOT sets. A session
     with three working Nordic sets contributes 1 to knee_counts["NORDIC"],
     not 3. This is the standard "Nx/wk" reading from spec §4.
@@ -48,7 +49,7 @@ Not in scope (see docs/superpowers/specs/2026-06-24-weekly-ledger-design.md §10
     pattern volume, targets sourcing, date math, apply-clamps helper.
 """
 
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Set
 
 from ..models.enums import LiftCategory
 from ..models.library import Movement
@@ -85,7 +86,7 @@ def compute_tallies(
     """
     pull_volume: float = 0.0
     push_volume: float = 0.0
-    knee_sessions: Dict[str, set] = {}  # modality name -> set of session_ids
+    knee_sessions: Dict[str, Set[int]] = {}  # modality name -> set of session_ids
 
     for log in set_logs:
         # Working-set gate: warmups excluded; both load and reps must be present.
