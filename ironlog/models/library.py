@@ -133,6 +133,7 @@ class MovementState(SQLModel, table=True):
     current_rep_scheme: Optional[str] = None
     rep_scheme_locked_until: Optional[date] = None
     consecutive_ceiling_sessions: int = 0
+    consecutive_failed_progressions: int = 0           # mirrors ceiling counter; PROGRESS-gated (v0.4)
 
     # assisted movements
     assist_level: Optional[float] = None               # degrees / cable-lb / reps
