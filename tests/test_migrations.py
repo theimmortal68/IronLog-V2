@@ -93,3 +93,62 @@ def test_ensure_table_idempotent(mem_engine):
     migrate.ensure_table(mem_engine)
     migrate.ensure_table(mem_engine)  # no error on second call
     assert migrate.applied_versions(mem_engine) == set()
+
+
+# ---------------------------------------------------------------------------
+# Task 2 — the parity keystone: live create_all schema == 000+001+002 chain
+# ---------------------------------------------------------------------------
+
+from ironlog.db import create_db_and_tables  # noqa: E402
+import ironlog.db as _db                       # noqa: E402
+
+
+def _schema_map(engine) -> dict:
+    """{table_name: {col_name: (type, notnull, dflt_value, pk)}} for all model
+    tables — order-independent (ignores cid) and affinity-correct (compares the
+    declared type string, nullability, default, and pk per column)."""
+    out: dict = {}
+    with engine.connect() as c:
+        tables = [r[0] for r in c.execute(text(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%' AND name != 'schema_migrations'"
+        ))]
+        for t in tables:
+            cols = {}
+            for row in c.execute(text(f"PRAGMA table_info({t})")):
+                # row = (cid, name, type, notnull, dflt_value, pk)
+                cols[row[1]] = (row[2], row[3], row[4], row[5])
+            out[t] = cols
+    return out
+
+
+def test_chain_matches_create_all():
+    """A forgotten migration or a type/default/nullability mismatch between the
+    live models (create_all) and the 000+001+002 chain fails HERE, not in prod."""
+    # DB-A: live models via create_all
+    eng_a = create_engine("sqlite://")
+    from sqlmodel import SQLModel
+    SQLModel.metadata.create_all(eng_a)
+
+    # DB-B: empty -> apply the real migration chain in order
+    eng_b = create_engine("sqlite://")
+    migrate.apply_pending(eng_b)  # uses the real deploy/migrations/
+
+    schema_a = _schema_map(eng_a)
+    schema_b = _schema_map(eng_b)
+    assert schema_a == schema_b, (
+        "create_all schema != migration chain.\n"
+        f"only in create_all: {_diff(schema_a, schema_b)}\n"
+        f"only in chain: {_diff(schema_b, schema_a)}"
+    )
+
+
+def _diff(x: dict, y: dict) -> dict:
+    """Per-table column entries in x not identical in y (for failure messages)."""
+    out = {}
+    for t, cols in x.items():
+        ycols = y.get(t, {})
+        delta = {c: v for c, v in cols.items() if ycols.get(c) != v}
+        if delta:
+            out[t] = delta
+    return out
