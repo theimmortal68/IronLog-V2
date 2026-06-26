@@ -99,10 +99,6 @@ def test_ensure_table_idempotent(mem_engine):
 # Task 2 — the parity keystone: live create_all schema == 000+001+002 chain
 # ---------------------------------------------------------------------------
 
-from ironlog.db import create_db_and_tables  # noqa: E402
-import ironlog.db as _db                       # noqa: E402
-
-
 def _schema_map(engine) -> dict:
     """{table_name: {col_name: (type, notnull, dflt_value, pk)}} for all model
     tables — order-independent (ignores cid) and affinity-correct (compares the
@@ -168,3 +164,48 @@ def test_fresh_db_after_create_all_plus_stamp_all_runs_nothing():
     stamped = migrate.stamp_all(eng)               # what seed will call next
     assert set(stamped) == {p.stem for _, p in migrate.discover()}  # all real migrations
     assert migrate.apply_pending(eng) == []        # nothing left to run
+
+
+# ---------------------------------------------------------------------------
+# Task 4 — pin the executescript non-atomicity contract
+# ---------------------------------------------------------------------------
+
+def test_executescript_non_atomicity_first_stmt_persists_on_failure(mem_engine, tmp_path):
+    """Pins the KNOWN NON-ATOMIC contract for multi-statement migrations.
+
+    sqlite3.executescript issues an implicit COMMIT before running the script,
+    so if a multi-statement migration fails partway, the earlier statements are
+    already committed and CANNOT be rolled back — even though apply_pending raises
+    and the engine.begin() block attempts a rollback.  The version is NOT recorded
+    (the _record call never ran), so a rerun would re-attempt the migration.
+
+    This is not a bug — it is the documented contract (see ironlog/migrate.py:
+    _exec_script).  Author migrations to be idempotent (IF NOT EXISTS / IF EXISTS)
+    or single-statement if you need safe partial-failure handling.
+    """
+    d = tmp_path / "m"
+    d.mkdir()
+    # Two statements: stmt 1 creates a table (succeeds), stmt 2 references a
+    # nonexistent table (fails).  executescript commits stmt 1 implicitly before
+    # stmt 2 is attempted, so the table persists after the error.
+    (d / "001_multi_stmt.sql").write_text(
+        "CREATE TABLE multi_stmt_test (id INTEGER PRIMARY KEY);\n"
+        "ALTER TABLE this_table_does_not_exist ADD COLUMN x TEXT;\n"
+    )
+
+    with pytest.raises(Exception):
+        migrate.apply_pending(mem_engine, d)
+
+    # Documented: first statement's effect persists (already committed by executescript)
+    with mem_engine.connect() as c:
+        tables = {r[0] for r in c.execute(text(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ))}
+    assert "multi_stmt_test" in tables, (
+        "stmt 1 effect must persist: executescript implicit COMMIT ran before stmt 2 failed"
+    )
+
+    # Documented: version NOT recorded — apply_pending never reached _record
+    assert "001_multi_stmt" not in migrate.applied_versions(mem_engine), (
+        "version must NOT be recorded when the migration script raises"
+    )
