@@ -9,6 +9,7 @@ Type=exec
 User=jstout
 Group=jstout
 WorkingDirectory=/home/jstout/projects/IronLog-V2
+ExecStartPre=/home/jstout/projects/IronLog-V2/.venv/bin/python -m ironlog.migrate
 ExecStart=/home/jstout/projects/IronLog-V2/.venv/bin/uvicorn ironlog.api.app:app --host 0.0.0.0 --port 8000
 Restart=on-failure
 RestartSec=3

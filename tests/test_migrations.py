@@ -152,3 +152,19 @@ def _diff(x: dict, y: dict) -> dict:
         if delta:
             out[t] = delta
     return out
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — seed stamps the whole chain on a fresh DB
+# ---------------------------------------------------------------------------
+
+def test_fresh_db_after_create_all_plus_stamp_all_runs_nothing():
+    """The fresh-DB contract: create_all builds the schema, stamp_all records
+    every migration as applied, so apply_pending then runs nothing (no attempt
+    to re-execute 001/002 against columns create_all already made)."""
+    eng = create_engine("sqlite://")
+    from sqlmodel import SQLModel
+    SQLModel.metadata.create_all(eng)              # what seed's create_db_and_tables does
+    stamped = migrate.stamp_all(eng)               # what seed will call next
+    assert set(stamped) == {p.stem for _, p in migrate.discover()}  # all real migrations
+    assert migrate.apply_pending(eng) == []        # nothing left to run
