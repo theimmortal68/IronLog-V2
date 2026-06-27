@@ -52,7 +52,7 @@ The `Equipment` table already exists (seeded from the `EQUIPMENT` constant: name
 
 ---
 
-## 5. progression_mode + scheme (Fork 4) — mappings BANKED; TOPSET_BACKOFF subset ⬜ BLANK
+## 5. progression_mode + scheme (Fork 4) — RESOLVED
 
 **`progression_mode`** — "Progression Type" column → `ProgressionMode`:
 - `ladder`→LADDER · `protocol`→PROTOCOL · `conditioning`→CONDITIONING · `assisted (reduce assist)`→ASSISTED · `composite`→COMPOSITE (1:1)
@@ -69,7 +69,7 @@ Principle: TOPSET_BACKOFF = T1-slot lifts (the rotating squat, bench, OHP, RDL),
 
 ---
 
-## 6. knee_modality (Fork 6) — classifications BANKED; tib/sissy GAP ⬜ BLANK
+## 6. knee_modality (Fork 6) — RESOLVED (incl. tib/sissy gap closed)
 
 Only knee-prioritized lifts get a modality (rest = `None`):
 - `Nordic Curl`, `Nordic Curl - Volume` → **NORDIC**
@@ -91,7 +91,7 @@ These three make §4's tib (2×/wk) and sissy (1×/wk) frequencies **satisfiable
 
 ---
 
-## 7. family / is_family_anchor / derived_from_id / start_ratio (Fork 5) — structure BANKED; residue 2+4 ⬜ BLANK
+## 7. family / is_family_anchor / derived_from_id / start_ratio (Fork 5) — RESOLVED
 
 **Pattern:** anchor sets `family` + `is_family_anchor=True`; a ratio-variant sets `derived_from_id` (→ anchor) + `start_ratio`. Grip rotations ride the parent at `start_ratio=1.0` (docs/02 §5a).
 
@@ -127,7 +127,7 @@ These three make §4's tib (2×/wk) and sissy (1×/wk) frequencies **satisfiable
 ## 8. Remaining defaults (Fork 7) — BANKED
 
 - `band_eligible` → **True** for `BAND`-tag or HT family (band tension part of the load model): Hip Thrust, Banded Hip Thrust, Banded BW Hip Thrust, Band Pull-Aparts. Else default False.
-- `rpe_capped` → **True for the T1 TOPSET_BACKOFF primaries** (RPE-8 cap); else False. *(ties to BLANK 1's set.)*
+- `rpe_capped` → **True for the T1 TOPSET_BACKOFF primaries** (RPE-8 cap); else False. *(ties to the 6 TOPSET_BACKOFF lifts.)*
 - `rpe_cap_exempt` → **True for HT/composite** (load rule-driven, push to ceiling); else False.
 - **Assertion (in spec + a test):** a movement is `rpe_capped` XOR `rpe_cap_exempt` — never both.
 - `assist_subtype` / `assist_unit` → **default `None`** (follows the existing assisted Pull-up; ASSISTED + REP_RATIO carries the behavior).
@@ -150,7 +150,7 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 - **All 100 seed cleanly** (`seed.py` runs without error on a fresh DB).
 - `/movements` lists the ACTIVE set (the API filters by status as it does today); INACTIVE/PREP present in the table.
 - **Status counts:** 91 ACTIVE, 8 INACTIVE, 1 PREP; the 30 excluded are absent.
-- **Scheme:** the TOPSET_BACKOFF set matches BLANK-1's resolution exactly; no other movement is TOPSET_BACKOFF.
+- **Scheme:** the TOPSET_BACKOFF set is exactly the resolved 6 lifts; no other movement is TOPSET_BACKOFF.
 - **Family links resolve:** every `derived_from_id` points to an existing anchor; every ratio-variant has a `start_ratio`; anchors have `is_family_anchor=True`.
 - **knee_modality:** ≥1 ACTIVE movement exists for each required modality — NORDIC (Nordic Curl), TIB (Cable Tibialis Raise), SISSY (Sissy Squat), KOT (ATG / Reverse Nordic / Poliquin Step-up) — so docs/06 §4 frequencies (tib 2×, sissy 1×, KOT 2×, Nordic 2×) are satisfiable, not phantom.
 - **Sissy Squat continuous track:** `load_floor=0`, `load_equipment_id=None`, single movement (no split at the plate→DB/KB switch).
@@ -173,7 +173,7 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 
 ---
 
-## 13. Blanks status — 3 of 4 CLOSED; only the tib/sissy GAP remains
+## 13. Blanks status — ALL CLOSED
 
 1. ✅ **Fork 4 TOPSET_BACKOFF subset** — RESOLVED: the 6 (Bench, Back Squat, Front Squat, Belt Squat, OHP, RDL); Box Squat / Conv DL / Sumo DL / Bent Over Row → STRAIGHT.
 3. ✅ **KLEVA** — RESOLVED: tag-only attachment. (JR = Jump Rope; LM tag-only.)
