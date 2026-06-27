@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-27
 **Repo:** `~/projects/IronLog-V2`
-**Status:** DRAFT — 4 marked blanks pending user input (see §13); everything else banked
+**Status:** COMPLETE — zero blanks; all 7 forks resolved; 103 movements. Awaiting user spec-review gate → writing-plans.
 **Scope:** Specify the full movement library so the seed import is mechanical. This is a **library-structure design**, not an import task — the xlsx is a verification/decision sheet, not a data source. Once the blanks are filled, the import runs deterministically off this spec (no decisions left), via the user-authorized subagent exception.
 
 ---
