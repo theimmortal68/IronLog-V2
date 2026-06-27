@@ -16,7 +16,7 @@ descriptive JSON.
 from datetime import date, datetime
 from typing import List, Optional
 
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, text
 from sqlmodel import Field, Relationship, SQLModel
 
 from .enums import (
@@ -133,7 +133,7 @@ class MovementState(SQLModel, table=True):
     current_rep_scheme: Optional[str] = None
     rep_scheme_locked_until: Optional[date] = None
     consecutive_ceiling_sessions: int = 0
-    consecutive_failed_progressions: int = 0           # mirrors ceiling counter; PROGRESS-gated (v0.4)
+    consecutive_failed_progressions: int = Field(default=0, sa_column_kwargs={"server_default": text("0")})  # mirrors ceiling counter; PROGRESS-gated (v0.4)
 
     # assisted movements
     assist_level: Optional[float] = None               # degrees / cable-lb / reps

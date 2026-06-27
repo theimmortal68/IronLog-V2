@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 from sqlmodel import select
 
-from .db import create_db_and_tables, get_session
+from . import migrate
+from .db import create_db_and_tables, engine, get_session
 from .models import (
     BandCalStatus, BandPair, CalibrationStatus, EngineState, Equipment,
     LiftCategory, LoadUnit, Movement, MovementState, Objective, Phase,
@@ -60,6 +61,7 @@ TAXONOMY = {
 
 def seed() -> None:
     create_db_and_tables()
+    migrate.stamp_all(engine)   # fresh DB: schema built by create_all; record all migrations applied
     with get_session() as s:
         if s.exec(select(Equipment)).first():
             print("Already seeded — delete ironlog.db to reseed.")
