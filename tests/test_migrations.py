@@ -1,7 +1,7 @@
 """Tests for ironlog.migrate (the SQL migration runner).
 
 Task 1: runner-logic tests against a TEMPORARY migrations directory with
-throwaway .sql, independent of the real 000/001/002 contents.
+throwaway .sql, independent of the real 000/001/002/003 contents.
 Task 2 appends the parity test (real chain vs live create_all).
 """
 from pathlib import Path
@@ -96,7 +96,7 @@ def test_ensure_table_idempotent(mem_engine):
 
 
 # ---------------------------------------------------------------------------
-# Task 2 — the parity keystone: live create_all schema == 000+001+002 chain
+# Task 2 — the parity keystone: live create_all schema == 000+001+002+003 chain
 # ---------------------------------------------------------------------------
 
 def _schema_map(engine) -> dict:
@@ -120,7 +120,7 @@ def _schema_map(engine) -> dict:
 
 def test_chain_matches_create_all():
     """A forgotten migration or a type/default/nullability mismatch between the
-    live models (create_all) and the 000+001+002 chain fails HERE, not in prod."""
+    live models (create_all) and the 000+001+002+003 chain fails HERE, not in prod."""
     # DB-A: live models via create_all
     eng_a = create_engine("sqlite://")
     from sqlmodel import SQLModel

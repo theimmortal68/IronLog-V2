@@ -167,7 +167,7 @@ def test_apply_no_history_row_when_no_anchor(db_with_state):
     from ironlog.persistence.apply import apply_analysis
     from sqlmodel import select
 
-    # new_e1rm None -> no anchor -> no history row
+    # no anchor -> new_e1rm None -> no history row
     apply_analysis(AnalysisResult(movement_deltas=[MovementStateDelta(movement_id=1)]),
                    db_with_state, session_id=1, phase=Phase.CUT)
     assert db_with_state.exec(select(E1rmHistory)).all() == []
