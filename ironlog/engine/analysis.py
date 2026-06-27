@@ -76,6 +76,11 @@ class MovementStateDelta:
     new_consecutive_ceiling: Optional[int] = None  # None = unchanged
     new_consecutive_failed: Optional[int] = None   # None = unchanged
     # No current_load field — the hook NEVER writes current_load (generation's job).
+    # v0.5: anchor details + objective for the e1RM-history row (None when no anchor)
+    objective: Optional[Objective] = None
+    anchor_load: Optional[float] = None
+    anchor_reps: Optional[int] = None
+    anchor_rpe: Optional[float] = None
 
 
 @dataclass
@@ -123,6 +128,10 @@ def _analyze_movement(mv: MovementAnalysisInput) -> MovementStateDelta:
         return delta  # no anchor → everything untouched (None)
     anchor_set, anchor_e1rm = anchor
     delta.new_e1rm = anchor_e1rm   # measurement: always-on, objective-independent
+    delta.objective = mv.objective
+    delta.anchor_load = anchor_set.actual_load
+    delta.anchor_reps = anchor_set.actual_reps
+    delta.anchor_rpe = anchor_set.target_rpe
 
     # Prescription machinery is PROGRESS-gated.
     if mv.objective != Objective.PROGRESS:
