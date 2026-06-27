@@ -53,6 +53,12 @@ def apply_analysis(
         if d.new_e1rm is not None:
             state.e1rm = d.new_e1rm
             state.e1rm_updated_at = now
+            # In real flow anchor_load is non-None whenever new_e1rm is non-None:
+            # _analyze_movement co-populates new_e1rm and the anchor fields atomically
+            # from _best_e1rm_set's qualifying anchor (which requires load/reps/rpe all
+            # present). The anchor_load guard here only fires for artificial test deltas
+            # that lack anchor details — it prevents NOT NULL violations without masking
+            # a real skip. Do not set new_e1rm without the anchor fields in production code.
             if session_id is not None and phase is not None and d.anchor_load is not None:
                 db.add(E1rmHistory(
                     movement_id=d.movement_id,
