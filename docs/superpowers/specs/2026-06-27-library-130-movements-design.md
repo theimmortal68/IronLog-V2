@@ -27,6 +27,8 @@ Source: `docs/exercise_verification.xlsx`, sheet "Verification" (130 data rows).
 
 **→ 100 movements seeded** (91 ACTIVE + 8 INACTIVE + 1 PREP); 30 excluded. Rule is prefix-based and robust to the parenthetical variants.
 
+Plus **3 knee movements added beyond the sheet** (§6 — Sissy Squat, Cable Tibialis Raise, Poliquin Step-up — to close the docs/06 §4 frequency gap) → **103 total seeded** (all ACTIVE).
+
 ---
 
 ## 3. Equipment (Fork 2) — BANKED (one confirm: KLEVA)
@@ -75,12 +77,17 @@ Only knee-prioritized lifts get a modality (rest = `None`):
 - `ATG Split Squat` (+`[BW]`), `ATG Squat Hold` → **KOT**
 - `Calf Raise [GHR]` → **None** (plantarflexion, not tibialis)
 
-⬜ **BLANK 2 (the GAP — most important):** docs/06 §4 mandates knee frequencies **tib 2×/wk, sissy 1×/wk**, but there is **no tibialis and no sissy-squat Movement** in the seeded library → the validator/ledger would flag an unsatisfiable knee-frequency violation on *every* session (a permanent false-positive). Resolution = **ADD the movements** (the user trains them — Day 4 Lower B has sissy squat + tib + Poliquin step-up). Need:
-- **Sissy Squat** — equipment (BW? loaded?), `knee_modality=SISSY`, progression_mode (likely PROTOCOL or DOUBLE_PROGRESSION).
-- **Tibialis exercise** — name + equipment (cable ankle strap on Ares → FT?), `knee_modality=TIB`.
-- **Poliquin step-up** — is it already in the seeded 100, or also missing? If missing, add (equipment + modality).
+**GAP CLOSED — three knee movements ADDED (RESOLVED).** docs/06 §4 mandates knee frequencies **tib 2×/wk, sissy 1×/wk**, which the seeded sheet couldn't satisfy (no tib/sissy rows — verified absent from xlsx, V1 `SeedData.kt`, and the V1 repo). The user trains all three; they are added as real Movements (beyond the 100 sheet rows → **103 total**):
 
-These become real Movements so §4's frequencies are satisfiable. (Do NOT defer — the user trains them.)
+| Movement | region | knee_modality | progression_mode / scheme | equipment | load_equipment_id | tags | load_floor | min_step | increment_ladder |
+|---|---|---|---|---|---|---|---|---|---|
+| **Sissy Squat** | LOWER | **SISSY** | LADDER / DOUBLE_PROGRESSION | added-load (see note) | **None** | `["BW"]` | **0** | 2.5 | `[2.5]` |
+| **Cable Tibialis Raise** | LOWER | **TIB** | LADDER / DOUBLE_PROGRESSION | Ares cable (single) | `eq["Ares cable (single)"]` | `["FT"]` | 10 | 2.5 | `[2.5]` |
+| **Poliquin Step-up** | LOWER | **KOT** | LADDER / DOUBLE_PROGRESSION | Dumbbells (MX100) | `eq["Dumbbells (MX100)"]` | `["DB"]` | 10 | 2.5 | `[2.5]` |
+
+**Sissy Squat — critical modeling note (single continuous load track):** it is ONE movement with a **continuous total-added-load track from bodyweight (0) upward** — plate held to ~15 lb, then DB/KB above that, but it's the **same total added load, different object**. The implement is an **informational tag, NOT a load-track break**: do **not** split into two movements, and do **not** reset the load track / e1RM history at the plate→DB/KB switch. `load_equipment_id=None` (no single Equipment row governs an added-load-from-zero track), `load_floor=0`, `min_step=2.5` set directly on the movement; the engine tracks one continuous load/e1RM history across the whole BW→plate→DB/KB range. (Modeled like the existing Lateral Raise: LADDER `[2.5]` + DOUBLE_PROGRESSION, but floored at 0.)
+
+These three make §4's tib (2×/wk) and sissy (1×/wk) frequencies **satisfiable by movements the user actually trains** — no phantom-movement false-positives.
 
 ---
 
@@ -145,7 +152,8 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 - **Status counts:** 91 ACTIVE, 8 INACTIVE, 1 PREP; the 30 excluded are absent.
 - **Scheme:** the TOPSET_BACKOFF set matches BLANK-1's resolution exactly; no other movement is TOPSET_BACKOFF.
 - **Family links resolve:** every `derived_from_id` points to an existing anchor; every ratio-variant has a `start_ratio`; anchors have `is_family_anchor=True`.
-- **knee_modality:** the NORDIC/KOT/TIB/SISSY counts satisfy docs/06 §4 frequencies (once BLANK-2's tib/sissy movements are added) — i.e. ≥1 movement per required modality.
+- **knee_modality:** ≥1 ACTIVE movement exists for each required modality — NORDIC (Nordic Curl), TIB (Cable Tibialis Raise), SISSY (Sissy Squat), KOT (ATG / Reverse Nordic / Poliquin Step-up) — so docs/06 §4 frequencies (tib 2×, sissy 1×, KOT 2×, Nordic 2×) are satisfiable, not phantom.
+- **Sissy Squat continuous track:** `load_floor=0`, `load_equipment_id=None`, single movement (no split at the plate→DB/KB switch).
 - **`rpe_capped` XOR `rpe_cap_exempt`** holds for every movement (the §8 assertion as a test).
 - **Equipment:** every `load_equipment_id` resolves to an Equipment row; tag-only codes (LM, KLEVA, supports, conditioning implements) never become a `load_equipment_id`.
 
@@ -170,11 +178,9 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 1. ✅ **Fork 4 TOPSET_BACKOFF subset** — RESOLVED: the 6 (Bench, Back Squat, Front Squat, Belt Squat, OHP, RDL); Box Squat / Conv DL / Sumo DL / Bent Over Row → STRAIGHT.
 3. ✅ **KLEVA** — RESOLVED: tag-only attachment. (JR = Jump Rope; LM tag-only.)
 4. ✅ **Fork 5 residue** — RESOLVED: Conv DL / Sumo DL own-baselines; Light Reverse Hyper own-baseline.
-2. ⬜ **tib/sissy GAP — THE ONLY OPEN BLANK.** Confirmed *not present in any readable source* (xlsx has none beyond ATG/calf/patellar; not in V1 `SeedData.kt` or the V1 repo) — so the three facts must come from the user, not data:
-   - **Sissy Squat** — equipment/load (BW → `load_equipment_id=None`, scheme PROTOCOL; or loaded → LADDER/DOUBLE_PROGRESSION). `knee_modality=SISSY`.
-   - **Tibialis exercise** — name + equipment (cable ankle on Ares → FT?). `knee_modality=TIB`.
-   - **Poliquin step-up** — already in the seeded 100, or add it (equipment; `knee_modality` KOT-lean)?
-   Add, don't defer — makes docs/06 §4 (tib 2×/wk, sissy 1×/wk) satisfiable instead of a permanent validator false-positive.
+2. ✅ **tib/sissy GAP — CLOSED.** Three knee movements added (§6): **Sissy Squat** (SISSY, single continuous added-load track from 0, `load_equipment_id=None`), **Cable Tibialis Raise** (TIB, Ares single/FT), **Poliquin Step-up** (KOT, DB — verified absent from the sheet, so added new). All DOUBLE_PROGRESSION. docs/06 §4 frequencies now satisfiable.
+
+**ALL BLANKS CLOSED — zero ⬜ remain. Final movement count: 103 (100 from sheet + 3 knee).**
 
 ---
 
@@ -190,7 +196,8 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 | Fork 5 — family structure + e1RM-only-ratio principle + residue 1,3,5,6 | banked | 2026-06-27 |
 | Fork 5 — residue 2 (DLs own-baseline) + 4 (Light Rev Hyper own-baseline) | ✅ resolved | 2026-06-27 |
 | Fork 6 — knee classifications | banked | 2026-06-27 |
-| Fork 6 — tib/sissy GAP (add movements) | ⬜ OPEN (only remaining) | — |
+| Fork 6 — tib/sissy GAP (3 knee movements added → 103) | ✅ resolved | 2026-06-27 |
 | Fork 7 — defaults + capped-XOR-exempt assertion | banked | 2026-06-27 |
-| Spec draft (3/4 blanks closed; tib/sissy open) | this commit | 2026-06-27 |
-| tib/sissy filled → spec self-review → user spec-review gate → writing-plans | pending | — |
+| **Spec COMPLETE — zero blanks; 103 movements** | this commit | 2026-06-27 |
+| User spec-review gate | pending | — |
+| writing-plans → import via subagent exception (build-and-test-only, not prod) | pending | — |
