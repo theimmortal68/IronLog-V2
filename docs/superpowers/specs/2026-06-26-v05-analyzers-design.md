@@ -85,20 +85,18 @@ Week bucketing keys off the row's **`Session.date`** (joined via `session_id`), 
 ```
 evaluate_calibration_flip(weekly_estimates: list[float], current_status: CalibrationStatus) -> bool
 ```
+- **Thin-data guard:** with **0 or 1 weekly estimates → no flip** (stays `CALIBRATING`) — the same "not enough data" stance as the stall min-sessions guard. The flip needs ≥2 weekly estimates to compare.
 - Returns `True` (flip to `MEASURED`) iff: `current_status == CALIBRATING` **and** there are ≥2 weekly estimates **and** the **last two** weekly estimates agree within `CALIBRATION_AGREEMENT_PCT` (5%): `abs(a-b) / max(a,b) <= 0.05`.
 - One-way: only fires from `CALIBRATING`. `INHERITED` and `MEASURED` are untouched (entry into `CALIBRATING` is out of scope — set by seed/the calibration block).
 - Pure: receives **pre-bucketed weekly estimates**; no rows, no dates, no calendar math.
 
-**Bucketing (in `run_analysis`, not the engine):** for a calibrating lift, group its `e1rmhistory` rows into weeks using the **`week_boundaries` parameter** (§7, Pin 1), then aggregate each week's session anchor e1RMs into one estimate. The applier writes `calibration_status = MEASURED` for any lift that flips, in the atomic transaction.
+**Bucketing (in `run_analysis`, not the engine):** for a calibrating lift, group its `e1rmhistory` rows into weeks by applying the **`week_keyer` callable** (§7) to each row's `Session.date`, then aggregate each week's session anchor e1RMs into one estimate **by `max`** (decided below). The applier writes `calibration_status = MEASURED` for any lift that flips, in the atomic transaction.
 
-**Reconstructability (pinned):** a flip is fully reproducible from the per-session anchor rows + the `week_boundaries` that defined the aggregation — never an unexplained authority grant.
+**Reconstructability (pinned):** a flip is fully reproducible from the per-session anchor rows + the **resulting `WeekKey`s** that defined the aggregation (the trail records the WeekKeys, not the callable) — never an unexplained authority grant.
 
 **Constant:** `CALIBRATION_AGREEMENT_PCT = 0.05`.
 
-> **Gate decision 2 (weekly aggregator):** how a week's multiple session anchor e1RMs collapse to one weekly estimate is a real judgment call, **surfaced deliberately, not defaulted**:
-> - **mean** — smooths within-week noise for a stable estimate, but can mask a real mid-week climb (averages a 200→210 week to 205).
-> - **max** — consistent with the session-anchor "best set" choice and represents demonstrated capability; more reactive, less smoothing.
-> Default written below is a placeholder pending the gate: **`max`** (consistency with the anchor-is-best principle), to be confirmed or overridden at spec-review.
+**Weekly aggregator — DECIDED: `max`** (committed, not a placeholder). A weekly estimate is the **max** of that week's session anchor e1RMs. Rationale: consistent with the session-anchor "best set" choice; measures *demonstrated capability*, which is exactly what calibration tests; its fluke-high risk is already absorbed by the two-consecutive-agreeing-weeks gate. `mean` was rejected — it silently reintroduces the fatigue-drag we rejected at the session level and can mask a real climb.
 
 ---
 
@@ -127,13 +125,13 @@ detect_stall(progress_anchor_e1rms: list[float], consecutive_failed: int, object
 ## 7. The `run_analysis` seam (persistence orchestrator)
 
 ```
-run_analysis(session_id: int, db: Session, week_boundaries: <param, §gate-1>) -> AnalysisResult
+run_analysis(session_id: int, db: Session, week_keyer: Callable[[date], WeekKey]) -> AnalysisResult
 ```
 - The **deterministic analyze→apply boundary**, drawn now so v0.6 *calls* it rather than reassembling the flow inside LLM-bearing code. No HTTP, no client scope.
-- Resolves context (incl. per-session objective + phase to stamp rows — **Pin b: `run_analysis` owns this stamping**), runs `analyze_session`, buckets weekly estimates via `week_boundaries`, evaluates flips, and calls the applier once. Writes nothing itself — the applier executes all DB writes (single write point, one transaction, resolve-all-first per v0.4).
+- Resolves context (incl. per-session objective + phase to stamp rows — **Pin b: `run_analysis` owns this stamping**), runs `analyze_session`, buckets weekly estimates by applying `week_keyer` to each row's `Session.date`, evaluates flips, and calls the applier once. Writes nothing itself — the applier executes all DB writes (single write point, one transaction, resolve-all-first per v0.4).
 - **Cold-start is expected, not broken:** until ~3 PROGRESS sessions log, the analyzers are data-starved (calibration needs 2 weekly estimates; stall needs 3 PROGRESS sessions). Recorded in the v0.6 memory note.
 
-> **Gate decision 1 (week-boundary parameter):** `week_boundaries` **must be a parameter**, not baked into `run_analysis` — otherwise the no-calendar-in-the-engine guarantee is merely relocated into the orchestrator. The date concept lives at `run_analysis`'s caller (v0.6 / a future endpoint / tests). Proposed concrete shape (confirm/override at gate): a **sorted `list[date]` of week-start cutoffs**; a session buckets into the latest cutoff `<= Session.date`. Alternatives: a `Callable[[date], WeekKey]`, or explicit `list[(start, end)]` ranges.
+**Week-boundary parameter — DECIDED: `Callable[[date], WeekKey]`** (committed). The week boundary **must be a parameter**, not baked into `run_analysis` — otherwise the no-calendar-in-the-engine guarantee is merely relocated into the orchestrator. A callable is the most general shape: it makes "the engine (and now the orchestrator) knows no calendar" literally true — the date→WeekKey mapping lives entirely at `run_analysis`'s caller (v0.6 / a future endpoint / tests). `WeekKey` is any hashable (e.g. ISO-year-week tuple). **Pin:** the reconstructability trail records the resulting **`WeekKey`s** (the buckets produced), not the callable itself.
 
 ---
 
@@ -154,9 +152,9 @@ One writer per field; `current_load`'s writer simply doesn't exist yet. The drif
 
 ## 9. Testing
 
-- **Pure core — calibration (`tests/test_calibration.py`):** flip when last-2 weekly within 5%; no flip outside 5%; no flip with <2 estimates; one-way (no flip from `INHERITED` or `MEASURED`); flip uses the **last two** estimates (not any two).
-- **Pure core — stall (`tests/test_stall.py`):** plateau → `trend_stalled`; decline → `trend_stalled`; **dip-and-recover (100→95→102) → NOT `trend_stalled`** (the load-bearing case); <3 sessions → `False`; monotonic climb → `False`; `failed_stalled` at threshold; `stalled` = union; `objective != PROGRESS` → all-`False`.
-- **Persistence (`tests/test_run_analysis.py` / extend `test_apply_analysis.py`):** history row appended per movement with objective/phase stamped; `calibration_status` written on flip; **`current_load` untouched**; atomicity (a mid-write failure leaves no partial state); bucketing uses the `week_boundaries` parameter (PROGRESS-window + weekly aggregation exercised end-to-end).
+- **Pure core — calibration (`tests/test_calibration.py`):** flip when last-2 weekly within 5%; no flip outside 5%; **thin data — 0 estimates and 1 estimate both → no flip (stays `CALIBRATING`)**; one-way (no flip from `INHERITED` or `MEASURED`); flip uses the **last two** estimates (not any two); aggregator is `max` (a week with a fluke-high session takes the max, but the agreement gate still governs the flip).
+- **Pure core — stall (`tests/test_stall.py`) — the matrix must explicitly include:** **dip-and-recover (100→95→102) → NOT `trend_stalled`** (the load-bearing keystone case); plateau → `trend_stalled`; decline → `trend_stalled`; monotonic climb → `False`; <`STALL_MIN_SESSIONS` (3) → `False`; `failed_stalled` at threshold; `stalled` = union; `objective != PROGRESS` → all-`False`.
+- **Persistence (`tests/test_run_analysis.py` / extend `test_apply_analysis.py`):** history row appended per movement with objective/phase stamped; `calibration_status` written on flip; **`current_load` untouched**; atomicity (a mid-write failure leaves no partial state); `week_keyer` callable applied to bucket weeks (calibration flip exercised end-to-end); **mixed-objective history — the PROGRESS-window filter selects only the last `STALL_WINDOW` PROGRESS sessions and ignores interleaved `MAINTAIN`/`MEASURE` rows** (proves window-selection, which is the caller's job since `detect_stall` receives pre-filtered e1RMs).
 - **Migration parity (`tests/test_migrations.py`):** `003` in the chain; `test_chain_matches_create_all` green (the `E1rmHistory` model and `003`'s DDL agree on every column's type/notnull/default/pk).
 
 Baseline 112 → target ~+18–24 (analyzers + persistence + parity).
@@ -190,10 +188,10 @@ Baseline 112 → target ~+18–24 (analyzers + persistence + parity).
 
 ---
 
-## 12. Spec-review-gate decisions (elevated — confirm before plan)
+## 12. Spec-review-gate decisions (RESOLVED)
 
-1. **Week-boundary parameter shape** (§7) — `list[date]` cutoffs (proposed) vs callable vs ranges. The parameter itself is non-negotiable (Pin 1); only its shape is open.
-2. **Weekly aggregator** (§5) — `max` (proposed, anchor-is-best consistency) vs `mean` (smoothing). Deliberate choice, not a default.
+1. **Week-boundary parameter shape** (§7) — **DECIDED: `Callable[[date], WeekKey]`.** Most general; makes "engine *and* orchestrator know no calendar" literally true. Pin: the reconstructability trail records the resulting `WeekKey`s, not the callable.
+2. **Weekly aggregator** (§5) — **DECIDED: `max`.** Consistent with the session-anchor best-set principle; measures demonstrated capability (what calibration tests); fluke-high risk absorbed by the two-consecutive-agreeing-weeks gate. `mean` rejected (reintroduces fatigue-drag; masks a real climb).
 
 Mechanical locks (no gate needed): history columns (objective/phase load-bearing + reconstructability fields); named constants; `003` adds only the table (`calibration_status` pre-exists, verified).
 
@@ -209,7 +207,9 @@ Mechanical locks (no gate needed): history columns (objective/phase load-bearing
 | C: pure recompute (no stored flag); whole-window trend def; PROGRESS-window selection; two sub-signals | approved | 2026-06-26 |
 | D-seam: `run_analysis` orchestrator (no HTTP); cold-start expected; owns objective stamping | approved | 2026-06-26 |
 | Two-writer boundary: applier single write point; `current_load` unwritten | approved | 2026-06-26 |
-| Spec written | this commit | 2026-06-26 |
-| Gate decisions (week-boundary shape; weekly aggregator) | pending | — |
-| User spec review | pending | — |
-| Implementation plan (`writing-plans`) | not started | — |
+| Spec written | done | 2026-06-26 |
+| Gate decision 1: week-boundary param = `Callable[[date], WeekKey]` (WeekKeys recorded in trail) | approved | 2026-06-26 |
+| Gate decision 2: weekly aggregator = `max` (committed, not placeholder) | approved | 2026-06-26 |
+| Spec checks: thin-data calibration guard (§5/§9); stall matrix incl. dip-and-recover + mixed-objective window (§9) | folded in | 2026-06-26 |
+| User spec review | approved | 2026-06-26 |
+| Implementation plan (`writing-plans`) | next | — |
