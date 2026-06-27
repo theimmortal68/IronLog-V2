@@ -144,3 +144,23 @@ class MovementState(SQLModel, table=True):
     ht_felt_peak: Optional[float] = None
 
     movement: Optional[Movement] = Relationship(back_populates="state")
+
+
+class E1rmHistory(SQLModel, table=True):
+    """Per-session anchor e1RM history (the append log behind MovementState.e1rm).
+
+    One row per analyzed session per movement that had an anchor (a tapped
+    working set). Readers: calibration-flip (weekly aggregation) and stall
+    detection (PROGRESS-window trend). objective+phase are stamped per row so
+    stall's window selection can filter to PROGRESS sessions without re-deriving.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    movement_id: int = Field(foreign_key="movement.id", index=True)
+    session_id: int = Field(foreign_key="session.id", index=True)
+    e1rm: float
+    objective: Objective
+    phase: Phase
+    anchor_load: float
+    anchor_reps: int
+    anchor_rpe: float
+    computed_at: datetime
