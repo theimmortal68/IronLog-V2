@@ -28,9 +28,10 @@ from ..engine.analysis import (
     analyze_session,
 )
 from ..engine.calibration import evaluate_calibration_flip
+from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW
 from ..models.enums import CalibrationStatus, Objective
-from ..models.library import E1rmHistory, EngineState, Movement, MovementState
+from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
 from ..models.session import PlannedSet, Session as WorkoutSession, SetLog
 from .apply import apply_analysis
 
@@ -82,6 +83,9 @@ def run_analysis(
         select(WorkoutSession).where(WorkoutSession.id == session_id)
     ).one()
     phase = db.exec(select(EngineState)).one().current_phase
+    phase_default = db.exec(
+        select(PhasePolicy).where(PhasePolicy.phase == phase)
+    ).one().default_objective
 
     set_logs = db.exec(
         select(SetLog).where(SetLog.session_id == session_id)
@@ -125,7 +129,7 @@ def run_analysis(
             ))
         movements_inputs.append(MovementAnalysisInput(
             movement_id=mid,
-            objective=movement.objective_override or Objective.MAINTAIN,
+            objective=resolve_objective(movement.objective_override, phase_default),
             current_tier=state.current_increment_tier,
             increment_ladder_len=len(movement.increment_ladder or [1]),
             consecutive_ceiling_sessions=state.consecutive_ceiling_sessions,

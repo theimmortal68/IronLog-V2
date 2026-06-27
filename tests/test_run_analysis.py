@@ -8,7 +8,7 @@ from ironlog.engine.stall import STALL_WINDOW
 from ironlog.models.enums import (
     CalibrationStatus, FeedbackTap, GroupType, Objective, Phase, Scheme, SetRole,
 )
-from ironlog.models.library import E1rmHistory, EngineState, Movement, MovementState
+from ironlog.models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
 from ironlog.models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet,
     Session as IronSession, SetLog,
@@ -36,6 +36,16 @@ def seeded_db():
     engine = _make_engine()
     with Session(engine) as db:
         db.add(EngineState(id=1, current_phase=Phase.CUT))
+        db.add(PhasePolicy(
+            phase=Phase.CUT,
+            default_objective=Objective.MAINTAIN,
+            rpe_band_low=6.0,
+            rpe_band_high=8.0,
+            hard_cap=80.0,
+            top_set_rpe=8.0,
+            progression_attempted=False,
+            volume_posture="reduce",
+        ))
         db.add(Movement(
             id=1, name="Back Squat [PB]", base_name="Back Squat",
             objective_override=Objective.PROGRESS,
@@ -80,6 +90,16 @@ def seeded_db_two_weeks():
     engine = _make_engine()
     with Session(engine) as db:
         db.add(EngineState(id=1, current_phase=Phase.CUT))
+        db.add(PhasePolicy(
+            phase=Phase.CUT,
+            default_objective=Objective.MAINTAIN,
+            rpe_band_low=6.0,
+            rpe_band_high=8.0,
+            hard_cap=80.0,
+            top_set_rpe=8.0,
+            progression_attempted=False,
+            volume_posture="reduce",
+        ))
         db.add(Movement(
             id=1, name="Back Squat [PB]", base_name="Back Squat",
             objective_override=Objective.PROGRESS,
@@ -176,3 +196,67 @@ def test_select_progress_window_excludes_maintenance():
     ]
     # last STALL_WINDOW PROGRESS rows, oldest-first; the MAINTAIN 999 is excluded
     assert select_progress_window(rows, STALL_WINDOW) == [100.0, 102.0, 104.0]
+
+
+def test_phase_default_objective_stamped_when_no_override():
+    """Phase default objective flows into E1rmHistory when movement.objective_override is None.
+
+    Seeds a REBUILD PhasePolicy with default_objective=PROGRESS and a movement
+    with no override. After run_analysis, the E1rmHistory row must have
+    objective==PROGRESS — proving the fix routes through resolve_objective(None,
+    phase_default) and NOT the old hardcoded Objective.MAINTAIN fallback.
+    """
+    engine = _make_engine()
+    with Session(engine) as db:
+        db.add(EngineState(id=1, current_phase=Phase.REBUILD))
+        db.add(PhasePolicy(
+            phase=Phase.REBUILD,
+            default_objective=Objective.PROGRESS,
+            rpe_band_low=6.0,
+            rpe_band_high=8.5,
+            hard_cap=85.0,
+            top_set_rpe=8.5,
+            progression_attempted=True,
+            volume_posture="increase",
+        ))
+        db.add(Movement(
+            id=1, name="Back Squat [PB]", base_name="Back Squat",
+            objective_override=None,  # no override: must inherit phase default
+            increment_ladder=[2.5, 5.0],
+        ))
+        db.add(MovementState(
+            movement_id=1,
+            calibration_status=CalibrationStatus.CALIBRATING,
+            current_load=100.0,
+        ))
+        db.add(IronSession(id=1, date=date(2026, 3, 12), day_role="Upper A", phase="REBUILD"))
+        db.add(ExerciseGroup(
+            id=1, session_id=1, order_index=0, group_type=GroupType.STRAIGHT,
+        ))
+        db.add(PlannedExercise(
+            id=1, group_id=1, movement_id=1, order_index=0,
+            scheme=Scheme.STRAIGHT, objective=Objective.PROGRESS,
+        ))
+        db.add(PlannedSet(
+            id=1, planned_exercise_id=1, set_index=0, set_role=SetRole.WORKING,
+            target_rpe=9.5, target_reps_low=1, target_reps_high=3,
+        ))
+        # Tapped working set: actual_load=190, actual_reps=1, ON_TARGET, target_rpe=9.5
+        # -> qualifies as an anchor -> E1rmHistory row will be written
+        db.add(SetLog(
+            planned_set_id=1, session_id=1, movement_id=1, set_index=0,
+            actual_load=190.0, actual_reps=1,
+            feedback_tap=FeedbackTap.ON_TARGET, is_warmup=False,
+        ))
+        db.commit()
+
+        run_analysis(1, db, WEEK_KEYER)
+
+        rows = db.exec(
+            select(E1rmHistory).where(E1rmHistory.session_id == 1)
+        ).all()
+        assert len(rows) == 1, "Expected one E1rmHistory row for the analyzed session"
+        assert rows[0].objective == Objective.PROGRESS, (
+            f"Expected PROGRESS (from phase default), got {rows[0].objective!r}. "
+            "Fix: resolve_objective must use phase_default, not hardcoded MAINTAIN."
+        )
