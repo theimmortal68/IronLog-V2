@@ -79,13 +79,15 @@ Only knee-prioritized lifts get a modality (rest = `None`):
 
 **GAP CLOSED — three knee movements ADDED (RESOLVED).** docs/06 §4 mandates knee frequencies **tib 2×/wk, sissy 1×/wk**, which the seeded sheet couldn't satisfy (no tib/sissy rows — verified absent from xlsx, V1 `SeedData.kt`, and the V1 repo). The user trains all three; they are added as real Movements (beyond the 100 sheet rows → **103 total**):
 
-| Movement | region | knee_modality | progression_mode / scheme | equipment | load_equipment_id | tags | load_floor | min_step | increment_ladder |
-|---|---|---|---|---|---|---|---|---|---|
-| **Sissy Squat** | LOWER | **SISSY** | LADDER / DOUBLE_PROGRESSION | added-load (see note) | **None** | `["BW"]` | **0** | 2.5 | `[2.5]` |
-| **Cable Tibialis Raise** | LOWER | **TIB** | LADDER / DOUBLE_PROGRESSION | Ares cable (single) | `eq["Ares cable (single)"]` | `["FT"]` | 10 | 2.5 | `[2.5]` |
-| **Poliquin Step-up** | LOWER | **KOT** | LADDER / DOUBLE_PROGRESSION | Dumbbells (MX100) | `eq["Dumbbells (MX100)"]` | `["DB"]` | 10 | 2.5 | `[2.5]` |
+(`progression_mode` and `scheme` are **separate fields** — split into two columns to avoid the "two schemes" misread. `DOUBLE_PROGRESSION` is a *scheme*; the *mode* is `LADDER` — same encoding as the existing Lateral Raise.)
 
-**Sissy Squat — critical modeling note (single continuous load track):** it is ONE movement with a **continuous total-added-load track from bodyweight (0) upward** — plate held to ~15 lb, then DB/KB above that, but it's the **same total added load, different object**. The implement is an **informational tag, NOT a load-track break**: do **not** split into two movements, and do **not** reset the load track / e1RM history at the plate→DB/KB switch. `load_equipment_id=None` (no single Equipment row governs an added-load-from-zero track), `load_floor=0`, `min_step=2.5` set directly on the movement; the engine tracks one continuous load/e1RM history across the whole BW→plate→DB/KB range. (Modeled like the existing Lateral Raise: LADDER `[2.5]` + DOUBLE_PROGRESSION, but floored at 0.)
+| Movement | region | knee_modality | progression_mode | scheme | load_equipment_id | tags | load_floor | min_step | increment_ladder |
+|---|---|---|---|---|---|---|---|---|---|
+| **Sissy Squat** | LOWER | **SISSY** | LADDER | DOUBLE_PROGRESSION | `eq["Dumbbells (MX100)"]` (DB = increment source) | `["BW","DB"]` | **0** | 2.5 | `[2.5]` |
+| **Cable Tibialis Raise** | LOWER | **TIB** | LADDER | DOUBLE_PROGRESSION | `eq["Ares cable (single)"]` | `["FT"]` | 10 | 2.5 | `[2.5]` |
+| **Poliquin Step-up** | LOWER | **KOT** | LADDER | DOUBLE_PROGRESSION | `eq["Dumbbells (MX100)"]` | `["DB"]` | 10 | 2.5 | `[2.5]` |
+
+**Sissy Squat — critical modeling note (single continuous load track):** ONE movement with a **continuous total-added-load track from bodyweight (0) upward** — plate held to ~15 lb, then DB/KB above that, but it's the **same total added load, different object**. The implement is an **informational tag, NOT a load-track break**: do **not** split into two movements, and do **not** reset the load track / e1RM history at the plate→DB/KB switch. The load track exists **from day one** so adding the first plate is continuous progression, not a re-seed: `load_equipment_id = Dumbbells (MX100)` supplies the increment source (`min_step=2.5`), and the movement-level **`load_floor=0`** starts it at zero added load (overriding the equipment's nominal floor, since this movement loads up from BW). One continuous load/e1RM history across the whole BW→plate→DB/KB range. (Modeled like Lateral Raise — `progression_mode=LADDER`, `scheme=DOUBLE_PROGRESSION`, ladder `[2.5]` — but floored at 0.)
 
 These three make §4's tib (2×/wk) and sissy (1×/wk) frequencies **satisfiable by movements the user actually trains** — no phantom-movement false-positives.
 
@@ -153,7 +155,8 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 - **Scheme:** the TOPSET_BACKOFF set is exactly the resolved 6 lifts; no other movement is TOPSET_BACKOFF.
 - **Family links resolve:** every `derived_from_id` points to an existing anchor; every ratio-variant has a `start_ratio`; anchors have `is_family_anchor=True`.
 - **knee_modality:** ≥1 ACTIVE movement exists for each required modality — NORDIC (Nordic Curl), TIB (Cable Tibialis Raise), SISSY (Sissy Squat), KOT (ATG / Reverse Nordic / Poliquin Step-up) — so docs/06 §4 frequencies (tib 2×, sissy 1×, KOT 2×, Nordic 2×) are satisfiable, not phantom.
-- **Sissy Squat continuous track:** `load_floor=0`, `load_equipment_id=None`, single movement (no split at the plate→DB/KB switch).
+- **Load-progression ↔ load-fields consistency (CROSS-FIELD, catches the Sissy-`None` class):** every movement that **progresses load** — `scheme ∈ {DOUBLE_PROGRESSION, TOPSET_BACKOFF}` or `progression_mode == LADDER` — MUST have a resolvable **load increment source** (`min_step` present, supplied by `load_equipment_id`'s Equipment row or set movement-level) AND a `load_floor`. A load-progressing movement with no increment source (e.g. `load_equipment_id=None` and no `min_step`) is a contradiction → test fails. Conversely, non-load-progressing movements (PROTOCOL/CONDITIONING/COMPOSITE/ASSISTED, scheme STRAIGHT/REP_RATIO) are exempt.
+- **Sissy Squat continuous track:** single movement, `load_floor=0`, `load_equipment_id=Dumbbells (MX100)` (increment source, `min_step=2.5`), no split / no e1RM reset at the plate→DB/KB switch.
 - **`rpe_capped` XOR `rpe_cap_exempt`** holds for every movement (the §8 assertion as a test).
 - **Equipment:** every `load_equipment_id` resolves to an Equipment row; tag-only codes (LM, KLEVA, supports, conditioning implements) never become a `load_equipment_id`.
 
@@ -178,7 +181,7 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 1. ✅ **Fork 4 TOPSET_BACKOFF subset** — RESOLVED: the 6 (Bench, Back Squat, Front Squat, Belt Squat, OHP, RDL); Box Squat / Conv DL / Sumo DL / Bent Over Row → STRAIGHT.
 3. ✅ **KLEVA** — RESOLVED: tag-only attachment. (JR = Jump Rope; LM tag-only.)
 4. ✅ **Fork 5 residue** — RESOLVED: Conv DL / Sumo DL own-baselines; Light Reverse Hyper own-baseline.
-2. ✅ **tib/sissy GAP — CLOSED.** Three knee movements added (§6): **Sissy Squat** (SISSY, single continuous added-load track from 0, `load_equipment_id=None`), **Cable Tibialis Raise** (TIB, Ares single/FT), **Poliquin Step-up** (KOT, DB — verified absent from the sheet, so added new). All DOUBLE_PROGRESSION. docs/06 §4 frequencies now satisfiable.
+2. ✅ **tib/sissy GAP — CLOSED.** Three knee movements added (§6): **Sissy Squat** (SISSY, single continuous added-load track from 0; `load_equipment_id=Dumbbells` as increment source, `load_floor=0`), **Cable Tibialis Raise** (TIB, Ares single/FT), **Poliquin Step-up** (KOT, DB — verified absent from the sheet, so added new). All `scheme=DOUBLE_PROGRESSION`. docs/06 §4 frequencies now satisfiable.
 
 **ALL BLANKS CLOSED — zero ⬜ remain. Final movement count: 103 (100 from sheet + 3 knee).**
 
