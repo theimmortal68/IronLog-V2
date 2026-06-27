@@ -1,7 +1,7 @@
 """§10 invariants for the 103-movement library seed. The gate that keeps the
 mechanical import from drifting to 'wrong data, green tests'."""
 import pytest
-from sqlmodel import Session, create_engine, select, SQLModel
+from sqlmodel import Session, create_engine, select
 
 import ironlog.db as db
 from ironlog.models import (Equipment, Movement, Status, Scheme,
@@ -51,12 +51,23 @@ def test_rpe_capped_xor_exempt(seeded):
         assert not (m.rpe_capped and m.rpe_cap_exempt), f"{m.name} is both capped and exempt"
 
 
+def test_rpe_capped_and_exempt_sets(seeded):
+    capped = {m.name for m in _all(seeded) if m.rpe_capped}
+    assert capped == TOPSET_SIX, f"rpe_capped set mismatch: {capped}"
+    exempt = {m.name for m in _all(seeded) if m.rpe_cap_exempt}
+    assert exempt == {"Hip Thrust [HIP_THRUST]", "Banded Hip Thrust [HIP_THRUST]"}, \
+        f"rpe_cap_exempt set mismatch: {exempt}"
+
+
 def test_family_links_resolve(seeded):
     by_id = {m.id: m for m in _all(seeded)}
     for m in _all(seeded):
         if m.derived_from_id is not None:
             assert m.derived_from_id in by_id, f"{m.name} derived_from a missing anchor"
             assert m.start_ratio is not None, f"{m.name} is a variant with no start_ratio"
+            # derived_from target must be an anchor (loader contract)
+            target = by_id[m.derived_from_id]
+            assert target.is_family_anchor, f"{m.name} derived_from non-anchor {target.name}"
         if m.is_family_anchor:
             assert m.family is not None, f"{m.name} is an anchor with no family"
 
