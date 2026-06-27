@@ -36,7 +36,7 @@ The `Equipment` table already exists (seeded from the `EQUIPMENT` constant: name
 **Code → Equipment dictionary (2a, banked):**
 `PB`→Barbell - Double Black Diamond · `OB`→Barbell - Gladiator WL · `SB`→BMF Camber Bar · `EZ`→Kyoto EZ Curl Bar · `DB`→Dumbbells (MX100) · `FT`→Ares cable (single) · `ANDREONI`→Ares cable (dual) · `GHR`→Hyper Pro belt attach · `HIP_THRUST`→GMWD hip thrust · `REV_HYPER`→Scout reverse hyper · `TOWER`→Pull-up tower · `TUBES`→Tubes · `KB`→Kettlebell.
 
-**Load-bearing vs support rule (2c, banked):** `equipment_tags` = all codes; `load_equipment_id` = the single load-governing code. **Support/attachment codes are tag-only, never load-bearing:** `BENCH`, `UTIL_SEAT`, `D-handle`, `WHEEL`, `BALL`, `FARMER HANDLES`/`FARMER`, **`LM`** (landmine — barbell governs), **`KLEVA`** (T-bar handle — barbell governs; ⬜ confirm tag-only). The barbell/DB/cable/machine in the bracket is the load-bearing FK.
+**Load-bearing vs support rule (2c, banked):** `equipment_tags` = all codes; `load_equipment_id` = the single load-governing code. **Support/attachment codes are tag-only, never load-bearing:** `BENCH`, `UTIL_SEAT`, `D-handle`, `WHEEL`, `BALL`, `FARMER HANDLES`/`FARMER`, **`LM`** (landmine — barbell governs), **`KLEVA`** (T-bar handle — barbell governs; **tag-only, CONFIRMED**). The barbell/DB/cable/machine in the bracket is the load-bearing FK.
 
 **Non-loaded movements (2d, banked):** `BW` (bodyweight), `BAND` (load via BandPair), and conditioning implements `SANDBAG`, `BALL`, `JR` (Jump Rope), `FARMER` → `load_equipment_id = None`, the implement recorded in `equipment_tags`. (Conditioning movements aren't load-progressed; no Equipment-row or FK needed. `KB` keeps its existing Kettlebell row.)
 
@@ -60,8 +60,8 @@ The `Equipment` table already exists (seeded from the `EQUIPMENT` constant: name
 
 **`scheme`** (not in sheet — derived rule, BANKED):
 - ASSISTED → REP_RATIO · COMPOSITE → STRAIGHT · non-primary LADDER / accessory-single-session → DOUBLE_PROGRESSION · PROTOCOL/CONDITIONING/rev-hyper → STRAIGHT
-- **T1 top-set lifts → TOPSET_BACKOFF.** The T1 set is NOT all 10 `is_primary` rows. Confirmed TOPSET_BACKOFF (6): **Bench Press, Back Squat, Front Squat, Belt Squat, Standing OHP, RDL** (the rotating T1 squat slot = Back/Front/Belt; plus Bench/OHP/RDL). 
-- ⬜ **BLANK 1:** Box Squat, Conventional DL, Sumo DL, Bent Over Row — **lean STRAIGHT** (heavy or accessory work, not T1 top-set slots). Confirm STRAIGHT, or name any that occupy a top-set slot.
+- **T1 top-set lifts → TOPSET_BACKOFF (RESOLVED).** Exactly these **6**: **Bench Press, Back Squat, Front Squat, Belt Squat, Standing OHP, RDL** (rotating T1 squat slot = Back/Front/Belt; plus Bench/OHP/RDL).
+- **Box Squat, Conventional DL, Sumo DL, Bent Over Row → STRAIGHT (CONFIRMED)** — heavy-straight or accessory work, not T1 top-set slots.
 
 Principle: TOPSET_BACKOFF = T1-slot lifts (the rotating squat, bench, OHP, RDL), not every heavy compound.
 
@@ -111,8 +111,8 @@ These become real Movements so §4's frequencies are satisfiable. (Do NOT defer 
 
 **Standalone (`family=None`):** all dial-direct accessories (§5c) — split squats, lunges, goblet, DB presses/raises, all cable accessories, Meadows/Chest-Supported/Seal rows, core, conditioning.
 
-⬜ **BLANK 3 (residue 2):** Conventional DL / Sumo DL — **lean: own baselines** (hinge ratios are individual/unreliable; Deadlift e1RM tracked independently). Confirm own-baselines, or give ratios off RDL.
-⬜ **BLANK 4 (residue 4):** Light Reverse Hyper — **lean: own baseline** (rev-hyper is cap-and-reps, not e1RM — per the principle above). Confirm own-baseline, or a ratio off Reverse Hyper.
+- **Conventional DL / Sumo DL → own baselines (CONFIRMED)** — hinges individually calibrated (Deadlift e1RM tracked independently at 365); no ratio link to RDL.
+- **Light Reverse Hyper → own baseline (CONFIRMED)** — rev-hyper is cap-and-reps, not e1RM, so no forced ratio (per the principle above).
 (Grip anchor = Medium and accessories-are-standalone: BANKED.)
 
 ---
@@ -165,12 +165,16 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 
 ---
 
-## 13. The four blanks (all genuinely user decisions)
+## 13. Blanks status — 3 of 4 CLOSED; only the tib/sissy GAP remains
 
-1. ⬜ **Fork 4 TOPSET_BACKOFF subset** — confirm Box Squat / Conv DL / Sumo DL / Bent Over Row are STRAIGHT (lean), or name any that are top-set slots. (6 already confirmed: Bench, Back Squat, Front Squat, Belt Squat, OHP, RDL.)
-2. ⬜ **tib/sissy GAP** — add the movements: Sissy Squat (equipment), Tibialis exercise (name + equipment), and whether Poliquin step-up is already seeded. (Add, don't defer.)
-3. ⬜ **KLEVA** — confirm tag-only attachment (lean). (JR resolved = Jump Rope; LM banked tag-only.)
-4. ⬜ **Fork 5 residue** — confirm Conv DL / Sumo DL own-baselines (lean) and Light Reverse Hyper own-baseline (lean), or give ratios.
+1. ✅ **Fork 4 TOPSET_BACKOFF subset** — RESOLVED: the 6 (Bench, Back Squat, Front Squat, Belt Squat, OHP, RDL); Box Squat / Conv DL / Sumo DL / Bent Over Row → STRAIGHT.
+3. ✅ **KLEVA** — RESOLVED: tag-only attachment. (JR = Jump Rope; LM tag-only.)
+4. ✅ **Fork 5 residue** — RESOLVED: Conv DL / Sumo DL own-baselines; Light Reverse Hyper own-baseline.
+2. ⬜ **tib/sissy GAP — THE ONLY OPEN BLANK.** Confirmed *not present in any readable source* (xlsx has none beyond ATG/calf/patellar; not in V1 `SeedData.kt` or the V1 repo) — so the three facts must come from the user, not data:
+   - **Sissy Squat** — equipment/load (BW → `load_equipment_id=None`, scheme PROTOCOL; or loaded → LADDER/DOUBLE_PROGRESSION). `knee_modality=SISSY`.
+   - **Tibialis exercise** — name + equipment (cable ankle on Ares → FT?). `knee_modality=TIB`.
+   - **Poliquin step-up** — already in the seeded 100, or add it (equipment; `knee_modality` KOT-lean)?
+   Add, don't defer — makes docs/06 §4 (tib 2×/wk, sissy 1×/wk) satisfiable instead of a permanent validator false-positive.
 
 ---
 
@@ -179,14 +183,14 @@ The 5 existing hand-written Movement blocks are absorbed into `MOVEMENTS` (no du
 | Item | Status | Date |
 |---|---|---|
 | Fork 1 — Keep?→Status (100 seeded) + governing definition | banked | 2026-06-27 |
-| Fork 2 — equipment mapping (dict, load-bearing rule, non-loaded, LM tag-only, JR=Jump Rope) | banked (KLEVA confirm) | 2026-06-27 |
+| Fork 2 — equipment mapping (dict, load-bearing rule, non-loaded, LM+KLEVA tag-only, JR=Jump Rope) | banked | 2026-06-27 |
 | Fork 3 — base_name equipment-only strip | banked | 2026-06-27 |
 | Fork 4 — progression_mode mappings + scheme rule | banked | 2026-06-27 |
-| Fork 4 — TOPSET_BACKOFF subset | ⬜ BLANK 1 | — |
+| Fork 4 — TOPSET_BACKOFF subset (6; others STRAIGHT) | ✅ resolved | 2026-06-27 |
 | Fork 5 — family structure + e1RM-only-ratio principle + residue 1,3,5,6 | banked | 2026-06-27 |
-| Fork 5 — residue 2 (DLs) + 4 (Light Rev Hyper) | ⬜ BLANK 4 | — |
+| Fork 5 — residue 2 (DLs own-baseline) + 4 (Light Rev Hyper own-baseline) | ✅ resolved | 2026-06-27 |
 | Fork 6 — knee classifications | banked | 2026-06-27 |
-| Fork 6 — tib/sissy GAP | ⬜ BLANK 2 | — |
+| Fork 6 — tib/sissy GAP (add movements) | ⬜ OPEN (only remaining) | — |
 | Fork 7 — defaults + capped-XOR-exempt assertion | banked | 2026-06-27 |
-| Spec draft (with blanks) | this commit | 2026-06-27 |
-| Blanks filled → spec self-review → user spec-review gate → writing-plans | pending | — |
+| Spec draft (3/4 blanks closed; tib/sissy open) | this commit | 2026-06-27 |
+| tib/sissy filled → spec self-review → user spec-review gate → writing-plans | pending | — |
