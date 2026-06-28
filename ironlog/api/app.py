@@ -269,14 +269,12 @@ def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(ge
     db.commit()
 
     # Fire the analyze-at-log seam (v0.6 two-writer boundary: run_analysis owns
-    # current_load; this handler never writes it).  Cold-start is expected — if
-    # EngineState / MovementState rows don't exist yet the analyzers are simply
-    # data-starved; the write already committed, so we swallow the lookup error
-    # rather than rolling back a successful log.
-    try:
-        run_analysis(session_id, db, _week_keyer)
-    except Exception:
-        pass
+    # current_load; this handler never writes it).  The SetLog write committed
+    # above — a run_analysis failure does NOT lose the logged workout (the write
+    # is already durable; /log can re-run analysis idempotently via analyzed_at).
+    # In production EngineState + MovementState always exist; if run_analysis
+    # genuinely fails here that should surface as a real error, not a silent 200.
+    run_analysis(session_id, db, _week_keyer)
 
     written = len(db.exec(select(SetLog).where(SetLog.session_id == session_id)).all())
     return SubmitResponse(session_id=session_id, status=SessionStatus.COMPLETED.value,
