@@ -83,10 +83,13 @@ def test_should_invoke_llm_quiet_db_returns_false(gen_db):
 def test_should_invoke_llm_stall_signal_returns_true(gen_db):
     """Plant a failed-progression stall on a semi/free slot → LLM must be invoked."""
     sk = lay_skeleton("D1 Upper Push", gen_db)
-    # Pick the first semi/free adaptive slot with a program_movement_id
+    # Pick the first semi/free adaptive slot with a program_movement_id that has a menu
+    # (giant slot: kind="giant") so that slot_has_deviation_signal can fire.
     target_slot = next(
         s for s in sk.adaptive_slots
-        if s.tier_role in ("semi", "free") and s.program_movement_id is not None
+        if s.tier_role in ("semi", "free")
+        and s.kind == "giant"
+        and s.program_movement_id is not None
     )
     # Plant a failed-progression stall signal (STALL_FAILED_THRESHOLD = 2)
     gen_db.add(MovementState(
@@ -98,5 +101,48 @@ def test_should_invoke_llm_stall_signal_returns_true(gen_db):
     week_keyer = lambda d: (d.year, d.isocalendar()[1])
     ctx = resolve_context("D1 Upper Push", sk, gen_db, week_keyer)
     assert should_invoke_llm(sk, ctx), (
-        "stall on a semi/free slot → should_invoke_llm must return True"
+        "stall on a semi/free giant slot → should_invoke_llm must return True"
+    )
+
+
+def test_menu_less_slot_is_not_deviation_eligible(gen_db):
+    """FIX 3 (guardrail completeness): a slot absent from candidate_menus must NOT
+    make should_invoke_llm return True, even when all other signals are present.
+
+    Accessory (semi/free non-giant, non-knee) slots have no guardrailed candidate
+    menu, so the LLM cannot deviate safely into them.  slot_has_deviation_signal
+    must return False for any slot with no entry in ctx.candidate_menus.
+    """
+    from ironlog.generation.context import GenerationContext, slot_has_deviation_signal
+    from ironlog.generation.skeleton import SlotSpec
+    from ironlog.models.library import PhasePolicy
+
+    wk = lambda d: (d.year, d.isocalendar()[1])
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+
+    # Manufacture a slot that is absent from ctx.candidate_menus (menu-less accessory)
+    # with a fake movement_id that also appears in weak_point_hints and note_flagged,
+    # to confirm none of those signals can trigger deviation on a menu-less slot.
+    dummy_mid = 99999
+    menu_less_slot = SlotSpec(
+        slot_id="menuless_test_slot",
+        kind="semi",  # not "giant" or "knee" → no menu built by resolve_context
+        pattern="lateral_raise",
+        tier_role="free",
+        knee_modality=None,
+        program_movement_id=dummy_mid,
+    )
+    # Inject all possible signals into the context
+    ctx.weak_point_hints[dummy_mid] = "stalled: test injection"
+    ctx.note_flagged_movement_ids.add(dummy_mid)
+    ctx.owed["novelty_owed"][menu_less_slot.slot_id] = True
+
+    # The slot has no entry in candidate_menus → must not be deviation-eligible
+    assert menu_less_slot.slot_id not in ctx.candidate_menus, (
+        "precondition: menu_less_slot must be absent from candidate_menus"
+    )
+    assert slot_has_deviation_signal(menu_less_slot, ctx) is False, (
+        "a slot absent from candidate_menus must return False from "
+        "slot_has_deviation_signal even when all other signals are present"
     )

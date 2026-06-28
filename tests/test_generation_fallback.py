@@ -16,11 +16,18 @@ Tests:
   6. test_cold_start_d1_no_spurious_knee_frequency_reject
      — a single cold-start D1 session (no knee work) is structurally valid with no
        spurious KNEE_FREQUENCY reject after the tallies=None fix.
+  7. test_gate_c_all_five_day_roles (FIX 2 — gate c extended)
+     — fallback_session (cold-start) is structurally valid for ALL five program day_roles.
+  8. test_quiet_path_structural_reject_falls_back_not_returns_invalid (FIX 2 guard)
+     — if the deterministic quiet path assembles an invalid session, generate_session
+       falls back rather than silently returning the invalid outcome.
 
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
 """
 import datetime
+
+import pytest
 
 from ironlog.generation.context import resolve_context
 from ironlog.generation.fallback import (
@@ -28,6 +35,8 @@ from ironlog.generation.fallback import (
     last_valid_selections,
     program_selections,
 )
+from ironlog.generation.loop import generate_session
+from ironlog.generation.proposer import StubProposer
 from ironlog.generation.repair import build_validation_context
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.engine.validator import validate
@@ -259,3 +268,106 @@ def test_cold_start_d1_no_spurious_knee_frequency_reject(gen_db):
     assert result.is_structurally_valid, (
         f"D1 cold-start must be structurally valid; rejections: {result.rejects}"
     )
+
+
+# ---------------------------------------------------------------------------
+# FIX 2 — gate c extended: all five program day_roles are structurally valid
+# ---------------------------------------------------------------------------
+
+ALL_DAY_ROLES = [
+    "D1 Upper Push",
+    "D2 Lower A",
+    "D4 Upper Pull",
+    "D5 Lower B",
+    "D6 Weak Points",
+]
+
+
+@pytest.mark.parametrize("day_role", ALL_DAY_ROLES)
+def test_gate_c_all_five_day_roles(gen_db, day_role):
+    """FIX 2 (gate c extended): fallback_session cold-start is structurally valid
+    for ALL five program day_roles, not just D1.
+
+    Validates that every program day emits a validator-clean session via the
+    deterministic fallback path (program_selections → assemble → validate).
+    """
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton(day_role, gen_db)
+    ctx = resolve_context(day_role, sk, gen_db, wk)
+    fb = fallback_session(sk, ctx, gen_db)
+    vc = build_validation_context(ctx, gen_db)
+    result = validate(fb.session, vc)
+    assert result.is_structurally_valid, (
+        f"{day_role} cold-start must be structurally valid; "
+        f"rejections: {result.rejects}"
+    )
+    sets = [
+        ps
+        for g in fb.session.groups
+        for e in g.exercises
+        for ps in e.planned_sets
+    ]
+    assert sets, f"{day_role} fallback must prescribe sets (trainable)"
+    assert all(ps.target_load is not None for ps in sets), (
+        f"{day_role} fallback: every set must carry a load"
+    )
+
+
+# ---------------------------------------------------------------------------
+# FIX 2 — quiet-path structural REJECT guard
+# ---------------------------------------------------------------------------
+
+def test_quiet_path_structural_reject_falls_back_not_returns_invalid(gen_db, monkeypatch):
+    """FIX 2 guard: when the quiet-path deterministic assembly is structurally
+    invalid, generate_session must NOT silently return the invalid session — it
+    must fall back (or raise), never emit the reject.
+
+    We monkeypatch the validate function to return a structural REJECT on the
+    first call (simulating a broken program prior), then return a valid result
+    on subsequent calls (for the fallback path).  The test asserts that the
+    returned outcome is either a valid fallback assembly (not the broken one)
+    or a ValueError is raised — in no case is the invalid session returned.
+    """
+    import ironlog.generation.loop as loop_mod
+    from ironlog.engine.validator import ValidationResult, Violation, ViolationKind
+    from ironlog.engine.validator import RuleCode
+
+    call_count = [0]
+    original_validate = loop_mod.validate
+
+    def patched_validate(session, vc):
+        call_count[0] += 1
+        if call_count[0] <= 2:
+            # First two calls (pre-clamp + post-clamp for the program prior): return REJECT
+            bad_violation = Violation(
+                kind=ViolationKind.REJECT,
+                rule=RuleCode.PRIMARY_NOT_FIRST,
+                message="injected structural reject for test",
+            )
+            return ValidationResult(violations=[bad_violation])
+        # Subsequent calls (for the fallback path): use the real validator
+        return original_validate(session, vc)
+
+    monkeypatch.setattr(loop_mod, "validate", patched_validate)
+
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    stub = StubProposer(program_selections(sk))
+
+    try:
+        outcome = generate_session("D1 Upper Push", gen_db, stub, wk)
+        # If no exception: outcome must NOT be the invalid program-prior assembly.
+        # The outcome must be structurally valid (the fallback was used).
+        assert outcome.assembled is not None, "outcome must have an assembled session"
+        vc = build_validation_context(
+            resolve_context("D1 Upper Push", sk, gen_db, wk), gen_db
+        )
+        result = original_validate(outcome.assembled.session, vc)
+        assert result.is_structurally_valid, (
+            "when quiet-path produces a REJECT, generate_session must fall back to a "
+            f"valid session; got rejections: {result.rejects}"
+        )
+    except ValueError:
+        # A ValueError (both program prior and fallback invalid) is also acceptable —
+        # the key invariant is that an invalid session is never silently returned.
+        pass

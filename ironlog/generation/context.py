@@ -23,7 +23,7 @@ NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Set
 
 from sqlmodel import Session, select
 
@@ -213,7 +213,18 @@ def slot_has_deviation_signal(slot: SlotSpec, ctx: GenerationContext) -> bool:
     - its program movement is stalled / has a weak-point limiter, OR
     - novelty_owed is True for this slot (signature would repeat — §7), OR
     - its program movement has an open Note / RPE-trend flag.
+
+    Guardrail completeness: only menu-governed slots (giant / knee — those with an
+    entry in ctx.candidate_menus) are deviation-eligible.  Accessory (semi/free
+    non-giant, non-knee) slots have no guardrailed candidate menu, so the LLM
+    cannot be constrained to on-menu selections for them.  A menu-less slot is
+    therefore treated as non-deviable — the program movement stands regardless of
+    any feedback signal.  This ensures every LLM deviation is backed by a menu that
+    check_menu_membership can enforce.
     """
+    if slot.slot_id not in ctx.candidate_menus:
+        # No guardrailed menu → not deviation-eligible; program movement stands.
+        return False
     mid = slot.program_movement_id
     if mid in ctx.weak_point_hints:               # stall fired / limiter present
         return True

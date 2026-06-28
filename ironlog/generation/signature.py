@@ -1,5 +1,5 @@
 """signature.py — session novelty signature (§7, simple beta form)."""
-from typing import Dict, List
+from typing import List
 
 _WEIGHTS = {"exercise_set": 0.40, "rep_zone": 0.25, "techniques": 0.20,
             "pattern": 0.10, "order": 0.05}

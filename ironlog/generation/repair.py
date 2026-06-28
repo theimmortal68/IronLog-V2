@@ -23,12 +23,12 @@ from sqlmodel import Session as DBSession, select
 
 from ..engine.validator import (
     MovementInfo, RuleCode, ValidationContext, ValidationResult,
-    ViolationKind, validate,
+    validate,
 )
 from ..models.library import Movement
 from .assembler import AssembledSession, assemble
 from .context import GenerationContext
-from .proposer import Proposer, Selections, selections_from_dict
+from .proposer import Proposer, Selections
 from .skeleton import Skeleton
 
 
@@ -162,6 +162,41 @@ def apply_clamps(session, result: ValidationResult) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Provenance helpers
+# ---------------------------------------------------------------------------
+
+def _selections_to_dict(sel: Selections) -> dict:
+    """Serialize a Selections object to a JSON-serialisable dict (§10 provenance)."""
+    return {
+        "ordering": list(sel.ordering),
+        "slots": [
+            {
+                "slot_id": s.slot_id,
+                "movement_id": s.movement_id,
+                "variant": s.variant,
+                "technique_tags": list(s.technique_tags),
+            }
+            for s in sel.slots
+        ],
+        "rationale": sel.rationale,
+    }
+
+
+def _clamps_to_list(result: ValidationResult) -> list:
+    """Serialize CLAMP violations to a JSON-serialisable list (§10 provenance)."""
+    return [
+        {
+            "rule": v.rule.value,
+            "group_index": v.group_index,
+            "movement_id": v.movement_id,
+            "set_index": v.set_index,
+            "corrected_value": v.corrected_value,
+        }
+        for v in result.clamps
+    ]
+
+
+# ---------------------------------------------------------------------------
 # RepairOutcome
 # ---------------------------------------------------------------------------
 
@@ -173,6 +208,10 @@ class RepairOutcome:
     clamps_applied: int                      # cumulative across all attempts
     rejections: List[str] = field(default_factory=list)  # outcome-only, last round
     exhausted: bool = False                  # True iff max_retries reached without success
+    # §10 provenance fields — threaded through to commit_session / GenerationLog
+    prompt: Optional[dict] = None           # the injected context payload (build_context_payload)
+    selections_dict: Optional[dict] = None  # winning Selections serialised as dict
+    clamps: Optional[list] = None           # applied clamp details (rule+locator+corrected_value)
 
 
 # ---------------------------------------------------------------------------
@@ -231,19 +270,23 @@ def propose_validate_repair(
 
         assembled = assemble(sel, skeleton, ctx, db)
 
-        result = validate(assembled.session, vc)
-        total_clamps += apply_clamps(assembled.session, result)
-        result = validate(assembled.session, vc)  # re-validate after clamps applied
+        result_pre = validate(assembled.session, vc)
+        n = apply_clamps(assembled.session, result_pre)
+        total_clamps += n
+        result_post = validate(assembled.session, vc)  # re-validate after clamps applied
 
-        if result.is_structurally_valid:
+        if result_post.is_structurally_valid:
             return RepairOutcome(
                 assembled=assembled,
                 attempts=attempt,
                 clamps_applied=total_clamps,
                 rejections=[],
                 exhausted=False,
+                prompt=payload,
+                selections_dict=_selections_to_dict(sel),
+                clamps=_clamps_to_list(result_pre),  # what was corrected
             )
-        reasons = rejection_reasons(result)
+        reasons = rejection_reasons(result_post)
 
     return RepairOutcome(
         assembled=None,
@@ -251,4 +294,7 @@ def propose_validate_repair(
         clamps_applied=total_clamps,
         rejections=reasons,
         exhausted=True,
+        prompt=payload,
+        selections_dict=None,
+        clamps=[],
     )

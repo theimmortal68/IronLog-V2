@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 
 from sqlmodel import Session as DBSession, select
 
-from ..engine.loading import clamp_to_cap, current_increment, round_to_achievable
+from ..engine.loading import clamp_to_cap, round_to_achievable
 from ..engine.progression import resolve_objective
 from ..models.enums import GroupType, Scheme, SessionStatus, SetRole
 from ..models.library import Equipment, Movement, MovementState
@@ -74,8 +74,7 @@ def _step_and_floor(movement: Movement, db: DBSession):
     return step, floor
 
 
-def _sets_for_scheme(scheme: Scheme, load: float, ctx: GenerationContext,
-                     is_anchor: bool) -> List[PlannedSet]:
+def _sets_for_scheme(scheme: Scheme, load: float, ctx: GenerationContext) -> List[PlannedSet]:
     """Map scheme → a concrete list of PlannedSets with reps/RPE from the phase band.
 
     TOPSET_BACKOFF: TOP set + one BACKOFF at 90 %.
@@ -121,7 +120,7 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     load = clamp_to_cap(round_to_achievable(base, floor, step), movement.cap)
     # Collect prospective load — caller must NOT write this to MovementState
     prospective[movement.id] = load
-    sets = _sets_for_scheme(movement.scheme, load, ctx, is_anchor)
+    sets = _sets_for_scheme(movement.scheme, load, ctx)
     ex = PlannedExercise(
         movement_id=movement.id,
         order_index=ex_order,
@@ -143,7 +142,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
     Layout:
       1. Anchor movements → STRAIGHT groups in skeleton order (T1 first).
       2. Adaptive slots → iterated in selections.ordering:
-           giant kind  → exercises appended into one shared GIANT_SET group (rounds=3)
+           giant kind  → exercises appended into one GIANT_SET group per source tier (rounds=3)
            knee / other → own STRAIGHT group each
 
     Computes prospective_current_loads for every movement but does NOT write

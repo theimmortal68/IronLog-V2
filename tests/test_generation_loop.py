@@ -196,3 +196,56 @@ def test_is_clean_exhausted_or_fallback_is_never_clean():
         assembled=assembled, attempts=1, clamps_applied=2, exhausted=False,
     )
     assert is_clean(with_clamps) is False, "outcome with clamps applied must not be clean"
+
+
+# ---------------------------------------------------------------------------
+# FIX 1 — provenance end-to-end: GenerationLog rows must be non-empty
+# ---------------------------------------------------------------------------
+
+def test_provenance_non_empty_after_generate_and_commit(gen_db):
+    """FIX 1 (§10 replayability): generate_session threads real provenance so that
+    a subsequent commit_session produces a GenerationLog row with non-empty
+    prompt_json AND selections_json.
+
+    The quiet-week path (meso-1, no signals) returns a RepairOutcome whose
+    prompt and selections_dict fields are populated from build_context_payload
+    and the serialised Selections.  commit_session must write those through to
+    the DB row.
+    """
+    from ironlog.models.library import GenerationLog
+    from sqlmodel import select
+
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    stub = StubProposer(program_selections(sk))
+    outcome = generate_session("D1 Upper Push", gen_db, stub, wk)
+
+    assert outcome.prompt is not None and outcome.prompt, (
+        "outcome.prompt must be non-empty after generate_session"
+    )
+    assert outcome.selections_dict is not None and outcome.selections_dict, (
+        "outcome.selections_dict must be non-empty after generate_session"
+    )
+
+    committed = commit_session(
+        outcome.assembled,
+        gen_db,
+        approval_mode="human",
+        prompt=outcome.prompt,
+        selections_dict=outcome.selections_dict,
+        clamps=outcome.clamps or [],
+        repairs=outcome.rejections,
+        fallback_used=outcome.exhausted,
+    )
+
+    logs = gen_db.exec(
+        select(GenerationLog).where(GenerationLog.session_id == committed.id)
+    ).all()
+    assert len(logs) == 1, "exactly one GenerationLog row must be written per commit"
+    log = logs[0]
+    assert log.prompt_json, "prompt_json must be non-empty (§10 replayability)"
+    assert log.selections_json, "selections_json must be non-empty (§10 replayability)"
+    # The selections must reflect the actual program emission: has ordering + slots
+    assert "ordering" in log.selections_json, "selections_json must have ordering key"
+    assert "slots" in log.selections_json, "selections_json must have slots key"
+    assert log.approval_mode == "human"

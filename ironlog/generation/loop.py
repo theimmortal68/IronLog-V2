@@ -28,6 +28,7 @@ from .fallback import fallback_session, program_selections
 from .proposer import Proposer
 from .repair import (
     RepairOutcome, apply_clamps, build_validation_context, propose_validate_repair,
+    rejection_reasons, _selections_to_dict, _clamps_to_list,
 )
 from .skeleton import Skeleton, lay_skeleton
 from ..engine.validator import validate
@@ -131,18 +132,48 @@ def generate_session(
 
     # §3A conditional gate: quiet week → deterministic program emission; no LLM call.
     if not should_invoke_llm(sk, ctx):
-        assembled = assemble(program_selections(sk), sk, ctx, db)
-        # The program prior is valid by construction; clamps applied for safety.
-        n_clamps = apply_clamps(
-            assembled.session,
-            validate(assembled.session, build_validation_context(ctx, db)),
-        )
+        prog_sel = program_selections(sk)
+        assembled = assemble(prog_sel, sk, ctx, db)
+        vc = build_validation_context(ctx, db)
+        result_pre = validate(assembled.session, vc)
+        n_clamps = apply_clamps(assembled.session, result_pre)  # writes in-place
+        result_post = validate(assembled.session, vc)           # re-validate after clamps
+        # §10 provenance: build context payload for the quiet path (no LLM call, but
+        # captures the resolved state that drove this generation for replayability).
+        payload = build_context_payload(ctx, sk)
+        if not result_post.is_structurally_valid:
+            # The program prior is structurally invalid (should not occur on a
+            # well-seeded program, but guard against it).  Fall back to last-valid-
+            # refreshed rather than silently emitting an invalid session.
+            assembled = fallback_session(sk, ctx, db)
+            fb_pre = validate(assembled.session, vc)
+            n_fb_clamps = apply_clamps(assembled.session, fb_pre)
+            fb_post = validate(assembled.session, vc)
+            if not fb_post.is_structurally_valid:
+                # Both program prior and fallback are invalid — surface the error.
+                raise ValueError(
+                    f"Quiet-path structural REJECT: program prior invalid and "
+                    f"fallback also invalid. Rejects: {rejection_reasons(fb_post)}"
+                )
+            return RepairOutcome(
+                assembled=assembled,
+                attempts=0,
+                clamps_applied=n_fb_clamps,
+                rejections=rejection_reasons(result_post),
+                exhausted=False,
+                prompt=payload,
+                selections_dict=_selections_to_dict(prog_sel),
+                clamps=_clamps_to_list(fb_pre),
+            )
         return RepairOutcome(
             assembled=assembled,
             attempts=0,
             clamps_applied=n_clamps,
             rejections=[],
             exhausted=False,
+            prompt=payload,
+            selections_dict=_selections_to_dict(prog_sel),
+            clamps=_clamps_to_list(result_pre),
         )
 
     # Signal present → LLM proposes (whole-session, Fork 4b); validate / repair loop.
@@ -150,5 +181,9 @@ def generate_session(
     outcome = propose_validate_repair(proposer, payload, sk, ctx, db)
     if outcome.exhausted:
         # Repair exhausted → deterministic fallback (Fork 4c / §3A).
-        outcome.assembled = fallback_session(sk, ctx, db)
+        fallback = fallback_session(sk, ctx, db)
+        outcome.assembled = fallback
+        # Update provenance to reflect the fallback selections used.
+        outcome.selections_dict = _selections_to_dict(program_selections(sk))
+        outcome.clamps = []
     return outcome

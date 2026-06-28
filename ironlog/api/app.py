@@ -200,10 +200,10 @@ def approve_session(candidate_id: str, db: Session = Depends(get_session)):
     committed = commit_session(
         outcome.assembled,
         db,
-        approval_mode="auto",
-        prompt={},
-        selections_dict={},
-        clamps=[],
+        approval_mode="human",
+        prompt=outcome.prompt or {},
+        selections_dict=outcome.selections_dict or {},
+        clamps=outcome.clamps or [],
         repairs=outcome.rejections,
         fallback_used=outcome.exhausted,
     )
