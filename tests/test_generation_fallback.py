@@ -9,6 +9,13 @@ Tests:
   3. test_last_valid_reconstructs_prior_session
      — last_valid_selections returns Selections that match the prior session's
        movements when a COMPLETED session exists.
+  4. test_d1_giant_groups_are_per_tier (Fix 1 proof)
+     — the assembled D1 program session has multiple GIANT_SET groups, each ≤3 exercises.
+  5. test_build_validation_context_is_structural_only (Fix 2 proof)
+     — build_validation_context returns tallies=None (structural-only; no cross-session checks).
+  6. test_cold_start_d1_no_spurious_knee_frequency_reject
+     — a single cold-start D1 session (no knee work) is structurally valid with no
+       spurious KNEE_FREQUENCY reject after the tallies=None fix.
 
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
@@ -172,4 +179,83 @@ def test_last_valid_reconstructs_prior_session(gen_db):
     # At least one movement from the prior session must appear in the result.
     assert result_mids & seeded_mids, (
         "last_valid_selections should recover movements from the prior session"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fix 1 proof: one GIANT_SET group per source program tier
+# ---------------------------------------------------------------------------
+
+def test_d1_giant_groups_are_per_tier(gen_db):
+    """Fix 1 — assembler creates one GIANT_SET group per source program tier.
+
+    D1 Upper Push has 3 GIANT_SET tiers (T2 GS, T3 GS, T4 GS), 3 slots each.
+    The cold-start fallback must produce 3 separate GIANT_SET groups, each with
+    exactly 3 exercises — never a single 9-exercise group.
+    """
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    fb = fallback_session(sk, ctx, gen_db)
+
+    from ironlog.models.enums import GroupType
+    giant_groups = [g for g in fb.session.groups if g.group_type == GroupType.GIANT_SET]
+    assert len(giant_groups) >= 2, (
+        f"D1 must produce multiple GIANT_SET groups (one per tier); got {len(giant_groups)}"
+    )
+    for g in giant_groups:
+        n = len(g.exercises)
+        assert 1 <= n <= 3, (
+            f"GIANT_SET group (order_index={g.order_index}) has {n} exercises; "
+            f"expected 1-3 (room-geometry constraint)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Fix 2 proof: build_validation_context is structural-only (tallies=None)
+# ---------------------------------------------------------------------------
+
+def test_build_validation_context_is_structural_only(gen_db):
+    """Fix 2 — build_validation_context must return tallies=None.
+
+    Per-session generation validate is structural-only.  Cross-session frequency
+    rules (KNEE_FREQUENCY, PULL_PUSH_RATIO) must not fire on a single generated
+    session — the tallies=None guard in build_validation_context enforces this.
+    """
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    vc = build_validation_context(ctx, gen_db)
+    assert vc.tallies is None, (
+        "build_validation_context must pass tallies=None (structural-only); "
+        "KNEE_FREQUENCY/PULL_PUSH checks must be skipped for per-session generation"
+    )
+
+
+def test_cold_start_d1_no_spurious_knee_frequency_reject(gen_db):
+    """Fix 2 — D1 cold-start session must be structurally valid with no spurious
+    KNEE_FREQUENCY reject.
+
+    D1 Upper Push has no knee exercises.  With tallies=None in build_validation_context,
+    the per-session validator must not fire KNEE_FREQUENCY for missing weekly knee targets
+    that D1 has no obligation to satisfy in a single session.
+    """
+    from ironlog.engine.validator import RuleCode, ViolationKind
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    fb = fallback_session(sk, ctx, gen_db)
+    vc = build_validation_context(ctx, gen_db)
+    result = validate(fb.session, vc)
+
+    knee_rejects = [
+        v for v in result.rejects
+        if v.rule == RuleCode.KNEE_FREQUENCY
+    ]
+    assert not knee_rejects, (
+        f"KNEE_FREQUENCY must not fire on a single D1 session (structural-only); "
+        f"got: {knee_rejects}"
+    )
+    assert result.is_structurally_valid, (
+        f"D1 cold-start must be structurally valid; rejections: {result.rejects}"
     )

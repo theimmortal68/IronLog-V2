@@ -55,11 +55,17 @@ def build_validation_context(ctx: GenerationContext, db: DBSession) -> Validatio
             lift_category=m.lift_category,
             progression_mode=m.progression_mode,
         )
+    # tallies=None: per-session generation validate is STRUCTURAL-ONLY.
+    # Cross-session frequency rules (KNEE_FREQUENCY, PULL_PUSH_RATIO) must not
+    # hard-reject a single generated session — no one session can retroactively
+    # satisfy a weekly target.  Weekly frequency is guaranteed at program-design
+    # time (test_knee_frequencies_are_satisfiable) and soft-biased via owed
+    # requirements (Fork 3); it is not a per-session structural hard reject.
     return ValidationContext(
         movements=infos,
         manifest_equipment_ids=set(ctx.manifest_equipment_ids),
         phase_hard_cap=ctx.phase_policy.hard_cap,
-        tallies=ctx.tallies,
+        tallies=None,
     )
 
 

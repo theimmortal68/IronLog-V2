@@ -175,18 +175,19 @@ def assemble(selections: Selections, skeleton: Skeleton,
 
     # 2) Adaptive layer — model's chosen ordering
     selected = {s.slot_id: s for s in selections.slots}
-    giant_group = ExerciseGroup(
-        order_index=order,
-        group_type=GroupType.GIANT_SET,
-        rounds=3,
-    )
-    has_giant = False
+    slot_map = {s.slot_id: s for s in skeleton.adaptive_slots}
+
+    # One ExerciseGroup per source tier for giant slots; dict preserves first-appearance
+    # order so the tier groups are added to the session in the proposer's intended order.
+    giant_groups: Dict[str, ExerciseGroup] = {}
+    # Non-giant (knee / accessory) adaptive groups — collected and appended after giants.
+    straight_groups: List[ExerciseGroup] = []
 
     for slot_id in selections.ordering:
         sel = selected.get(slot_id)
         if sel is None:
             continue
-        slot = next((s for s in skeleton.adaptive_slots if s.slot_id == slot_id), None)
+        slot = slot_map.get(slot_id)
         if slot is None:
             continue
         m = movements.get(sel.movement_id)
@@ -194,22 +195,41 @@ def assemble(selections: Selections, skeleton: Skeleton,
             continue
 
         if slot.kind == "giant":
-            ex = _build_exercise(m, len(giant_group.exercises), ctx, db, prospective)
-            giant_group.exercises.append(ex)
-            has_giant = True
+            # group_key identifies the source tier; fallback to slot_id so that
+            # manually-constructed SlotSpecs (empty group_key) still get separate groups.
+            gk = slot.group_key if slot.group_key else slot_id
+            if gk not in giant_groups:
+                giant_groups[gk] = ExerciseGroup(
+                    order_index=0,  # assigned below after all slots are processed
+                    group_type=GroupType.GIANT_SET,
+                    rounds=3,
+                )
+            gg = giant_groups[gk]
+            ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective)
+            gg.exercises.append(ex)
         else:
             # knee / conditioning / accessory → own STRAIGHT group
             group = ExerciseGroup(
-                order_index=order,
+                order_index=0,  # assigned below
                 group_type=GroupType.STRAIGHT,
                 rounds=1,
             )
             ex = _build_exercise(m, 0, ctx, db, prospective)
             group.exercises.append(ex)
-            session.groups.append(group)
-            order += 1
+            straight_groups.append(group)
 
-    if has_giant:
-        session.groups.append(giant_group)
+    # Assign clean sequential order_index:
+    #   anchors:            0 .. len(anchor_movement_ids)-1   (already set above)
+    #   giant tier groups:  next in first-appearance order
+    #   knee/accessory:     after all giant groups
+    for gg in giant_groups.values():
+        gg.order_index = order
+        order += 1
+        session.groups.append(gg)
+
+    for g in straight_groups:
+        g.order_index = order
+        order += 1
+        session.groups.append(g)
 
     return AssembledSession(session=session, prospective_current_loads=prospective)

@@ -27,6 +27,9 @@ class SlotSpec:
     tier_role: str                  # "anchor" | "semi" | "free"
     knee_modality: Optional[str]
     program_movement_id: Optional[int]   # the program prior for this slot
+    group_key: str = ""             # tier_label of the source Tier; used by the
+                                    # assembler to group giant slots into one
+                                    # ExerciseGroup per tier (e.g. "T2 GS").
 
 
 @dataclass
@@ -94,6 +97,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1) -> Skeleton:
                     tier_role=te.tier_role,
                     knee_modality=te.knee_modality,
                     program_movement_id=te.movement_id,
+                    group_key=tier.tier_label,
                 ))
 
     return Skeleton(

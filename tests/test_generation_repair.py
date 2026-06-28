@@ -114,8 +114,16 @@ def test_apply_clamps_returns_zero_on_no_clamps():
 # ---------------------------------------------------------------------------
 
 def test_repair_exhausted_after_max_retries(gen_db):
-    """With tallies that always violate KNEE_FREQUENCY, repair must exhaust
-    at max_retries=3, return exhausted=True, assembled=None, attempts=3."""
+    """With a selection that always violates PRIMARY_NOT_FIRST (primary movement
+    placed inside a GIANT_SET group), repair must exhaust at max_retries=3,
+    return exhausted=True, assembled=None, attempts=3.
+
+    Note: per-session validate is now STRUCTURAL-ONLY (tallies=None), so
+    KNEE_FREQUENCY no longer fires here.  PRIMARY_NOT_FIRST is a structural
+    REJECT that fires unconditionally when a primary movement lands in a
+    GIANT_SET group.  The StubProposer always returns the same selection, so
+    every attempt produces the same violation.
+    """
     from ironlog.generation.context import resolve_context
     from ironlog.generation.proposer import Selections, SlotSelection, StubProposer
     from ironlog.generation.repair import propose_validate_repair
@@ -124,15 +132,13 @@ def test_repair_exhausted_after_max_retries(gen_db):
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
     ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
-    # resolve_context already sets knee_targets = KNEE_TARGETS with empty
-    # knee_counts (no set logs in gen_db) → KNEE_FREQUENCY REJECT fires every
-    # validate call regardless of session content.
 
-    # Select exactly 1 giant slot to satisfy GIANT_SET_CONCURRENCY (1..=3).
+    # Use the anchor (primary) movement for a giant adaptive slot.
+    # The assembler will place it into a GIANT_SET group → PRIMARY_NOT_FIRST REJECT.
+    # The StubProposer always returns this same selection → always invalid → exhausts.
+    anchor_mid = sk.anchor_movement_ids[0]  # Bench Press — is_primary=True
     first_giant = next(s for s in sk.adaptive_slots if s.kind == "giant")
-    candidates = ctx.candidate_menus.get(first_giant.slot_id, [])
-    assert candidates, "need at least one candidate for the bounded-repair test"
-    slot_sel = SlotSelection(first_giant.slot_id, candidates[0])
+    slot_sel = SlotSelection(first_giant.slot_id, anchor_mid)
     sel = Selections(ordering=[first_giant.slot_id], slots=[slot_sel], rationale="test")
     proposer = StubProposer(sel)
 
