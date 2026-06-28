@@ -28,7 +28,7 @@ from ..engine.validator import (
 from ..models.library import Movement
 from .assembler import AssembledSession, assemble
 from .context import GenerationContext
-from .proposer import Proposer, selections_from_dict
+from .proposer import Proposer, Selections, selections_from_dict
 from .skeleton import Skeleton
 
 
@@ -100,6 +100,34 @@ def rejection_reasons(result: ValidationResult) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
+# check_menu_membership  (Fork 1 post-check)
+# ---------------------------------------------------------------------------
+
+def check_menu_membership(selections: Selections, ctx: GenerationContext) -> List[str]:
+    """Return outcome-only reasons for any SlotSelection whose movement_id is
+    not in its slot's candidate menu.
+
+    Only checks slots that have an entry in ctx.candidate_menus (menu-governed
+    adaptive slots: "giant" and "knee").  Anchor/conditioning slots absent from
+    candidate_menus are skipped.
+
+    Reasons are OUTCOME-ONLY: they state the unmet fact and its locus — NEVER
+    a remedy, fix, or suggestion ("add X", "swap Y", "use Z").
+    """
+    reasons: List[str] = []
+    for ss in selections.slots:
+        menu = ctx.candidate_menus.get(ss.slot_id)
+        if menu is None:
+            continue  # not a menu-governed slot; skip
+        if ss.movement_id not in menu:
+            reasons.append(
+                f"MENU_MEMBERSHIP: slot {ss.slot_id} movement {ss.movement_id}"
+                f" not in candidate menu"
+            )
+    return reasons
+
+
+# ---------------------------------------------------------------------------
 # apply_clamps  (Fork 4b)
 # ---------------------------------------------------------------------------
 
@@ -163,11 +191,13 @@ def propose_validate_repair(
 
     On each attempt:
       1. Call proposer.propose(payload + rejection feedback from previous round).
-      2. Assemble the returned selections into a Session.
-      3. Run validate; apply all CLAMPs (corrected_value written in place).
-      4. Re-validate after clamping.
-      5. If structurally valid (no REJECTs) → return success.
-      6. Otherwise build outcome-only rejection_reasons and retry.
+      2. check_menu_membership: if any selection is off-menu, reject without
+         assembling and feed back outcome-only membership reasons.
+      3. Assemble the returned selections into a Session.
+      4. Run validate; apply all CLAMPs (corrected_value written in place).
+      5. Re-validate after clamping.
+      6. If structurally valid (no REJECTs) → return success.
+      7. Otherwise build outcome-only rejection_reasons and retry.
 
     After max_retries exhausted → return RepairOutcome(assembled=None, exhausted=True)
     with the final round's rejection reasons so the caller (Task 7 fallback) has
@@ -187,6 +217,18 @@ def propose_validate_repair(
             payload_with_feedback["rejections"] = reasons  # outcome-only feedback
 
         sel = proposer.propose(payload_with_feedback)
+
+        # Menu-membership pre-check (Fork 1 post-check): hard-enforce that every
+        # selection is in its slot's candidate menu.  Off-menu → structural
+        # rejection without assembling; outcome-only reasons feed back to the
+        # proposer next round.  A knee slot's menu contains only knee-modality
+        # movements, so this guarantees the knee slot is filled per-session by
+        # construction.
+        membership_reasons = check_menu_membership(sel, ctx)
+        if membership_reasons:
+            reasons = membership_reasons
+            continue
+
         assembled = assemble(sel, skeleton, ctx, db)
 
         result = validate(assembled.session, vc)
