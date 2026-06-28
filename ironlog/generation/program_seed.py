@@ -68,6 +68,8 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     # ── Meso-2 rotation variants ─────────────────────────────────────────────
     "Back Squat":                                   "Back Squat [PB]",
     "Pendlay Row":                                  "Pendlay Row - Medium [OB]",
+    "Staggered RDL":                                "Staggered RDL [PB]",
+    "Single-Arm DB Row":                            "Single-Arm DB Row [DB]",
 }
 
 
@@ -100,13 +102,18 @@ def seed_phase1_program(db: Session) -> None:
     """Seed the Phase 1 Post-HGC program definition into the given session.
 
     Seeded: Program, 7 ProgramDays (5 training + 2 rest), Tiers, TierExercises,
-    and the resolvable MesoRotations (Belt<->Back Squat; Meadows<->Pendlay Row).
+    and all MesoRotations:
+      - d2_t1: Belt Squat → Back Squat (meso-2)
+      - d4_t2a: Meadows Row → Pendlay Row - Medium (meso-2)
+      - d5_t1: RDL → Staggered RDL (meso-2)
+      - d4_t3b: Meadows SA Row → Single-Arm DB Row (meso-2)
 
-    Deferred MesoRotations (meso-2 variant not in library):
-      - d5_t1: Staggered RDL (not in library)
-      - d4_t3b: Single-Arm DB Row (not in library)
-      - d5_t2b: Scout RH single-leg (same library movement, technique note only)
-      - d1_t1: BMF 21" bench variant (same library movement, equipment note only)
+    Intentionally excluded (same library movement, no distinct rotation):
+      - d1_t1 meso-2: BMF 21" bench variant is an equipment note, not a library change
+      - d5_t2b meso-2: single-leg Reverse Hyper is a technique note, not a library change
+
+    The guard contract: _resolve() is called on EVERY rotation movement name; any
+    unresolved name raises ValueError immediately (halt-and-flag, never invent/skip).
 
     Warmups, finishers, Z2 are NOT seeded (deferred to v0.7).
     The session is committed at the end.
@@ -313,9 +320,11 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t3.id, "d4_t3a", "Cross-Body Rear Delt Fly", lib, 1, "free",
             pattern="rear_delt", rep_low=10, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d4_t3b", "Meadows SA Row", lib, 2, "free",
-            pattern="horizontal_pull", rep_low=8, rep_high=10,
-            scheme="DOUBLE_PROGRESSION")
+    d4_t3b = _add_te(db, t3.id, "d4_t3b", "Meadows SA Row", lib, 2, "free",
+                     pattern="horizontal_pull", rep_low=8, rep_high=10,
+                     scheme="DOUBLE_PROGRESSION")
+    # meso-2: Meadows SA Row → Single-Arm DB Row (distinct movement → resolve-or-raise)
+    _add_mr(db, d4_t3b, 2, "Single-Arm DB Row", lib)
     _add_te(db, t3.id, "d4_t3c", "Dragon Flag", lib, 3, "free",
             pattern="core", rep_low=3, rep_high=6)
 
@@ -325,12 +334,13 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — RDL (anchor; meso-2 rotation → Staggered RDL — DEFERRED, not in library)
+    # T1 — RDL (anchor; meso-2 rotation → Staggered RDL)
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1)
-    _add_te(db, t1.id, "d5_t1", "RDL", lib, 1, "anchor",
-            pattern="rdl", rep_low=4, rep_high=6, rpe_cap=8.0,
-            scheme="TOPSET_BACKOFF")
-    # d5_t1 meso-2 (Staggered RDL) deferred — movement not in library
+    d5_t1 = _add_te(db, t1.id, "d5_t1", "RDL", lib, 1, "anchor",
+                    pattern="rdl", rep_low=4, rep_high=6, rpe_cap=8.0,
+                    scheme="TOPSET_BACKOFF")
+    # meso-2: RDL → Staggered RDL (distinct movement → resolve-or-raise, MesoRotation row)
+    _add_mr(db, d5_t1, 2, "Staggered RDL", lib)
 
     # T1b — Barbell Hip Thrust (semi, independent track)
     t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1)
@@ -346,7 +356,9 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t2.id, "d5_t2b", "Scout Reverse Hyper", lib, 2, "free",
             pattern="reverse_hyper", rep_low=12, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    # d5_t2b meso-2 (single-leg) deferred — same library movement; technique note only
+    # d5_t2b meso-2: single-leg Reverse Hyper is a TECHNIQUE note on the same library
+    # movement — intentionally NO MesoRotation row (not a guard-bypass; the same
+    # movement id is used for both meso-1 and meso-2, distinction handled by the coach).
     _add_te(db, t2.id, "d5_t2c", "Assisted Nordic (eccentric)", lib, 3, "free",
             knee_modality=KneeModality.NORDIC, rep_low=5, rep_high=8,
             scheme="ASSISTED")

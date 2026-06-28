@@ -30,13 +30,13 @@ def _all(s):
 
 
 def test_total_count_103(seeded):
-    assert len(_all(seeded)) == 106
+    assert len(_all(seeded)) == 108
 
 
 def test_status_counts(seeded):
     from collections import Counter
     c = Counter(m.status for m in _all(seeded))
-    assert c[Status.ACTIVE] == 97
+    assert c[Status.ACTIVE] == 99
     assert c[Status.INACTIVE] == 8
     assert c[Status.PREP] == 1
 
