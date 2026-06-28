@@ -6,3 +6,10 @@ __pycache__/
 venv/
 ironlog.db
 .DS_Store
+
+# secrets — never commit
+.env
+*.env
+gemini-api-key
+*-api-key
+*.key

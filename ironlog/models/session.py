@@ -27,6 +27,7 @@ class Session(SQLModel, table=True):
     status: SessionStatus = SessionStatus.PLANNED
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     approved_at: Optional[datetime] = None
+    analyzed_at: Optional[datetime] = None         # set by run_analysis on first run
     signature: dict = Field(default_factory=dict, sa_column=Column(JSON))
     rationale: Optional[str] = None
     notes: Optional[str] = None

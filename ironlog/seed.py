@@ -149,6 +149,12 @@ MOVEMENTS = [
          lift_category=LiftCategory.ROW, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
          scheme=Scheme.STRAIGHT, increment_ladder=[5, 2.5], min_step=2.5, load_floor=45),
+    # Program-required meso-2 lower rotation (v0.6 fix wave — STRAIGHT, not TOPSET_BACKOFF)
+    dict(name="Staggered RDL [PB]", base_name="Staggered RDL", region=Region.LOWER,
+         lift_category=LiftCategory.RDL, is_primary=True, status=Status.ACTIVE,
+         load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
+         scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
+         load_floor=45),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Hip Thrust composite family
@@ -433,6 +439,12 @@ MOVEMENTS = [
          load_code="OB", tags=["OB", "LM"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=0),
+    # Program-required meso-2 upper rotation (v0.6 fix wave)
+    dict(name="Single-Arm DB Row [DB]", base_name="Single-Arm DB Row",
+         region=Region.UPPER, lift_category=LiftCategory.ROW, status=Status.ACTIVE,
+         load_code="DB", tags=["DB"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Core — LADDER (PureTorque Pro: no bracket → min_step movement-level)
@@ -622,6 +634,22 @@ MOVEMENTS = [
          knee_modality=KneeModality.KOT, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10),
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # 3 program-required core/upper movements ADDED (close v0.6 program gaps)
+    # ─────────────────────────────────────────────────────────────────────────
+    dict(name="Dragon Flag", base_name="Dragon Flag", region=Region.CORE,
+         status=Status.ACTIVE, load_code=None, tags=["BW"],
+         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT),
+    dict(name="Face-Up Incline Knee Raise", base_name="Face-Up Incline Knee Raise",
+         region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["BW"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.STRAIGHT,
+         min_step=1, load_floor=0),
+    dict(name="Andreoni Cable Pullover", base_name="Andreoni Cable Pullover",
+         region=Region.UPPER, status=Status.ACTIVE,
+         load_code="ANDREONI", tags=["ANDREONI", "FT"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10),
 ]
 
 

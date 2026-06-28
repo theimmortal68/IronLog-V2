@@ -66,6 +66,29 @@ def _weekly_max_estimates(
     return [max(by_week[wk]) for wk in sorted(by_week)]
 
 
+def already_analyzed(session_id: int, db: DBSession) -> bool:
+    """True iff session.analyzed_at is set — robust idempotency marker.
+
+    Used as the idempotency guard in run_analysis (NAMED GATE b). The analyzed_at
+    timestamp is stamped on the Session row in the SAME transaction as apply_analysis,
+    covering ALL sessions — including those that produce no E1rmHistory anchor (e.g.
+    warmup-only sessions).  The old E1rmHistory-based check would return False for
+    anchor-less sessions, leaving run_analysis open to unlimited re-execution and
+    potential double-advancement of consecutive_ceiling_sessions /
+    consecutive_failed_progressions if the engine logic ever changes.
+
+    Returns False for a session_id that does not exist (safe for standalone calls).
+    The not-found guard in run_analysis (WorkoutSession.one()) still raises for
+    unknown session_ids before this function is called.
+    """
+    session = db.exec(
+        select(WorkoutSession).where(WorkoutSession.id == session_id)
+    ).first()
+    if session is None:
+        return False
+    return session.analyzed_at is not None
+
+
 def run_analysis(
     session_id: int,
     db: DBSession,
@@ -78,10 +101,20 @@ def run_analysis(
     function joins via SetLog.planned_set_id to resolve them. If a SetLog has
     no planned_set_id (unlinked set), target fields default to None and the set
     will not qualify as an anchor for e1RM estimation.
+
+    Idempotency guard (NAMED GATE b): if already_analyzed returns True, this
+    call is a no-op — returns an empty AnalysisResult without writing anything.
+    This prevents duplicate E1rmHistory rows if the same session is logged twice
+    (e.g., POST /sessions/{id}/log called more than once).
     """
     workout = db.exec(
         select(WorkoutSession).where(WorkoutSession.id == session_id)
     ).one()
+
+    # Idempotency guard (NAMED GATE b): early-return if analysis already ran.
+    # Placed after loading `workout` so the session-not-found error (.one()) still fires.
+    if already_analyzed(session_id, db):
+        return AnalysisResult()
     phase = db.exec(select(EngineState)).one().current_phase
     phase_default = db.exec(
         select(PhasePolicy).where(PhasePolicy.phase == phase)
@@ -181,6 +214,13 @@ def run_analysis(
         )
         if evaluate_calibration_flip(weekly, state.calibration_status):
             flips.add(d.movement_id)
+
+    # Stamp analyzed_at BEFORE apply_analysis so the marker is committed atomically
+    # with the MovementState deltas and any E1rmHistory rows.  This covers ALL sessions
+    # (anchor-present and anchor-less) and makes already_analyzed a true no-op gate
+    # on any subsequent call for this session_id.
+    workout.analyzed_at = datetime.now(timezone.utc)
+    db.add(workout)
 
     apply_analysis(
         result, db,
