@@ -31,7 +31,8 @@ from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
     SessionStatus, SetLog, ExerciseSurvey, Note, SetRole,
 )
-from .schemas_capture import SubmitRequest, SubmitResponse
+from .schemas_capture import (SubmitRequest, SubmitResponse,
+                               SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut)
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.loop import commit_session, generate_session
 from ..generation.skeleton import lay_skeleton
@@ -279,3 +280,60 @@ def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(ge
     written = len(db.exec(select(SetLog).where(SetLog.session_id == session_id)).all())
     return SubmitResponse(session_id=session_id, status=SessionStatus.COMPLETED.value,
                           set_logs_written=written, already_completed=False)
+
+
+# ---------------------------------------------------------------------------
+# Capture read path (logging round-trip — Task 3)
+# ---------------------------------------------------------------------------
+
+def _serialize_session(ws, db) -> SessionDetailResponse:
+    from ..models.session import Session as WorkoutSession  # noqa
+    groups_out = []
+    groups = sorted(ws.groups, key=lambda g: g.order_index)
+    for g in groups:
+        ex_out = []
+        for pe in sorted(g.exercises, key=lambda e: e.order_index):
+            mv = db.get(Movement, pe.movement_id)
+            sets_out = [PlannedSetOut(
+                id=ps.id, set_index=ps.set_index, set_role=ps.set_role.value,
+                is_warmup=ps.is_warmup, target_load=ps.target_load,
+                target_reps_low=ps.target_reps_low, target_reps_high=ps.target_reps_high,
+                target_rpe=ps.target_rpe, target_unassisted_reps=ps.target_unassisted_reps,
+                target_assisted_reps=ps.target_assisted_reps, target_plates=ps.target_plates,
+                band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
+            ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
+            ex_out.append(ExerciseOut(
+                id=pe.id, movement_id=pe.movement_id,
+                movement_name=(mv.name if mv else ""), order_index=pe.order_index,
+                scheme=pe.scheme.value, objective=pe.objective.value, planned_sets=sets_out,
+            ))
+        groups_out.append(GroupOut(
+            id=g.id, order_index=g.order_index, group_type=g.group_type.value,
+            rounds=g.rounds, rest_seconds=g.rest_seconds, label=g.label, exercises=ex_out,
+        ))
+    return SessionDetailResponse(
+        id=ws.id, date=ws.date.isoformat(), day_role=ws.day_role, phase=ws.phase,
+        status=ws.status.value, groups=groups_out,
+    )
+
+
+@app.get("/sessions/today", response_model=Optional[SessionDetailResponse])
+def get_today_session(db: Session = Depends(get_session)):
+    """Most-recently-approved PLANNED, unanalyzed session (greatest id). null if none."""
+    from ..models.session import Session as WorkoutSession
+    ws = db.exec(
+        select(WorkoutSession)
+        .where(WorkoutSession.status == SessionStatus.PLANNED)
+        .where(WorkoutSession.analyzed_at.is_(None))
+        .order_by(WorkoutSession.id.desc())
+    ).first()
+    return _serialize_session(ws, db) if ws else None
+
+
+@app.get("/sessions/{session_id}", response_model=SessionDetailResponse)
+def get_session_detail(session_id: int, db: Session = Depends(get_session)):
+    from ..models.session import Session as WorkoutSession
+    ws = db.get(WorkoutSession, session_id)
+    if ws is None:
+        raise HTTPException(404, "session not found")
+    return _serialize_session(ws, db)
