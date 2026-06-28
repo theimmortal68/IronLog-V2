@@ -116,3 +116,67 @@ Full suite:
 
 ### Hand-off (updated)
 Branch tip: `ad2feaa`. Gate-c GREEN. Full suite 191/191. Ready for Task 8.
+
+---
+
+## Menu-membership enforcement
+
+**Commit:** `087b196`
+
+### New function: `check_menu_membership`
+
+`ironlog/generation/repair.py` — `check_menu_membership(selections: Selections, ctx: GenerationContext) -> List[str]`
+
+Iterates every `SlotSelection` in `selections.slots`. For each slot that has an entry in `ctx.candidate_menus` (the "giant" and "knee" adaptive slots populated by Fork 3), it checks whether `movement_id` is in that menu. If not, it appends an outcome-only reason:
+
+```
+MENU_MEMBERSHIP: slot <slot_id> movement <movement_id> not in candidate menu
+```
+
+Slots absent from `candidate_menus` (anchors, conditioning) are skipped. Returns `[]` when all selections are in-menu.
+
+### Wired into the loop
+
+In `propose_validate_repair`, immediately after `sel = proposer.propose(...)` and **before** `assemble(...)`:
+
+```python
+membership_reasons = check_menu_membership(sel, ctx)
+if membership_reasons:
+    reasons = membership_reasons
+    continue
+```
+
+Off-menu selections are structurally rejected without assembling. The outcome-only membership reasons become the feedback payload for the next attempt, bounded by the same `max_retries`. An off-menu session is never assembled or committed.
+
+Because a knee slot's candidate menu contains only movements with the matching `knee_modality`, this guarantees by construction that any accepted session has the knee slot filled with a knee-modality movement — the "knee-slot-filled per-session" invariant.
+
+### Two new tests (`tests/test_generation_repair.py`)
+
+**Test 4 — `test_check_menu_membership_flags_off_menu_and_passes_in_menu`** (pure unit, no DB):
+- Off-menu `movement_id=99` against menu `[10, 20, 30]` → non-empty list; reason contains "MENU_MEMBERSHIP"; no remedy words ("add ", "swap ", "use ", "put ").
+- In-menu `movement_id=10` → returns `[]`.
+- Slot absent from `candidate_menus` → skipped, returns `[]`.
+
+**Test 5 — `test_repair_loop_rejects_off_menu_knee_selection`** (integration, `gen_db`):
+- Lays skeleton for `D2 Lower A` (has NORDIC, KOT, TIB knee slots in the seeded DB).
+- Picks the first knee slot; identifies an off-menu movement (any movement not in the knee slot's candidate menu).
+- `StubProposer` always returns this off-menu selection.
+- `propose_validate_repair(..., max_retries=3)` → `exhausted=True`, `assembled=None`, `attempts=3`, rejections contain "MENU_MEMBERSHIP".
+- **Positive control:** `check_menu_membership` with `knee_menu[0]` (the program anchor, in-menu) returns `[]`.
+
+### Pytest tail
+
+New tests:
+```
+7 passed, 3 warnings in 0.20s   (test_generation_repair.py)
+```
+
+Full suite:
+```
+193 passed, 59 warnings in 1.84s
+```
+
+**193 passed, 0 red.** (191 prior + 2 new menu-membership tests.)
+
+### Hand-off (updated)
+Branch tip: `087b196`. Gate-c GREEN. Full suite 193/193. Menu-membership enforcement complete — off-menu knee-slot selections are now hard-rejected and never accepted.
