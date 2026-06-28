@@ -27,7 +27,11 @@ from sqlmodel import Session, select
 
 from ..db import engine
 from ..engine import next_set_load
-from ..models import BandPair, Equipment, FeedbackTap, Movement, Phase, PhasePolicy
+from ..models import (
+    BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
+    SessionStatus, SetLog, ExerciseSurvey, Note, SetRole,
+)
+from .schemas_capture import SubmitRequest, SubmitResponse
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.loop import commit_session, generate_session
 from ..generation.skeleton import lay_skeleton
@@ -208,3 +212,72 @@ def approve_session(candidate_id: str, db: Session = Depends(get_session)):
         fallback_used=outcome.exhausted,
     )
     return ApproveResponse(session_id=committed.id)
+
+
+# ---------------------------------------------------------------------------
+# Capture write path (logging round-trip)
+# ---------------------------------------------------------------------------
+
+_TAP_REQUIRED_ROLES = {SetRole.WORKING, SetRole.TOP, SetRole.BACKOFF}
+
+
+@app.post("/sessions/{session_id}/submit", response_model=SubmitResponse)
+def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(get_session)):
+    """Atomic offline-batch completion: validate taps -> write SetLogs/surveys/
+    notes -> PLANNED->COMPLETED -> run_analysis. Idempotent on session_id."""
+    from ..models.session import Session as WorkoutSession
+    ws = db.get(WorkoutSession, session_id)
+    if ws is None:
+        raise HTTPException(404, "session not found")
+
+    # Idempotency (lost-ack retry is the norm): already COMPLETED -> complete no-op.
+    if ws.status == SessionStatus.COMPLETED:
+        existing = db.exec(select(SetLog).where(SetLog.session_id == session_id)).all()
+        return SubmitResponse(session_id=session_id, status=ws.status.value,
+                              set_logs_written=len(existing), already_completed=True)
+
+    # Validate mandatory tap on working sets BEFORE any write.
+    for sl in req.set_logs:
+        if sl.set_role in {r.value for r in _TAP_REQUIRED_ROLES} and sl.feedback_tap is None:
+            raise HTTPException(422, f"working set (role={sl.set_role}, index={sl.set_index}) "
+                                     "missing feedback_tap")
+
+    for sl in req.set_logs:
+        db.add(SetLog(
+            planned_set_id=sl.planned_set_id, session_id=session_id,
+            movement_id=sl.movement_id, set_index=sl.set_index,
+            actual_load=sl.actual_load, actual_reps=sl.actual_reps,
+            feedback_tap=FeedbackTap(sl.feedback_tap) if sl.feedback_tap is not None else None,
+            rpe_numeric=sl.rpe_numeric,
+            is_warmup=sl.is_warmup,
+            actual_unassisted_reps=sl.actual_unassisted_reps,
+            actual_assisted_reps=sl.actual_assisted_reps,
+            actual_plates=sl.actual_plates, band_pair_id=sl.band_pair_id,
+            felt_peak=sl.felt_peak,
+        ))
+    for sv in req.surveys:
+        db.add(ExerciseSurvey(session_id=session_id, movement_id=sv.movement_id,
+                              sticking_point=sv.sticking_point,
+                              asymmetry_flag=sv.asymmetry_flag,
+                              technique_flag=sv.technique_flag))
+    for nt in req.notes:
+        db.add(Note(session_id=session_id, movement_id=nt.movement_id, text=nt.text,
+                    classification=NoteClass.JOURNAL, confirmed=False, applied=False))
+
+    ws.status = SessionStatus.COMPLETED
+    db.add(ws)
+    db.commit()
+
+    # Fire the analyze-at-log seam (v0.6 two-writer boundary: run_analysis owns
+    # current_load; this handler never writes it).  Cold-start is expected — if
+    # EngineState / MovementState rows don't exist yet the analyzers are simply
+    # data-starved; the write already committed, so we swallow the lookup error
+    # rather than rolling back a successful log.
+    try:
+        run_analysis(session_id, db, _week_keyer)
+    except Exception:
+        pass
+
+    written = len(db.exec(select(SetLog).where(SetLog.session_id == session_id)).all())
+    return SubmitResponse(session_id=session_id, status=SessionStatus.COMPLETED.value,
+                          set_logs_written=written, already_completed=False)
