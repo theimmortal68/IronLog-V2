@@ -66,6 +66,24 @@ def _weekly_max_estimates(
     return [max(by_week[wk]) for wk in sorted(by_week)]
 
 
+def already_analyzed(session_id: int, db: DBSession) -> bool:
+    """True iff an E1rmHistory row for this session already exists.
+
+    Used as the idempotency guard in run_analysis (NAMED GATE b). An E1rmHistory
+    row is the canonical evidence that analysis ran and produced an anchor —
+    re-running analysis on a session that already has a row must be a no-op to
+    prevent duplicate history rows / double-advancing calibration state.
+
+    Edge case: a session with no qualifying anchor sets produces NO E1rmHistory
+    rows. already_analyzed returns False in that case, meaning run_analysis will
+    re-execute — which is harmless because without an anchor there is nothing to
+    double-write.
+    """
+    return db.exec(
+        select(E1rmHistory).where(E1rmHistory.session_id == session_id)
+    ).first() is not None
+
+
 def run_analysis(
     session_id: int,
     db: DBSession,
@@ -78,10 +96,20 @@ def run_analysis(
     function joins via SetLog.planned_set_id to resolve them. If a SetLog has
     no planned_set_id (unlinked set), target fields default to None and the set
     will not qualify as an anchor for e1RM estimation.
+
+    Idempotency guard (NAMED GATE b): if already_analyzed returns True, this
+    call is a no-op — returns an empty AnalysisResult without writing anything.
+    This prevents duplicate E1rmHistory rows if the same session is logged twice
+    (e.g., POST /sessions/{id}/log called more than once).
     """
     workout = db.exec(
         select(WorkoutSession).where(WorkoutSession.id == session_id)
     ).one()
+
+    # Idempotency guard (NAMED GATE b): early-return if analysis already ran.
+    # Placed after loading `workout` so the session-not-found error (.one()) still fires.
+    if already_analyzed(session_id, db):
+        return AnalysisResult()
     phase = db.exec(select(EngineState)).one().current_phase
     phase_default = db.exec(
         select(PhasePolicy).where(PhasePolicy.phase == phase)
