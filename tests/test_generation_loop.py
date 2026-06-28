@@ -16,13 +16,19 @@ Reconciliations vs brief:
 NO from __future__ import annotations (project-wide constraint).
 gen_db / logged_session_id / stalled_session_db fixtures auto-discovered from conftest.py.
 """
+from datetime import date
+
 from sqlmodel import func, select
 
+from ironlog.generation.assembler import AssembledSession
 from ironlog.generation.fallback import program_selections
 from ironlog.generation.loop import generate_session, commit_session, is_clean
 from ironlog.generation.proposer import StubProposer, Selections
+from ironlog.generation.repair import RepairOutcome
 from ironlog.generation.skeleton import lay_skeleton
+from ironlog.models.enums import SessionStatus
 from ironlog.models.library import E1rmHistory, MovementState
+from ironlog.models.session import Session as IronSession
 from ironlog.persistence.run_analysis import run_analysis, already_analyzed
 
 
@@ -128,3 +134,65 @@ def test_two_writer_boundary(gen_db, logged_session_id):
     assert before == after, (
         "run_analysis wrote current_load — violates two-writer boundary (GATE e)"
     )
+
+
+# ---------------------------------------------------------------------------
+# is_clean — quiet-path and exhausted-path coverage
+# ---------------------------------------------------------------------------
+
+def _stub_assembled() -> AssembledSession:
+    """Minimal AssembledSession for is_clean tests (no DB needed)."""
+    sess = IronSession(date=date(2026, 1, 1), day_role="D1 Upper Push", phase="CUT",
+                       status=SessionStatus.PLANNED)
+    return AssembledSession(session=sess, prospective_current_loads={})
+
+
+def test_is_clean_quiet_path_attempts_zero():
+    """is_clean returns True for a quiet-week program emission (attempts=0, clamps=0).
+
+    generate_session's quiet path (§3A no-LLM branch) returns
+    RepairOutcome(attempts=0, clamps_applied=0, exhausted=False, assembled=<session>).
+    The OLD check (attempts == 1) returns False, making a pristine deterministic
+    emission appear unclean — it would be routed for human approval instead of
+    auto-approved.  The fix (attempts <= 1) covers both the quiet path (0) and
+    the first-try-clean LLM path (1).
+
+    This test FAILS before the fix (is_clean returns False for attempts=0) and
+    PASSES after (attempts <= 1 → True).
+    """
+    assembled = _stub_assembled()
+    quiet_outcome = RepairOutcome(
+        assembled=assembled, attempts=0, clamps_applied=0, exhausted=False,
+    )
+    assert is_clean(quiet_outcome) is True, (
+        "quiet-week deterministic emission (attempts=0, clamps=0) must be clean. "
+        "Fix: change attempts == 1 to attempts <= 1 in is_clean."
+    )
+
+
+def test_is_clean_first_try_clean_still_true():
+    """is_clean still returns True for a first-try-clean LLM outcome (attempts=1)."""
+    assembled = _stub_assembled()
+    first_try = RepairOutcome(
+        assembled=assembled, attempts=1, clamps_applied=0, exhausted=False,
+    )
+    assert is_clean(first_try) is True, "first-try-clean (attempts=1) must remain clean"
+
+
+def test_is_clean_exhausted_or_fallback_is_never_clean():
+    """is_clean returns False for exhausted outcomes and fallback (assembled=None)."""
+    assembled = _stub_assembled()
+    exhausted = RepairOutcome(
+        assembled=None, attempts=3, clamps_applied=0, exhausted=True,
+    )
+    assert is_clean(exhausted) is False, "exhausted outcome must not be clean"
+
+    fallback = RepairOutcome(
+        assembled=None, attempts=0, clamps_applied=0, exhausted=False,
+    )
+    assert is_clean(fallback) is False, "assembled=None outcome must not be clean"
+
+    with_clamps = RepairOutcome(
+        assembled=assembled, attempts=1, clamps_applied=2, exhausted=False,
+    )
+    assert is_clean(with_clamps) is False, "outcome with clamps applied must not be clean"

@@ -67,21 +67,26 @@ def _weekly_max_estimates(
 
 
 def already_analyzed(session_id: int, db: DBSession) -> bool:
-    """True iff an E1rmHistory row for this session already exists.
+    """True iff session.analyzed_at is set — robust idempotency marker.
 
-    Used as the idempotency guard in run_analysis (NAMED GATE b). An E1rmHistory
-    row is the canonical evidence that analysis ran and produced an anchor —
-    re-running analysis on a session that already has a row must be a no-op to
-    prevent duplicate history rows / double-advancing calibration state.
+    Used as the idempotency guard in run_analysis (NAMED GATE b). The analyzed_at
+    timestamp is stamped on the Session row in the SAME transaction as apply_analysis,
+    covering ALL sessions — including those that produce no E1rmHistory anchor (e.g.
+    warmup-only sessions).  The old E1rmHistory-based check would return False for
+    anchor-less sessions, leaving run_analysis open to unlimited re-execution and
+    potential double-advancement of consecutive_ceiling_sessions /
+    consecutive_failed_progressions if the engine logic ever changes.
 
-    Edge case: a session with no qualifying anchor sets produces NO E1rmHistory
-    rows. already_analyzed returns False in that case, meaning run_analysis will
-    re-execute — which is harmless because without an anchor there is nothing to
-    double-write.
+    Returns False for a session_id that does not exist (safe for standalone calls).
+    The not-found guard in run_analysis (WorkoutSession.one()) still raises for
+    unknown session_ids before this function is called.
     """
-    return db.exec(
-        select(E1rmHistory).where(E1rmHistory.session_id == session_id)
-    ).first() is not None
+    session = db.exec(
+        select(WorkoutSession).where(WorkoutSession.id == session_id)
+    ).first()
+    if session is None:
+        return False
+    return session.analyzed_at is not None
 
 
 def run_analysis(
@@ -209,6 +214,13 @@ def run_analysis(
         )
         if evaluate_calibration_flip(weekly, state.calibration_status):
             flips.add(d.movement_id)
+
+    # Stamp analyzed_at BEFORE apply_analysis so the marker is committed atomically
+    # with the MovementState deltas and any E1rmHistory rows.  This covers ALL sessions
+    # (anchor-present and anchor-less) and makes already_analyzed a true no-op gate
+    # on any subsequent call for this session_id.
+    workout.analyzed_at = datetime.now(timezone.utc)
+    db.add(workout)
 
     apply_analysis(
         result, db,

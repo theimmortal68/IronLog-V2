@@ -37,10 +37,14 @@ def is_clean(outcome: RepairOutcome) -> bool:
     """Fork 7a/7b: clean iff zero repairs AND zero clamps.
 
     A fallback (assembled is None OR exhausted is True) is NEVER clean.
+    A quiet-week deterministic emission (attempts=0, clamps_applied=0) IS clean —
+    it is the most pristine outcome possible (no LLM call, no repairs, no clamps).
+    The check uses attempts <= 1 to cover both the quiet path (0) and the
+    first-try-clean LLM path (1).
     """
     if outcome.assembled is None or outcome.exhausted:
         return False
-    return outcome.attempts == 1 and outcome.clamps_applied == 0
+    return outcome.attempts <= 1 and outcome.clamps_applied == 0
 
 
 def commit_session(
