@@ -168,3 +168,62 @@ Migration `006_session_analyzed_at.sql` adds the nullable `analyzed_at DATETIME`
 ```
 
 Prior count: 206. New tests: 5 (anchor-less idempotency, analyzed_at anchor-present, is_clean quiet-path, is_clean first-try, is_clean exhausted/fallback). 0 red. 0 regressions.
+
+---
+
+## Final fix wave
+
+**Commit:** a08b8ef — `fix(gen): thread provenance to GenerationLog; quiet-path surfaces structural REJECTs + gate c all 5 days; menu-less slots non-deviable; minor sweep`
+
+### FIX 1 — Provenance threading (§10 replayability)
+
+**Problem:** `commit_session` accepted `prompt_json`/`selections_json`/`clamps_json` parameters but `/approve` passed empty dicts — every `GenerationLog` row had blank provenance.
+
+**Changes:**
+- `repair.py`: Added `_selections_to_dict(sel)` and `_clamps_to_list(result)` helpers. Added three provenance fields to `RepairOutcome`: `prompt: Optional[dict]`, `selections_dict: Optional[dict]`, `clamps: Optional[list]`. `propose_validate_repair` populates all three on success (prompt = injected payload, selections_dict = winning Selections serialised, clamps = what was corrected from pre-clamp validate result).
+- `loop.py`: Quiet path builds `build_context_payload(ctx, sk)` for provenance even on no-LLM paths. Both paths (quiet + LLM) populate `outcome.prompt`, `outcome.selections_dict`, `outcome.clamps`. For the exhausted→fallback path, `selections_dict` is set to the fallback program_selections.
+- `app.py`: `/approve` now passes `outcome.prompt or {}`, `outcome.selections_dict or {}`, `outcome.clamps or []` to `commit_session`. Changed `approval_mode="auto"` → `approval_mode="human"` (beta /approve is human-initiated).
+
+**Test:** `test_provenance_non_empty_after_generate_and_commit` (in `test_generation_loop.py`) — quiet-week `generate_session` → `commit_session` → asserts `GenerationLog` row has non-empty `prompt_json` AND `selections_json` with `ordering`/`slots` keys. `approval_mode == "human"`. GREEN.
+
+### FIX 2 — Quiet-path structural REJECT guard + gate c all 5 days
+
+**Problem:** The deterministic quiet path ran `validate` but only called `apply_clamps` — structural REJECTs were silently dropped and an invalid session could be returned. Gate c test only covered D1.
+
+**Changes:**
+- `loop.py`: Quiet path now keeps `result_pre` (pre-clamp) and `result_post` (post-clamp re-validate) as separate variables. If `result_post.is_structurally_valid` is False, falls back to `fallback_session(sk, ctx, db)` and re-validates. If the fallback is also invalid, raises `ValueError` (the program prior being structurally invalid is a real error, not a silent emit).
+
+**Tests added:**
+- `test_gate_c_all_five_day_roles` (parametrized over `["D1 Upper Push", "D2 Lower A", "D4 Upper Pull", "D5 Lower B", "D6 Weak Points"]`) — each `fallback_session` cold-start is `is_structurally_valid` and prescribes at least one set with a load. All 5 GREEN.
+- `test_quiet_path_structural_reject_falls_back_not_returns_invalid` — monkeypatches `validate` (in `loop_mod`) to inject a structural REJECT on the first two calls (program-prior path), normal on subsequent (fallback path). Asserts the returned outcome is valid (fallback used) OR a `ValueError` is raised — never the invalid session.
+
+### FIX 3 — Menu-less accessory slots non-deviable
+
+**Problem:** `resolve_context` only builds candidate menus for `kind in ("giant", "knee")`; accessory semi/free non-knee slots had no menu, but `slot_has_deviation_signal` could still return True for them (stall/note signal), triggering an unconstrained LLM deviation with no guardrail.
+
+**Change:** `context.py` — `slot_has_deviation_signal` now returns `False` immediately if `slot.slot_id not in ctx.candidate_menus`. Added a docstring explaining the guardrail completeness invariant.
+
+Also updated the `test_should_invoke_llm_stall_signal_returns_true` fixture query to explicitly select a `kind="giant"` slot (which has a menu) rather than any `tier_role in ("semi","free")` slot.
+
+**Test:** `test_menu_less_slot_is_not_deviation_eligible` — manufactures a dummy `SlotSpec` with `kind="semi"` (absent from `candidate_menus`), injects all possible deviation signals (weak_point_hints, note_flagged, novelty_owed), and asserts `slot_has_deviation_signal` returns False. GREEN.
+
+### FIX 4 — Minor sweep (imports + dead parameter + docstring)
+
+- `context.py`: Removed unused `Optional` from `from typing import` imports.
+- `signature.py`: Removed unused `Dict` from `from typing import` imports.
+- `repair.py`: Removed `ViolationKind` and `selections_from_dict` from imports (both unused).
+- `assembler.py`: Removed `current_increment` from `from ..engine.loading import` (unused). Removed dead `is_anchor: bool` parameter from `_sets_for_scheme` signature and its two call sites. Fixed `assemble()` docstring: "one shared GIANT_SET group" → "one GIANT_SET group per source tier".
+
+### Pytest tails
+
+Affected modules only:
+```
+36 passed, 30 warnings in 1.64s
+```
+
+Full suite:
+```
+224 passed, 90 warnings in 2.73s
+```
+
+Prior count: 211. New tests: 13 (1 provenance end-to-end, 5 gate-c day-roles, 1 structural-REJECT guard, 1 menu-less non-deviable, updates to 1 existing stall-signal test). 0 red. 0 regressions.
