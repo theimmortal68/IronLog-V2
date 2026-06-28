@@ -59,6 +59,8 @@ The user trains in a basement with spotty wifi, so the workout **must** run with
 - **`GET /sessions/{id}`** → the full Session graph (groups → exercises → PlannedSets). Drives the capture UI ("do this" + capture actuals against it) and is the reload-after-backgrounding path. (No session-read endpoint exists today.)
 - **`GET /sessions/today`** (or `?status=PLANNED`) → the client's entry point: locate the approved session to capture against. **Deterministic semantics (pinned):** zero approved-unlogged PLANNED sessions → empty (client shows "generate one"); multiple → the most recent approved PLANNED session (or the one dated today). The entry point must not guess.
 
+**The endpoint contract is the server↔client crossing artifact (two-repo).** This chunk spans two repos (`IronLog-V2` server, `IronLog-V2-Client`) with two build paths that can't be co-tested easily, so the three shapes the client depends on — the `/submit` request payload, the `GET /sessions/{id}` response, the `GET /sessions/today` response — are an **explicit, locked contract**. The plan MUST: (a) define these DTO/response shapes as a written contract artifact (one place, named field-by-field) that the client codes against, AND (b) sequence the server endpoints **built-and-tested-stable before** the client capture tasks begin. This prevents the classic two-sides-of-an-API gap (client built against an assumed shape the server didn't produce). The contract is the seam that keeps the two repos meeting in the middle.
+
 ---
 
 ## 4. Input-stream scope (Fork 4) — A core / B in-batch / C text-now-classify-later
