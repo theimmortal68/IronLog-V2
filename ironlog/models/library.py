@@ -164,3 +164,18 @@ class E1rmHistory(SQLModel, table=True):
     anchor_reps: int
     anchor_rpe: float
     computed_at: datetime
+
+
+class GenerationLog(SQLModel, table=True):
+    """Full provenance of a generation (Fork 7d): the injected prompt, the
+    model's selections, any clamps/repairs, the approval mode, and whether a
+    fallback was used. Replayable audit trail (docs/06 §10)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: int = Field(foreign_key="session.id", index=True)
+    prompt_json: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    selections_json: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    clamps_json: list = Field(default_factory=list, sa_column=Column(JSON))
+    repairs_json: list = Field(default_factory=list, sa_column=Column(JSON))
+    approval_mode: str = "auto"            # "human" | "auto"
+    fallback_used: bool = False
+    committed_at: datetime = Field(default_factory=datetime.utcnow)
