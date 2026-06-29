@@ -424,7 +424,6 @@ def get_wizard_state(program_id: int, db: Session = Depends(get_session)):
 
     now = datetime.utcnow()
     movements: List[WizardMovement] = []
-    needs_attention = 0
     for mv_id in sorted(_program_movement_ids(program_id, db)):
         mv = db.get(Movement, mv_id)
         if mv is None:
@@ -435,23 +434,23 @@ def get_wizard_state(program_id: int, db: Session = Depends(get_session)):
         r = compute_load_trust(mv, state, db, as_of=now)
         if r.load_field is None:          # bodyweight — no load, never asked
             continue
-        trust = r.trust.value
-        if trust in ("UNKNOWN", "STALE"):
-            needs_attention += 1
         movements.append(WizardMovement(
             movement_id=mv_id,
             movement_name=mv.name,
             load_field=r.load_field,
-            trust=trust,
+            trust=r.trust.value,
             prefill_value=r.value,
             unit_hint=_UNIT_HINTS.get(r.load_field),
         ))
 
+    # Count-predicate single-sourced: the needs-attention count comes from the
+    # SHARED _needs_attention_count helper, not a local copy of the predicate.
+    needs_attention_count = _needs_attention_count(program_id, db, now)
     return WizardStateResponse(
         program_id=program.id,
         program_name=program.name,
-        needs_attention_count=needs_attention,
-        ready_to_start=(needs_attention == 0),
+        needs_attention_count=needs_attention_count,
+        ready_to_start=(needs_attention_count == 0),
         movements=movements,
     )
 
