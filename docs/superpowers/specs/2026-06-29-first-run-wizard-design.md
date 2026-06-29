@@ -28,10 +28,14 @@ The dry-run (Finding A) showed empty MovementState makes generation silently res
 |---|---|---|
 | LADDER | `current_load` | no `current_load` |
 | COMPOSITE (HT) | `current_load` (bar load, ≤220 cap; plates+band composite deferred to v0.7) | no `current_load` |
-| ASSISTED (Pull-up, Nordic) | `assist_level` (progress by reducing assistance) | no `assist_level` |
+| ASSISTED (Pull-up, Nordic) | `assist_level` (progress by *reducing* assistance) | `assist_level` **IS NULL** (never set) |
 | PROTOCOL / CONDITIONING / NONE (bodyweight: Ab Wheel, Dips, Dragon Flag, Face-Up Knee Raise, Sissy) | none — no load to set | **never** (always trivially FRESH; the wizard never asks for these) |
 
 So `compute_load_trust` first asks "does this movement need a load at all?" (per mode) — bodyweight/protocol movements are always FRESH (no load to configure); the rest check the canonical load field's presence + recency.
+
+**Two edge guards (pinned — these are where this mapping could go subtly wrong):**
+- **Bodyweight (PROTOCOL/CONDITIONING/NONE) is NEVER needs-calibration** — there is no load to set, so it is complete-by-default (always FRESH) and must never appear in the wizard or block completion. (A bodyweight movement in needs-calibration would block the wizard forever on something with nothing to enter.)
+- **ASSISTED distinguishes NULL from 0.** "Needs a value" means `assist_level IS NULL` (never configured). **`assist_level = 0` (unassisted) is a VALID, configured, FRESH state** — a strong athlete doing unassisted pull-ups is configured-to-zero-assist, NOT un-calibrated. The presence check is `IS NULL`, never falsy/`== 0`, or progressing-to-unassisted would perpetually re-flag needs-calibration. (The same null-not-falsy care applies to `current_load` for completeness, though 0 lb is not a realistic configured barbell load.) For assisted movements the wizard collects the *assist* (tube/band — e.g. the program's "1 band, foot position" start), which is a different question than a barbell weight (more assist = easier, the inverse), so its input control is the assist selector, not a weight field.
 
 ---
 
@@ -111,7 +115,7 @@ The client mirrors these as Kotlin DTOs field-for-field (snake_case), same as th
 
 ## 6. Schema changes + migrations
 
-This chunk has real schema changes (unlike logging) — migration authoring rule applies (single-statement-atomic or idempotent; extend the parity test):
+This chunk has real schema changes (unlike logging) — migration authoring rule applies (single-statement-atomic or idempotent; extend the parity test). **All new columns are ADDITIVE-NULLABLE** (`ALTER TABLE … ADD COLUMN … <type>` with no NOT-NULL/default needed), so they land on the **just-seeded live DB** (the 108 movements / program / EngineState seeded 2026-06-29) cleanly — **migrate-forward via the existing `apply_pending` mechanism, NOT a reseed.** An additive-nullable column doesn't touch existing rows, so the seeded structure is undisturbed (no wipe, no data loss; reversible — the seed is reproducible). The **migration parity test (§7.9) must cover the new columns** (chain incl. them == `create_all`). New columns:
 - `MovementState.confirmed_at` (datetime, nullable) — Fork 2.
 - `EngineState.active_program_id` (int FK → program.id, nullable) — Fork 3.
 - `Program.started_at`, `Program.ended_at` (datetime, nullable) — Fork 3.
@@ -122,7 +126,7 @@ On apply: the live V2 DB was just structure-seeded (2026-06-29); these are addit
 
 ## 7. Named test targets (the make-drift-impossible gates)
 
-1. **`compute_load_trust` correctness:** UNKNOWN (no load field value), STALE (value present, `max(performed_at, confirmed_at)` > 30d), FRESH (within 30d); bodyweight/protocol movements always FRESH (no load needed). Per progression_mode load-field selection.
+1. **`compute_load_trust` correctness:** UNKNOWN (load field IS NULL), STALE (value present, `max(performed_at, confirmed_at)` > 30d), FRESH (within 30d); per progression_mode load-field selection. **Edge guards (must test):** (a) a bodyweight/PROTOCOL movement is always FRESH and never needs-calibration (no load to set — never blocks); (b) an ASSISTED movement with `assist_level = 0` (unassisted) is **FRESH/valid**, NOT needs-calibration — only `assist_level IS NULL` is UNKNOWN. The presence check is `IS NULL`, never falsy/`== 0` (else progressing to unassisted pull-ups perpetually re-flags).
 2. **Shared-function consistency (the spine):** generation's resolver, the `GET /wizard/state` endpoint, and the completion gate all derive trust from the SAME `compute_load_trust` — a test that the wizard-state trust for a movement equals what generation sees (they cannot disagree). This is the load-bearing coherence gate.
 3. **`confirmed_at` is honest (stamp-only-on-touched):** a FRESH-untouched movement's `confirmed_at` is NOT changed by a wizard resolve that didn't include it; a resolved movement's `confirmed_at` IS stamped. (The event-fact integrity pin.)
 4. **needs-calibration not floor (Finding A):** `resolve_start_load` / generation returns a needs-calibration signal for an unconfigured movement, never a fake equipment floor. Test against an empty-MovementState movement (Bench must NOT come back 45).
