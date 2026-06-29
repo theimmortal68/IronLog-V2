@@ -344,3 +344,39 @@ Full suite:
 ```
 231 passed, 98 warnings in 2.92s
 ```
+
+---
+
+## Final-review fix wave (server)
+
+**Commit:** `0c8f94d`
+**Branch:** `feat/logging-round-trip`
+**Date:** 2026-06-28
+
+### Survey/note write-branch test: `test_submit_writes_surveys_and_notes`
+
+Added to `tests/test_submit_endpoint.py` (Fork-4 B/C coverage lock).
+
+**Gap closed:** Every prior submit test passed `"surveys": [], "notes": []`, leaving the non-empty ExerciseSurvey + Note write path untested. The handler already wrote them correctly (lines 259–266 of `ironlog/api/app.py`) — no handler change needed.
+
+**Test approach:** Reuses `_client()`, `_seed_analysis_state(engine)`, `_planned_session(engine)` exactly like the other gate tests. Posts one WORKING SetLog (with `feedback_tap="ON_TARGET"`) + one ExerciseSurveyIn (`sticking_point="BOTTOM"`, `asymmetry_flag=True`, `technique_flag=False`) + one NoteIn (`movement_id=3`, `text="felt unstable at the bottom"`). Asserts:
+- HTTP 200, `already_completed=False`
+- 1 ExerciseSurvey row with correct `sticking_point`/`asymmetry_flag`/`technique_flag`
+- 1 Note row: `classification == NoteClass.JOURNAL`, `confirmed is False`, `applied is False` (deferred-classification contract locked)
+- 1 SetLog (sanity)
+
+**Handler worked first try** — the write branch was already correct; this test purely adds coverage.
+
+### pytest tails
+
+New test alone:
+```
+1 passed, 5 warnings in 0.29s
+```
+
+Full suite:
+```
+236 passed, 105 warnings in 3.13s
+```
+
+Total: 236 tests, 0 failed (235 prior + 1 new).
