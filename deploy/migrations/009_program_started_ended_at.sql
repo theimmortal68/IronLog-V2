@@ -1,0 +1,2 @@
+ALTER TABLE program ADD COLUMN started_at DATETIME;
+ALTER TABLE program ADD COLUMN ended_at DATETIME;

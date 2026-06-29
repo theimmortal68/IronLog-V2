@@ -33,24 +33,30 @@ from sqlmodel import select
 # NAMED GATE d
 # ---------------------------------------------------------------------------
 
-def test_commit_writes_current_load_assemble_does_not(gen_db):
-    """NAMED GATE d: assemble computes-but-doesn't-write; commit writes."""
+def test_commit_writes_current_load_assemble_does_not(gen_db_calibrated):
+    """NAMED GATE d: assemble computes-but-doesn't-write; commit writes.
+
+    Reconciled for Task 3: loads are configured (gen_db_calibrated) so the program
+    yields a non-empty prospective map (the floor that used to populate it for
+    unconfigured movements is gone).  The no-write check now compares the full
+    current_load snapshot before vs. after assemble (robust regardless of whether
+    the prospective value happens to equal the seeded value)."""
+    gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
     ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
     sel = program_selections(sk)  # brief used cold_start_selections; real name
+
+    # Snapshot current_load for all states BEFORE assemble.
+    before_snap = {s.movement_id: s.current_load
+                   for s in gen_db.exec(select(MovementState)).all()}
     assembled = assemble(sel, sk, ctx, gen_db)
-    target_mid = next(iter(assembled.prospective_current_loads))
-
-    # Before commit: state may not exist in a fresh gen_db for D1 Upper Push
-    # movements (only Back Squat [PB] is seeded with a MovementState).
-    before_st = gen_db.exec(
-        select(MovementState).where(MovementState.movement_id == target_mid)
-    ).first()
-    before = before_st.current_load if before_st is not None else None
-
+    after_assemble = {s.movement_id: s.current_load
+                      for s in gen_db.exec(select(MovementState)).all()}
     # assemble must NOT have written current_load
-    assert before is None or before != assembled.prospective_current_loads[target_mid]
+    assert before_snap == after_assemble, "assemble must NOT write current_load"
+
+    target_mid = next(iter(assembled.prospective_current_loads))
 
     saved = commit_session(
         assembled, gen_db,

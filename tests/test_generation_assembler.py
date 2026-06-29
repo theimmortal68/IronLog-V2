@@ -25,7 +25,11 @@ def _canned_for(sk, ctx):
     return Selections(ordering=[s.slot_id for s in slots], slots=slots, rationale="t")
 
 
-def test_assembler_is_deterministic(gen_db):
+def test_assembler_is_deterministic(gen_db_calibrated):
+    # Reconciled for Task 3: loads configured (gen_db_calibrated) so the assembled
+    # numbers are real prescriptions, not floor fabrications.  Bodyweight movements
+    # contribute target_load None (consistent across runs).
+    gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
     ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
@@ -34,10 +38,14 @@ def test_assembler_is_deterministic(gen_db):
     b = assemble(sel, sk, ctx, gen_db)
     la = [ps.target_load for g in a.session.groups for e in g.exercises for ps in e.planned_sets]
     lb = [ps.target_load for g in b.session.groups for e in g.exercises for ps in e.planned_sets]
-    assert la == lb and la, "fixed selections must yield fixed, non-empty numbers"
+    assert la == lb and la, "fixed selections must yield fixed, non-empty results"
+    assert any(v is not None for v in la), "configured loads must yield real numbers"
 
 
-def test_assemble_does_not_write_current_load(gen_db):
+def test_assemble_does_not_write_current_load(gen_db_calibrated):
+    # Reconciled for Task 3: loads configured so prospective loads are non-empty
+    # (the floor that used to populate prospective for unconfigured movements is gone).
+    gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
     ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)

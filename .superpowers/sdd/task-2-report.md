@@ -380,3 +380,96 @@ Full suite:
 ```
 
 Total: 236 tests, 0 failed (235 prior + 1 new).
+
+---
+---
+
+# FIRST-RUN WIZARD — Task 2: `compute_load_trust` (the shared keystone)
+
+**Status:** DONE
+**Branch:** `feat/first-run-wizard`
+**Files:** created `ironlog/generation/load_trust.py`, `tests/test_load_trust.py`
+
+## The function
+
+`compute_load_trust(movement, state, db, as_of) -> LoadTrustResult` is the single shared
+load-trustworthiness function. Trust is DERIVED every call from event-facts — never a stored
+verdict. Public surface:
+
+- `LoadTrust` enum: `UNKNOWN` / `STALE` / `FRESH`
+- `LoadTrustResult` dataclass: `trust`, `value: Optional[float]`, `load_field: Optional[str]`
+- `load_field_for_mode(mode) -> Optional[str]`
+- `compute_load_trust(movement, state, db, as_of) -> LoadTrustResult`
+
+Tasks 3 (generation resolver), 4 (wizard-state endpoint), and 5 (completion gate) all import this
+one definition — no per-surface reimplementation.
+
+## The five behavior points
+
+1. **Per-mode load field** (`load_field_for_mode`): LADDER/COMPOSITE → `"current_load"`;
+   ASSISTED → `"assist_level"`; PROTOCOL/CONDITIONING/NONE → `None`. A `None` load_field means
+   bodyweight: returns `LoadTrustResult(FRESH, None, None)` immediately — always FRESH, never
+   UNKNOWN, never asked (no load to set).
+
+2. **Value resolution** (`_resolve_value`, mirrors `resolve_start_load` in `assembler.py` MINUS the
+   floor): load field present (`IS NOT NULL`) → use it; ELSE derived-ratio (movement has
+   `start_ratio` + `derived_from_id` and the anchor `MovementState` has an `e1rm`) →
+   `start_ratio * anchor.e1rm`; ELSE → `None` → UNKNOWN. **The `movement.load_floor … else 0.0`
+   floor fallback is DROPPED** — that silent-wrong floor is the bug being fixed; an unconfigured
+   movement returns UNKNOWN, never a fake floor load.
+
+3. **IS-NULL-not-zero presence** (subtle guard): presence is checked with `if v is not None`,
+   never falsy / `== 0`. `assist_level == 0.0` (unassisted pull-ups) is a VALID, configured, FRESH
+   value — NOT UNKNOWN. Verified by `test_assisted_null_is_unknown_but_zero_is_fresh`.
+
+4. **Recency = `max(last working SetLog.performed_at, MovementState.confirmed_at)`**. Working sets
+   only (`is_warmup == False`). FRESH if recency within 30 days of `as_of`; STALE if value present
+   but recency is None or > 30 days; UNKNOWN only if no value (point 2). Confirmed-40d-ago but
+   logged-3d-ago → FRESH via the max; warmup-only recent set does NOT refresh (STALE).
+
+5. **Derived-ratio value** (value-resolution nuance): a derived movement with no own `current_load`
+   but a configured anchor (`anchor.e1rm`) resolves to `start_ratio * anchor.e1rm`, NOT UNKNOWN — so
+   the wizard does not over-ask for movements that derive load from a parent. Verified with its own
+   load-less state (→ FRESH via `confirmed_at`) and with no state at all (→ value resolves, recency
+   None → STALE).
+
+**Tz handling:** project default for `performed_at` / `confirmed_at` is naive `datetime.utcnow()`,
+while callers (and the wizard tests) pass tz-aware `as_of`. Added `_as_naive_utc(dt)` — aware →
+UTC then drop tzinfo; naive unchanged. All recency candidates and `as_of` pass through it before
+subtraction, so naive-vs-aware never raises. Covered by
+`test_naive_stored_datetimes_are_comparable_with_aware_as_of`.
+
+## Tests (TDD red → green)
+
+Red (module missing):
+```
+E   ModuleNotFoundError: No module named 'ironlog.generation.load_trust'
+1 error in 0.09s
+```
+
+Green (`tests/test_load_trust.py`, 11 tests):
+```
+...........                                                              [100%]
+11 passed, 1 warning in 0.18s
+```
+
+Test inventory: load_field_for_mode (all 6 modes), LADDER no-load→UNKNOWN, present+recent→FRESH,
+present+old→STALE, recency-via-working-SetLog max, warmup-does-not-count, bodyweight/PROTOCOL
+always-FRESH, assisted null-vs-zero (IS-NULL guard), derived-ratio with own state, derived-ratio
+with no state, naive/aware comparability.
+
+Full suite:
+```
+247 passed, 106 warnings in 3.18s
+```
+0 failed. Build-and-test-only, in-memory SQLite, server-side on myflix.
+
+## Commit
+
+`feat(wizard): compute_load_trust shared keystone (computed trust; IS-NULL-not-zero; bodyweight-always-fresh; derived-ratio value)` — hash recorded at bottom.
+
+## Concerns
+
+None. The single deprecation warning under the naive-datetime test is intentional — that test uses
+`datetime.utcnow()` on purpose to reproduce the project's naive-storage convention and prove
+normalization handles it.

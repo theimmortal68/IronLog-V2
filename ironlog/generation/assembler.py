@@ -6,13 +6,13 @@ current_load for each movement but does NOT write it — that is committed at ap
 (Task 9).
 
 Public API:
-  resolve_start_load(movement, state, db) -> float   — Pin 1: single fresh-movement resolver
+  resolve_start_load(movement, state, db) -> Optional[float]   — Pin 1: real load, or None (needs-calibration)
   assemble(selections, skeleton, ctx, db) -> AssembledSession
 
 NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Dict, List, Optional
 
 from sqlmodel import Session as DBSession, select
@@ -24,6 +24,7 @@ from ..models.library import Equipment, Movement, MovementState
 from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet
 from ..models.session import Session as WorkoutSession
 from .context import GenerationContext
+from .load_trust import LoadTrust, compute_load_trust
 from .proposer import Selections
 from .skeleton import Skeleton
 
@@ -40,24 +41,26 @@ class AssembledSession:
 # ---------------------------------------------------------------------------
 
 def resolve_start_load(movement: Movement, state: Optional[MovementState],
-                       db: DBSession) -> float:
-    """Single source for a movement's working load (Pin 1 — routes to existing
-    fields).  If state.current_load is set, use it; else a fresh movement starts
-    from start_ratio * anchor_e1rm (ratio-variant) or its load_floor.
+                       db: DBSession) -> Optional[float]:
+    """Single source for a movement's working load (Pin 1) — a thin wrapper over
+    the compute_load_trust keystone.
 
-    The assembler must NOT contain a duplicate fresh-movement branch — all paths
-    route through here.
+    Generation is HONEST about unconfigured loads:
+      FRESH / STALE -> the real load (result.value); generation prescribes it.
+      UNKNOWN       -> None (needs-calibration); NEVER an equipment/movement floor.
+
+    Returning None signals the caller that this movement's sets must be flagged
+    needs-calibration (target_load=None) rather than assembled at a fake floor.
+    Bodyweight movements (PROTOCOL/CONDITIONING/NONE) are FRESH with value None —
+    they legitimately carry no external load, also surfaced as None.
+
+    The derived-ratio value resolution and the floor decision both live inside
+    compute_load_trust now; this resolver no longer owns any anchor/floor logic.
     """
-    if state is not None and state.current_load is not None:
-        return state.current_load
-    if movement.start_ratio is not None and movement.derived_from_id is not None:
-        anchor_state = db.exec(
-            select(MovementState).where(
-                MovementState.movement_id == movement.derived_from_id)
-        ).first()
-        if anchor_state is not None and anchor_state.e1rm is not None:
-            return movement.start_ratio * anchor_state.e1rm
-    return movement.load_floor if movement.load_floor is not None else 0.0
+    result = compute_load_trust(movement, state, db, as_of=datetime.utcnow())
+    if result.trust == LoadTrust.UNKNOWN:
+        return None   # needs-calibration — never floor
+    return result.value
 
 
 # ---------------------------------------------------------------------------
@@ -74,13 +77,18 @@ def _step_and_floor(movement: Movement, db: DBSession):
     return step, floor
 
 
-def _sets_for_scheme(scheme: Scheme, load: float, ctx: GenerationContext) -> List[PlannedSet]:
+def _sets_for_scheme(scheme: Scheme, load: Optional[float],
+                     ctx: GenerationContext) -> List[PlannedSet]:
     """Map scheme → a concrete list of PlannedSets with reps/RPE from the phase band.
 
     TOPSET_BACKOFF: TOP set + one BACKOFF at 90 %.
     Everything else: 3 WORKING sets (STRAIGHT / DOUBLE_PROGRESSION / etc.).
+
+    load is None for a needs-calibration (or bodyweight) movement: the sets still
+    assemble structurally but carry target_load=None — never a fabricated floor.
     """
     pol = ctx.phase_policy
+    backoff_load = round(load * 0.9, 1) if load is not None else None
     if scheme == Scheme.TOPSET_BACKOFF:
         return [
             PlannedSet(
@@ -91,7 +99,7 @@ def _sets_for_scheme(scheme: Scheme, load: float, ctx: GenerationContext) -> Lis
             ),
             PlannedSet(
                 set_index=1, set_role=SetRole.BACKOFF,
-                target_load=round(load * 0.9, 1),
+                target_load=backoff_load,
                 target_reps_low=5, target_reps_high=8,
                 target_rpe=pol.rpe_band_low,
             ),
@@ -117,9 +125,14 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                                   ctx.phase_policy.default_objective)
     step, floor = _step_and_floor(movement, db)
     base = resolve_start_load(movement, state, db)
-    load = clamp_to_cap(round_to_achievable(base, floor, step), movement.cap)
-    # Collect prospective load — caller must NOT write this to MovementState
-    prospective[movement.id] = load
+    if base is None:
+        # needs-calibration (or bodyweight): assemble the slot structurally with
+        # NO target_load — never fabricate a floor.  No prospective load to collect.
+        load = None
+    else:
+        load = clamp_to_cap(round_to_achievable(base, floor, step), movement.cap)
+        # Collect prospective load — caller must NOT write this to MovementState
+        prospective[movement.id] = load
     sets = _sets_for_scheme(movement.scheme, load, ctx)
     ex = PlannedExercise(
         movement_id=movement.id,

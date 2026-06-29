@@ -19,6 +19,7 @@ scope marker on /generate: "main-work-only; warmups/finishers/Z2 per program doc
 not yet in-app".
 """
 import uuid as _uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -33,8 +34,13 @@ from ..models import (
 )
 from .schemas_capture import (SubmitRequest, SubmitResponse,
                                SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut)
+from .schemas_wizard import (
+    StartProgramResponse, WizardMovement, WizardResolveRequest,
+    WizardResolveResponse, WizardStateResponse,
+)
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.loop import commit_session, generate_session
+from ..generation.load_trust import compute_load_trust, load_field_for_mode
 from ..generation.skeleton import lay_skeleton
 from ..generation.fallback import program_selections
 from ..generation.proposer import StubProposer
@@ -337,3 +343,196 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)):
     if ws is None:
         raise HTTPException(404, "session not found")
     return _serialize_session(ws, db)
+
+
+# ---------------------------------------------------------------------------
+# Wizard read path (load-config state — first-run wizard, Task 4)
+# ---------------------------------------------------------------------------
+
+_UNIT_HINTS = {"current_load": "lb", "assist_level": "assist"}
+
+
+def _program_movement_ids(program_id: int, db: Session) -> set:
+    """Distinct movement ids the program references (TierExercises across its
+    ProgramDays->Tiers, plus any MesoRotation overrides). The single enumeration
+    the wizard-state read, the resolve write, and the start gate all share."""
+    from ..models.program import MesoRotation, ProgramDay, Tier, TierExercise
+
+    day_ids = db.exec(
+        select(ProgramDay.id).where(ProgramDay.program_id == program_id)
+    ).all()
+    tier_ids = db.exec(
+        select(Tier.id).where(Tier.program_day_id.in_(day_ids))
+    ).all() if day_ids else []
+    te_rows = db.exec(
+        select(TierExercise.id, TierExercise.movement_id)
+        .where(TierExercise.tier_id.in_(tier_ids))
+    ).all() if tier_ids else []
+    te_ids = [te_id for te_id, _ in te_rows]
+
+    movement_ids = {mv_id for _, mv_id in te_rows}
+    if te_ids:
+        movement_ids.update(db.exec(
+            select(MesoRotation.movement_id)
+            .where(MesoRotation.tier_exercise_id.in_(te_ids))
+        ).all())
+    return movement_ids
+
+
+def _needs_attention_count(program_id: int, db: Session, now: datetime) -> int:
+    """UNKNOWN + STALE over the program's load-bearing movements, derived via the
+    SHARED compute_load_trust. Bodyweight (load_field None) never counts. This IS
+    the completion gate's predicate AND the wizard-state counter — one function,
+    so the read surface, the write surface, and the gate cannot disagree."""
+    from ..models.library import MovementState
+
+    count = 0
+    for mv_id in _program_movement_ids(program_id, db):
+        mv = db.get(Movement, mv_id)
+        if mv is None:
+            continue
+        state = db.exec(
+            select(MovementState).where(MovementState.movement_id == mv_id)
+        ).first()
+        r = compute_load_trust(mv, state, db, as_of=now)
+        if r.load_field is None:          # bodyweight — no load, never asked
+            continue
+        if r.trust.value in ("UNKNOWN", "STALE"):
+            count += 1
+    return count
+
+
+@app.get("/programs/{program_id}/wizard-state", response_model=WizardStateResponse)
+def get_wizard_state(program_id: int, db: Session = Depends(get_session)):
+    """Render compute_load_trust per program movement (the wizard read surface).
+
+    Enumerates the program's distinct movements (TierExercises + MesoRotations
+    across all its ProgramDays->Tiers), derives trust via the SHARED
+    compute_load_trust (the spine — wizard and generation cannot disagree), and
+    EXCLUDES bodyweight movements (load_field None — no load to ever ask for).
+    needs_attention_count = UNKNOWN + STALE; ready_to_start when that is zero.
+    Read-only: no DB writes.
+    """
+    from datetime import datetime
+
+    from ..models.library import MovementState
+    from ..models.program import Program
+
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(404, "program not found")
+
+    now = datetime.utcnow()
+    movements: List[WizardMovement] = []
+    for mv_id in sorted(_program_movement_ids(program_id, db)):
+        mv = db.get(Movement, mv_id)
+        if mv is None:
+            continue
+        state = db.exec(
+            select(MovementState).where(MovementState.movement_id == mv_id)
+        ).first()
+        r = compute_load_trust(mv, state, db, as_of=now)
+        if r.load_field is None:          # bodyweight — no load, never asked
+            continue
+        movements.append(WizardMovement(
+            movement_id=mv_id,
+            movement_name=mv.name,
+            load_field=r.load_field,
+            trust=r.trust.value,
+            prefill_value=r.value,
+            unit_hint=_UNIT_HINTS.get(r.load_field),
+        ))
+
+    # Count-predicate single-sourced: the needs-attention count comes from the
+    # SHARED _needs_attention_count helper, not a local copy of the predicate.
+    needs_attention_count = _needs_attention_count(program_id, db, now)
+    return WizardStateResponse(
+        program_id=program.id,
+        program_name=program.name,
+        needs_attention_count=needs_attention_count,
+        ready_to_start=(needs_attention_count == 0),
+        movements=movements,
+    )
+
+
+@app.post("/programs/{program_id}/wizard-resolve", response_model=WizardResolveResponse)
+def resolve_wizard(program_id: int, req: WizardResolveRequest,
+                   db: Session = Depends(get_session)):
+    """Batch-write the resolved loads (the wizard's WRITE surface).
+
+    For each WizardResolution: write the CANONICAL load field — load_field_for_mode
+    picks current_load (LADDER/COMPOSITE) vs assist_level (ASSISTED) — and stamp
+    confirmed_at = now. The §7.3 honesty pin: stamp confirmed_at ONLY on the
+    movements in `resolutions` (the ones actually vouched for) — untouched-FRESH
+    movements keep their existing confirmed_at. Two-writer boundary: writes ONLY
+    the load field + confirmed_at; never e1rm/calibration_status/counters. Then
+    recompute needs_attention via the SHARED compute_load_trust.
+    """
+    from datetime import datetime
+
+    from ..models.library import MovementState
+    from ..models.program import Program
+
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(404, "program not found")
+
+    now = datetime.utcnow()
+    resolved = 0
+    for res in req.resolutions:
+        movement = db.get(Movement, res.movement_id)
+        if movement is None:
+            raise HTTPException(404, f"movement {res.movement_id} not found")
+        field = load_field_for_mode(movement.progression_mode)
+        if field is None:                 # bodyweight — nothing to set
+            continue
+        state = db.exec(
+            select(MovementState).where(MovementState.movement_id == res.movement_id)
+        ).first()
+        if state is None:                 # get-or-create per resolved movement
+            state = MovementState(movement_id=res.movement_id)
+            db.add(state)
+        setattr(state, field, res.value)  # write ONLY the canonical load field …
+        state.confirmed_at = now          # … + the confirmation event-fact
+        resolved += 1
+
+    db.commit()
+
+    needs_attention = _needs_attention_count(program_id, db, datetime.utcnow())
+    return WizardResolveResponse(
+        resolved=resolved,
+        needs_attention_count=needs_attention,
+        ready_to_start=(needs_attention == 0),
+    )
+
+
+@app.post("/programs/{program_id}/start", response_model=StartProgramResponse)
+def start_program(program_id: int, db: Session = Depends(get_session)):
+    """The completion gate + activation. Refuses (started=false, active=false) while
+    any program movement is UNKNOWN/STALE (needs_attention_count > 0). When the gate
+    clears, set EngineState.active_program_id (the single-active pointer) +
+    Program.started_at (event-fact), and report active=true. The gate predicate is
+    the SAME compute_load_trust the wizard renders — finishing the wizard guarantees
+    a clean start by construction (§7.6)."""
+    from datetime import datetime
+
+    from ..models.library import EngineState
+    from ..models.program import Program
+
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(404, "program not found")
+
+    now = datetime.utcnow()
+    if _needs_attention_count(program_id, db, now) > 0:
+        return StartProgramResponse(program_id=program_id, started=False, active=False)
+
+    es = db.get(EngineState, 1)
+    if es is None:                        # singleton get-or-create
+        es = EngineState(id=1)
+        db.add(es)
+    es.active_program_id = program_id
+    program.started_at = now
+    db.commit()
+
+    return StartProgramResponse(program_id=program_id, started=True, active=True)

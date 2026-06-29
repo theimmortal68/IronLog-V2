@@ -40,8 +40,14 @@ class Skeleton:
     adaptive_slots: List[SlotSpec] = field(default_factory=list)
 
 
-def lay_skeleton(day_role: str, db: Session, meso_number: int = 1) -> Skeleton:
+def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
+                 program_id: Optional[int] = None) -> Skeleton:
     """Read the program and return a Skeleton for the given day_role and meso.
+
+    program_id (Fork 3 scoping): when given, the ProgramDay is filtered to that
+    program. When None, falls back to the active program (EngineState.
+    active_program_id) if set; otherwise to the single matching ProgramDay by
+    day_role alone (back-compat for existing single-program callers/tests).
 
     anchor_movement_ids:
         Movement ids for all TierExercises with tier_role=="anchor".
@@ -56,9 +62,16 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1) -> Skeleton:
                "giant" if tier is GIANT_SET,
                "accessory" otherwise.
     """
-    prog_day = db.exec(
-        select(ProgramDay).where(ProgramDay.day_role == day_role)
-    ).first()
+    if program_id is None:
+        from ironlog.models.library import EngineState
+        es = db.get(EngineState, 1)
+        if es is not None and es.active_program_id is not None:
+            program_id = es.active_program_id
+
+    stmt = select(ProgramDay).where(ProgramDay.day_role == day_role)
+    if program_id is not None:
+        stmt = stmt.where(ProgramDay.program_id == program_id)
+    prog_day = db.exec(stmt).first()
     if prog_day is None:
         raise ValueError(f"No ProgramDay found for day_role={day_role!r}")
 

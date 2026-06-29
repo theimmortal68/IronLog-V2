@@ -49,10 +49,20 @@ from ironlog.models.enums import GroupType, Objective, Scheme, SetRole
 # NAMED GATE c
 # ---------------------------------------------------------------------------
 
-def test_cold_start_emits_program_valid_and_trainable(gen_db):
-    """NAMED GATE c: with no prior session, the cold-start fallback emits the
-    PROGRAM prior — a VALID session (validator-clean) AND trainable (every
-    adaptive slot filled with its program movement, every set carries a load)."""
+def test_cold_start_emits_program_valid_and_trainable(gen_db_calibrated):
+    """NAMED GATE c: with no prior SESSION, the fallback emits the PROGRAM prior —
+    a VALID session (validator-clean) AND trainable.
+
+    Reconciled for Task 3: "cold-start" here means no prior session (fallback path),
+    NOT unconfigured loads.  Trainability requires real configured loads, so the
+    gen_db_calibrated fixture seeds them (the wizard/calibration's job) — the floor
+    fallback that used to fake trainability is gone.  Every LOADED movement's sets
+    now carry a real load; bodyweight movements legitimately carry no load."""
+    gen_db = gen_db_calibrated
+    from ironlog.generation.load_trust import load_field_for_mode
+    from ironlog.models.library import Movement
+    from sqlmodel import select as _select
+
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
     ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
@@ -61,6 +71,7 @@ def test_cold_start_emits_program_valid_and_trainable(gen_db):
         fb.session.__class__ and fb.session,
         build_validation_context(ctx, gen_db),
     ).is_structurally_valid
+    movements = {m.id: m for m in gen_db.exec(_select(Movement)).all()}
     sets = [
         ps
         for g in fb.session.groups
@@ -68,7 +79,21 @@ def test_cold_start_emits_program_valid_and_trainable(gen_db):
         for ps in e.planned_sets
     ]
     assert sets, "fallback must prescribe sets (trainable)"
-    assert all(ps.target_load is not None for ps in sets), "every set has a load"
+    # Every LOADED movement carries a real configured load (no floor fabrication);
+    # bodyweight movements carry no external load (target_load None).
+    for g in fb.session.groups:
+        for e in g.exercises:
+            m = movements[e.movement_id]
+            needs_load = load_field_for_mode(m.progression_mode) is not None
+            for ps in e.planned_sets:
+                if needs_load:
+                    assert ps.target_load is not None, (
+                        f"configured loaded movement {m.name!r} must carry a load"
+                    )
+                else:
+                    assert ps.target_load is None, (
+                        f"bodyweight movement {m.name!r} must carry no external load"
+                    )
     # every giant/knee slot got filled (not an empty/partial session)
     filled = {e.movement_id for g in fb.session.groups for e in g.exercises}
     assert len(filled) >= 1 + sum(
@@ -284,13 +309,19 @@ ALL_DAY_ROLES = [
 
 
 @pytest.mark.parametrize("day_role", ALL_DAY_ROLES)
-def test_gate_c_all_five_day_roles(gen_db, day_role):
-    """FIX 2 (gate c extended): fallback_session cold-start is structurally valid
-    for ALL five program day_roles, not just D1.
+def test_gate_c_all_five_day_roles(gen_db_calibrated, day_role):
+    """FIX 2 (gate c extended): fallback_session is structurally valid for ALL five
+    program day_roles, not just D1.
 
-    Validates that every program day emits a validator-clean session via the
-    deterministic fallback path (program_selections → assemble → validate).
+    Reconciled for Task 3: loads are configured (gen_db_calibrated) so the program
+    is genuinely trainable — every LOADED movement carries a real load (not a
+    fabricated floor); bodyweight movements carry no external load.
     """
+    gen_db = gen_db_calibrated
+    from ironlog.generation.load_trust import load_field_for_mode
+    from ironlog.models.library import Movement
+    from sqlmodel import select as _select
+
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton(day_role, gen_db)
     ctx = resolve_context(day_role, sk, gen_db, wk)
@@ -301,6 +332,7 @@ def test_gate_c_all_five_day_roles(gen_db, day_role):
         f"{day_role} cold-start must be structurally valid; "
         f"rejections: {result.rejects}"
     )
+    movements = {m.id: m for m in gen_db.exec(_select(Movement)).all()}
     sets = [
         ps
         for g in fb.session.groups
@@ -308,9 +340,19 @@ def test_gate_c_all_five_day_roles(gen_db, day_role):
         for ps in e.planned_sets
     ]
     assert sets, f"{day_role} fallback must prescribe sets (trainable)"
-    assert all(ps.target_load is not None for ps in sets), (
-        f"{day_role} fallback: every set must carry a load"
-    )
+    for g in fb.session.groups:
+        for e in g.exercises:
+            m = movements[e.movement_id]
+            needs_load = load_field_for_mode(m.progression_mode) is not None
+            for ps in e.planned_sets:
+                if needs_load:
+                    assert ps.target_load is not None, (
+                        f"{day_role}: loaded movement {m.name!r} must carry a load"
+                    )
+                else:
+                    assert ps.target_load is None, (
+                        f"{day_role}: bodyweight movement {m.name!r} carries no load"
+                    )
 
 
 # ---------------------------------------------------------------------------
