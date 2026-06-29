@@ -225,29 +225,70 @@ def test_start_404_when_program_missing():
 # ---------------------------------------------------------------------------
 
 def test_spine_wizard_finish_guarantees_clean_generation():
+    """THE SPINE — red-against-reimplementation.
+
+    The three surfaces (wizard-state endpoint, compute_load_trust, generation's
+    resolve_start_load) must AGREE because they share the one keystone function.
+    To make this genuinely red against a naive reimplementation (and not merely
+    green on trivially-FRESH inputs), the cross-surface comparison spans the two
+    DIVERGENCE EDGES where a reimpl most likely drifts:
+
+      1. ASSISTED assist_level == 0 (the IS-NULL-not-falsy edge): 0.0 is a REAL
+         value -> FRESH. A naive `if value:` / falsy presence check would call it
+         UNKNOWN -> diverges from compute_load_trust.
+      2. Derived-ratio movement (start_ratio + derived_from_id, own current_load
+         None, anchor MovementState.e1rm set): compute_load_trust resolves
+         start_ratio * anchor.e1rm -> FRESH (value present). A reimpl missing the
+         derived-ratio path would call it UNKNOWN -> diverges.
+
+    A surface that secretly reimplemented trust would fail one of these.
+    """
     client, engine = _client()
     with DbSession(engine) as s:
         ladder = _mv(s, "Incline Press [PB]")               # current_load
         assisted = _mv(s, "Nordic Curl [TOWER]", mode=ProgressionMode.ASSISTED)
+        # EDGE 1: ASSISTED resolved to assist_level == 0 (IS-NULL-not-falsy).
+        assisted_zero = _mv(s, "Ring Dip [TOWER]", mode=ProgressionMode.ASSISTED)
         bodyweight = _mv(s, "Ab Wheel", mode=ProgressionMode.PROTOCOL)  # never asked
-        ids = [ladder.id, assisted.id, bodyweight.id]
+        # Anchor for the derived movement — NOT part of the program. Its
+        # MovementState carries the e1rm the derived ratio multiplies against.
+        anchor = _mv(s, "Back Squat [PB] (anchor)")
+        s.add(MovementState(movement_id=anchor.id, e1rm=200.0))
+        s.commit()
+        # EDGE 2: derived-ratio LADDER movement — no own current_load, resolves
+        # via start_ratio * anchor.e1rm (0.8 * 200 = 160.0).
+        derived = Movement(
+            name="Front Squat [PB]", base_name="Front Squat [PB]",
+            progression_mode=ProgressionMode.LADDER,
+            start_ratio=0.8, derived_from_id=anchor.id)
+        s.add(derived)
+        s.commit()
+        s.refresh(derived)
+        # Pre-seed derived's OWN state: current_load None (forces the derived-ratio
+        # path) + recent confirmed_at so _recency makes it FRESH (not STALE).
+        s.add(MovementState(movement_id=derived.id, current_load=None,
+                            confirmed_at=datetime.utcnow() - timedelta(days=1)))
+        s.commit()
+        ids = [ladder.id, assisted.id, assisted_zero.id, bodyweight.id, derived.id]
     with DbSession(engine) as s:
         rows = [(s.get(Movement, i), "free") for i in ids]
     pid = _program_with(engine, rows)
-    ladder_id, assisted_id, bw_id = ids
+    ladder_id, assisted_id, assisted_zero_id, bw_id, derived_id = ids
 
-    # Before resolving: wizard NOT ready, /start refuses.
+    # Before resolving: 3 UNKNOWN (ladder, assisted, assisted_zero); derived is
+    # already FRESH via the derived-ratio path; bodyweight excluded -> needs == 3.
     state0 = client.get(f"/programs/{pid}/wizard-state").json()
     assert state0["ready_to_start"] is False
-    assert state0["needs_attention_count"] == 2          # bodyweight excluded
+    assert state0["needs_attention_count"] == 3
     assert client.post(f"/programs/{pid}/start").json()["started"] is False
 
-    # Resolve ALL the load-bearing movements (bodyweight needs nothing).
+    # Resolve the three UNKNOWN load-bearing movements — note assist_level == 0.
     r = client.post(f"/programs/{pid}/wizard-resolve", json={"resolutions": [
         {"movement_id": ladder_id, "value": 145.0},
         {"movement_id": assisted_id, "value": 10.0},
+        {"movement_id": assisted_zero_id, "value": 0.0},   # IS-NULL-not-falsy edge
     ]})
-    assert r.json()["resolved"] == 2
+    assert r.json()["resolved"] == 3
     assert r.json()["needs_attention_count"] == 0
     assert r.json()["ready_to_start"] is True
 
@@ -260,21 +301,29 @@ def test_spine_wizard_finish_guarantees_clean_generation():
     assert client.post(f"/programs/{pid}/start").json() == {
         "program_id": pid, "started": True, "active": True}
 
-    # (c) generation's resolver returns REAL loads (never None/needs-calibration)
-    #     for the load-bearing movements — AND the trust the wizard-state endpoint
-    #     reported EQUALS the verdict generation's resolver sees (SAME function,
-    #     SAME verdict — they cannot diverge).
+    # (c) cross-surface: for EVERY load-bearing movement (including the two
+    #     divergence edges) the wizard-state endpoint's trust EQUALS
+    #     compute_load_trust's verdict (FRESH), and generation's resolver returns
+    #     a real value (NOT None). A reimpl that mis-handled assist_level==0
+    #     (falsy presence) or omitted the derived-ratio path would diverge here.
     wiz_trust = {m["movement_id"]: m["trust"] for m in state1["movements"]}
     with DbSession(engine) as s:
-        for mid in (ladder_id, assisted_id):
+        for mid in (ladder_id, assisted_id, assisted_zero_id, derived_id):
             mv = s.get(Movement, mid)
             st = s.exec(select(MovementState)
                         .where(MovementState.movement_id == mid)).first()
             verdict = compute_load_trust(mv, st, s, datetime.utcnow())
-            # spine: wizard surface verdict == generation surface verdict
+            # spine: wizard surface verdict == generation surface verdict == FRESH
             assert wiz_trust[mid] == verdict.trust.value == LoadTrust.FRESH.value
-            # generation prescribes a real number, not needs-calibration
+            # generation prescribes a real number, not needs-calibration.
+            # `is not None` is load-bearing: assisted_zero resolves to 0.0 (falsy
+            # but VALID) and derived resolves to 160.0.
             assert resolve_start_load(mv, st, s) is not None
+        # derived specifically: generation returns the derived value, not None.
+        derived_mv = s.get(Movement, derived_id)
+        derived_st = s.exec(select(MovementState)
+                            .where(MovementState.movement_id == derived_id)).first()
+        assert resolve_start_load(derived_mv, derived_st, s) == 160.0
         # bodyweight: legitimately carries no load (None), is NOT needs-calibration
         bw = s.get(Movement, bw_id)
         bw_st = s.exec(select(MovementState)
