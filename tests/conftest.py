@@ -40,6 +40,42 @@ def gen_db():
 
 
 @pytest.fixture
+def gen_db_calibrated(gen_db):
+    """gen_db + a real configured load for EVERY loaded movement (LADDER/COMPOSITE
+    → current_load, ASSISTED → assist_level), confirmed just now.
+
+    Simulates the post-wizard / post-calibration production reality: loads exist,
+    so generation prescribes them (FRESH) instead of flagging needs-calibration.
+    Used by the assembler/commit/cold-start gates that, after Task 3 dropped the
+    silent floor fallback, must seed real loads (toward-correct) rather than rely
+    on a fabricated floor.  Bodyweight movements (PROTOCOL/CONDITIONING/NONE) are
+    left loadless — they legitimately carry no external load.
+    """
+    from datetime import datetime
+
+    from ironlog.generation.load_trust import load_field_for_mode
+    from ironlog.models.library import Movement, MovementState
+
+    now = datetime.utcnow()
+    states = {s.movement_id: s
+              for s in gen_db.exec(select(MovementState)).all()}
+    for m in gen_db.exec(select(Movement)).all():
+        field = load_field_for_mode(m.progression_mode)
+        if field is None:
+            continue                       # bodyweight: no load to configure
+        st = states.get(m.id)
+        if st is None:
+            st = MovementState(movement_id=m.id)
+            gen_db.add(st)
+        if getattr(st, field) is None:
+            setattr(st, field, 100.0 if field == "current_load" else 0.0)
+        st.confirmed_at = now
+        gen_db.add(st)
+    gen_db.commit()
+    return gen_db
+
+
+@pytest.fixture
 def logged_session_id(gen_db):
     """COMPLETED session with one tapped working set on a PROGRESS lift.
 
