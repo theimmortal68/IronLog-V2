@@ -26,3 +26,26 @@ class WizardStateResponse(BaseModel):
     needs_attention_count: int           # UNKNOWN + STALE (the "N left")
     ready_to_start: bool                 # needs_attention_count == 0
     movements: List[WizardMovement]      # program movements that NEED a load (bodyweight excluded)
+
+
+# --- Write surface (batch resolve) + completion gate (start) — Task 5 -------
+
+class WizardResolution(BaseModel):
+    movement_id: int
+    value: float                         # entered/confirmed load -> load_field per mode
+
+
+class WizardResolveRequest(BaseModel):
+    resolutions: List[WizardResolution]  # ONLY the movements the user touched
+
+
+class WizardResolveResponse(BaseModel):
+    resolved: int                        # how many movements were written
+    needs_attention_count: int           # recomputed after the write (UNKNOWN + STALE)
+    ready_to_start: bool                 # needs_attention_count == 0
+
+
+class StartProgramResponse(BaseModel):
+    program_id: int
+    started: bool                        # did the gate clear + activate
+    active: bool                         # is this program now the active one
