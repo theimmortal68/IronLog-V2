@@ -5,8 +5,8 @@ from sqlmodel import Session as DbSession, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from ironlog.api.app import app, get_session
-from ironlog.models.session import Session, SetLog
-from ironlog.models.enums import SessionStatus
+from ironlog.models.session import Session, SetLog, ExerciseSurvey, Note
+from ironlog.models.enums import NoteClass, SessionStatus
 import ironlog.models  # ensure all tables registered
 
 # movement_id used by the three gate tests — seeded explicitly in _seed_analysis_state.
@@ -112,6 +112,71 @@ def test_submit_idempotent_lost_ack_retry_writes_nothing_new():
     with DbSession(engine) as s:
         # exactly ONE SetLog — no duplicate from the retry
         assert len(s.exec(select(SetLog).where(SetLog.session_id == sid)).all()) == 1
+    app.dependency_overrides.clear()
+
+
+def test_submit_writes_surveys_and_notes():
+    """Fork-4 B/C: non-empty surveys + notes write branch is covered.
+
+    Locks the JOURNAL/unclassified storage contract: Note.classification == JOURNAL,
+    confirmed == False, applied == False on first capture (deferred classification).
+    """
+    client, engine = _client()
+    _seed_analysis_state(engine)
+    sid = _planned_session(engine)
+
+    body = {
+        "set_logs": [{
+            "planned_set_id": None,
+            "movement_id": _TEST_MOVEMENT_ID,
+            "set_index": 0,
+            "set_role": "WORKING",
+            "is_warmup": False,
+            "actual_load": 100.0,
+            "actual_reps": 8,
+            "feedback_tap": "ON_TARGET",
+        }],
+        "surveys": [{
+            "movement_id": _TEST_MOVEMENT_ID,
+            "sticking_point": "BOTTOM",
+            "asymmetry_flag": True,
+            "technique_flag": False,
+        }],
+        "notes": [{
+            "movement_id": _TEST_MOVEMENT_ID,
+            "text": "felt unstable at the bottom",
+        }],
+    }
+    r = client.post(f"/sessions/{sid}/submit", json=body)
+    assert r.status_code == 200, f"submit failed: {r.text}"
+    assert r.json()["already_completed"] is False
+
+    with DbSession(engine) as s:
+        # SetLog sanity
+        logs = s.exec(select(SetLog).where(SetLog.session_id == sid)).all()
+        assert len(logs) == 1
+
+        # ExerciseSurvey row written with the sticking_point/flags we sent
+        surveys = s.exec(
+            select(ExerciseSurvey).where(ExerciseSurvey.session_id == sid)
+        ).all()
+        assert len(surveys) == 1
+        sv = surveys[0]
+        assert sv.movement_id == _TEST_MOVEMENT_ID
+        assert sv.sticking_point == "BOTTOM"
+        assert sv.asymmetry_flag is True
+        assert sv.technique_flag is False
+
+        # Note: JOURNAL classification, confirmed=False, applied=False
+        notes = s.exec(select(Note).where(Note.session_id == sid)).all()
+        assert len(notes) == 1
+        nt = notes[0]
+        assert nt.movement_id == _TEST_MOVEMENT_ID
+        assert nt.text == "felt unstable at the bottom"
+        assert nt.classification == NoteClass.JOURNAL
+        assert nt.confirmed is False
+        assert nt.applied is False
+
     app.dependency_overrides.clear()
 
 
