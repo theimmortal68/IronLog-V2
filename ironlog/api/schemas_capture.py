@@ -1,0 +1,95 @@
+"""Capture-layer API contract (the server<->client crossing artifact).
+
+These shapes are mirrored field-for-field by the Android client's Kotlin DTOs.
+Any change here is a contract change that touches both repos.
+"""
+from typing import List, Optional
+
+from pydantic import BaseModel
+
+
+class SetLogIn(BaseModel):
+    planned_set_id: Optional[int] = None
+    movement_id: int
+    set_index: int
+    set_role: str
+    is_warmup: bool = False
+    actual_load: Optional[float] = None
+    actual_reps: Optional[int] = None
+    feedback_tap: Optional[str] = None
+    rpe_numeric: Optional[float] = None
+    actual_unassisted_reps: Optional[int] = None
+    actual_assisted_reps: Optional[int] = None
+    actual_plates: Optional[float] = None
+    band_pair_id: Optional[int] = None
+    felt_peak: Optional[float] = None
+
+
+class ExerciseSurveyIn(BaseModel):
+    movement_id: int
+    sticking_point: Optional[str] = None
+    asymmetry_flag: Optional[bool] = None
+    technique_flag: Optional[bool] = None
+
+
+class NoteIn(BaseModel):
+    movement_id: Optional[int] = None
+    text: str
+
+
+class SubmitRequest(BaseModel):
+    set_logs: List[SetLogIn]
+    surveys: List[ExerciseSurveyIn] = []
+    notes: List[NoteIn] = []
+
+
+class SubmitResponse(BaseModel):
+    session_id: int
+    status: str
+    set_logs_written: int
+    already_completed: bool
+
+
+class PlannedSetOut(BaseModel):
+    id: int
+    set_index: int
+    set_role: str
+    is_warmup: bool
+    target_load: Optional[float] = None
+    target_reps_low: Optional[int] = None
+    target_reps_high: Optional[int] = None
+    target_rpe: Optional[float] = None
+    target_unassisted_reps: Optional[int] = None
+    target_assisted_reps: Optional[int] = None
+    target_plates: Optional[float] = None
+    band_pair_id: Optional[int] = None
+    target_felt_peak: Optional[float] = None
+
+
+class ExerciseOut(BaseModel):
+    id: int
+    movement_id: int
+    movement_name: str
+    order_index: int
+    scheme: str
+    objective: str
+    planned_sets: List[PlannedSetOut]
+
+
+class GroupOut(BaseModel):
+    id: int
+    order_index: int
+    group_type: str
+    rounds: int
+    rest_seconds: Optional[int] = None
+    label: Optional[str] = None
+    exercises: List[ExerciseOut]
+
+
+class SessionDetailResponse(BaseModel):
+    id: int
+    date: str
+    day_role: str
+    phase: str
+    status: str
+    groups: List[GroupOut]
