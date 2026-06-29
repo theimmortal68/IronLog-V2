@@ -33,8 +33,10 @@ from ..models import (
 )
 from .schemas_capture import (SubmitRequest, SubmitResponse,
                                SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut)
+from .schemas_wizard import WizardMovement, WizardStateResponse
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.loop import commit_session, generate_session
+from ..generation.load_trust import compute_load_trust
 from ..generation.skeleton import lay_skeleton
 from ..generation.fallback import program_selections
 from ..generation.proposer import StubProposer
@@ -337,3 +339,85 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)):
     if ws is None:
         raise HTTPException(404, "session not found")
     return _serialize_session(ws, db)
+
+
+# ---------------------------------------------------------------------------
+# Wizard read path (load-config state — first-run wizard, Task 4)
+# ---------------------------------------------------------------------------
+
+_UNIT_HINTS = {"current_load": "lb", "assist_level": "assist"}
+
+
+@app.get("/programs/{program_id}/wizard-state", response_model=WizardStateResponse)
+def get_wizard_state(program_id: int, db: Session = Depends(get_session)):
+    """Render compute_load_trust per program movement (the wizard read surface).
+
+    Enumerates the program's distinct movements (TierExercises + MesoRotations
+    across all its ProgramDays->Tiers), derives trust via the SHARED
+    compute_load_trust (the spine — wizard and generation cannot disagree), and
+    EXCLUDES bodyweight movements (load_field None — no load to ever ask for).
+    needs_attention_count = UNKNOWN + STALE; ready_to_start when that is zero.
+    Read-only: no DB writes.
+    """
+    from datetime import datetime
+
+    from ..models.library import MovementState
+    from ..models.program import (
+        MesoRotation, Program, ProgramDay, Tier, TierExercise,
+    )
+
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(404, "program not found")
+
+    day_ids = db.exec(
+        select(ProgramDay.id).where(ProgramDay.program_id == program_id)
+    ).all()
+    tier_ids = db.exec(
+        select(Tier.id).where(Tier.program_day_id.in_(day_ids))
+    ).all() if day_ids else []
+    te_rows = db.exec(
+        select(TierExercise.id, TierExercise.movement_id)
+        .where(TierExercise.tier_id.in_(tier_ids))
+    ).all() if tier_ids else []
+    te_ids = [te_id for te_id, _ in te_rows]
+
+    movement_ids = {mv_id for _, mv_id in te_rows}
+    if te_ids:
+        movement_ids.update(db.exec(
+            select(MesoRotation.movement_id)
+            .where(MesoRotation.tier_exercise_id.in_(te_ids))
+        ).all())
+
+    now = datetime.utcnow()
+    movements: List[WizardMovement] = []
+    needs_attention = 0
+    for mv_id in sorted(movement_ids):
+        mv = db.get(Movement, mv_id)
+        if mv is None:
+            continue
+        state = db.exec(
+            select(MovementState).where(MovementState.movement_id == mv_id)
+        ).first()
+        r = compute_load_trust(mv, state, db, as_of=now)
+        if r.load_field is None:          # bodyweight — no load, never asked
+            continue
+        trust = r.trust.value
+        if trust in ("UNKNOWN", "STALE"):
+            needs_attention += 1
+        movements.append(WizardMovement(
+            movement_id=mv_id,
+            movement_name=mv.name,
+            load_field=r.load_field,
+            trust=trust,
+            prefill_value=r.value,
+            unit_hint=_UNIT_HINTS.get(r.load_field),
+        ))
+
+    return WizardStateResponse(
+        program_id=program.id,
+        program_name=program.name,
+        needs_attention_count=needs_attention,
+        ready_to_start=(needs_attention == 0),
+        movements=movements,
+    )
