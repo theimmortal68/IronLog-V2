@@ -120,8 +120,9 @@ def _schema_map(engine) -> dict:
 
 def test_chain_matches_create_all():
     """A forgotten migration or a type/default/nullability mismatch between the
-    live models (create_all) and the 000+001+002+003+004+005+006 chain fails HERE,
-    not in prod."""
+    live models (create_all) and the 000→009 chain fails HERE, not in prod.
+    Covers: confirmed_at (MovementState), active_program_id (EngineState),
+    started_at/ended_at (Program) added in migrations 007-009."""
     # DB-A: live models via create_all
     eng_a = create_engine("sqlite://")
     from sqlmodel import SQLModel

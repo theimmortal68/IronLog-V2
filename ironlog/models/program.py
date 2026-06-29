@@ -9,6 +9,7 @@ These are seeded once per training block and read by the generation layer
 
 NO from __future__ import annotations (project-wide constraint).
 """
+from datetime import datetime
 from enum import Enum
 from typing import Optional
 
@@ -30,6 +31,8 @@ class Program(SQLModel, table=True):
     name: str
     phase: str
     duration_weeks: int
+    started_at: Optional[datetime] = None               # event-fact (Fork 3)
+    ended_at: Optional[datetime] = None
 
 
 class ProgramDay(SQLModel, table=True):

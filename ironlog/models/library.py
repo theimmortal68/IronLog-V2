@@ -120,6 +120,7 @@ class EngineState(SQLModel, table=True):
     bw_stable_2wk: bool = False
     strength_bounce: bool = False
     subjective_ok: bool = False
+    active_program_id: Optional[int] = Field(default=None, foreign_key="program.id")  # single-active pointer (Fork 3)
 class MovementState(SQLModel, table=True):
     """Per-movement dynamic state."""
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -134,6 +135,8 @@ class MovementState(SQLModel, table=True):
     rep_scheme_locked_until: Optional[date] = None
     consecutive_ceiling_sessions: int = 0
     consecutive_failed_progressions: int = Field(default=0, sa_column_kwargs={"server_default": text("0")})  # mirrors ceiling counter; PROGRESS-gated (v0.4)
+
+    confirmed_at: Optional[datetime] = None              # event-fact: when user last vouched for this load (Fork 2)
 
     # assisted movements
     assist_level: Optional[float] = None               # degrees / cable-lb / reps
