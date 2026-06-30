@@ -8,6 +8,7 @@ module imports and mocked tests run without httpx installed.
 """
 import json
 import os
+from typing import Optional
 
 from ironlog.generation.proposer import (
     SELECTIONS_JSON_SCHEMA,
@@ -43,7 +44,7 @@ class GeminiProposer:
         Defaults to a real ``httpx.Client`` constructed lazily on first use.
     """
 
-    def __init__(self, api_key: str = None, model: str = "gemini-3.1-flash-lite", http=None):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-3.1-flash-lite", http=None):
         if api_key is None:
             api_key = os.environ.get("GEMINI_API_KEY")
             if not api_key:
@@ -56,7 +57,11 @@ class GeminiProposer:
 
     def propose(self, payload: dict) -> Selections:
         """POST *payload* to Gemini and return parsed ``Selections``."""
-        http = self._http if self._http is not None else _default_http_client()
+        # Cache the lazily-constructed default client so repeated proposes reuse one
+        # httpx.Client (the lazy import keeps mocked/injected-client tests httpx-free).
+        if self._http is None:
+            self._http = _default_http_client()
+        http = self._http
 
         url = f"{_GEMINI_V1BETA}/{self._model}:generateContent"
         body = {

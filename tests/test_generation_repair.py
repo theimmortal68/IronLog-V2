@@ -288,3 +288,42 @@ def test_repair_loop_rejects_off_menu_knee_selection(gen_db):
     assert check_menu_membership(in_menu_sel, ctx) == [], (
         "in-menu knee movement must pass the membership check (return [])"
     )
+
+
+# ---------------------------------------------------------------------------
+# 6. Propose-failure robustness — a raising proposer exhausts, never propagates
+# ---------------------------------------------------------------------------
+
+def test_propose_failure_exhausts_not_propagates(gen_db):
+    """A proposer whose .propose() raises ProposerError every attempt must be
+    treated as a FAILED ATTEMPT each round — the loop exhausts and returns
+    exhausted=True (assembled=None), NEVER propagating the exception.
+
+    This is the load-bearing robustness guarantee: a live Gemini outage degrades
+    to the deterministic fallback rather than surfacing as an unhandled 500.
+    If the propose call were left unwrapped, this test would ERROR.
+    """
+    from ironlog.generation.context import resolve_context
+    from ironlog.generation.gemini import ProposerError
+    from ironlog.generation.repair import propose_validate_repair
+    from ironlog.generation.skeleton import lay_skeleton
+
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+
+    class _RaisingProposer:
+        def propose(self, payload):
+            raise ProposerError("simulated live proposer failure")
+
+    outcome = propose_validate_repair(
+        _RaisingProposer(), {}, sk, ctx, gen_db, max_retries=3
+    )
+
+    assert outcome.exhausted is True, "propose-failures must exhaust the loop"
+    assert outcome.assembled is None, "no session assembled when every propose fails"
+    assert outcome.attempts == 3, "every propose-failure counts as a failed attempt"
+    assert any("PROPOSER_ERROR" in r for r in outcome.rejections), (
+        f"rejections must carry an outcome-only PROPOSER_ERROR reason; "
+        f"got: {outcome.rejections}"
+    )

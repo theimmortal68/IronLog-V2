@@ -18,6 +18,7 @@ Candidates are stored in a module-level dict (_candidates); cleared on restart.
 scope marker on /generate: "main-work-only; warmups/finishers/Z2 per program doc,
 not yet in-app".
 """
+import os
 import uuid as _uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -143,6 +144,31 @@ def _week_keyer(d):
     return (iso[0], iso[1])
 
 
+def _make_proposer(sk):
+    """Proposer factory: live GeminiProposer when configured, else deterministic Stub.
+
+    Selection logic (graceful — never crashes):
+      - IRONLOG_FORCE_STUB set  -> StubProposer (kill-switch, always wins).
+      - GEMINI_API_KEY set AND httpx importable -> GeminiProposer (reads the key
+        from env).  A live propose failure degrades to fallback in repair.py, never
+        a 500.
+      - otherwise (no key, or httpx missing) -> StubProposer (the deterministic
+        program prior).
+
+    GeminiProposer + httpx are imported lazily so app import never requires httpx.
+    """
+    if os.environ.get("IRONLOG_FORCE_STUB"):
+        return StubProposer(program_selections(sk))
+    if os.environ.get("GEMINI_API_KEY"):
+        try:
+            import httpx  # noqa: F401, PLC0415
+        except ImportError:
+            return StubProposer(program_selections(sk))
+        from ..generation.gemini import GeminiProposer  # lazy: app import stays httpx-free
+        return GeminiProposer()
+    return StubProposer(program_selections(sk))
+
+
 @app.post("/sessions/{session_id}/log", response_model=LogSessionResponse)
 def log_session(session_id: int, db: Session = Depends(get_session)):
     """Post-session loop: run analysis on a logged session (idempotent).
@@ -181,7 +207,7 @@ def generate(req: GenerateRequest, db: Session = Depends(get_session)):
     are per program doc and not yet in-app (deferred to v0.7).
     """
     sk = lay_skeleton(req.day_role, db)
-    proposer = StubProposer(program_selections(sk))
+    proposer = _make_proposer(sk)
     outcome = generate_session(req.day_role, db, proposer, _week_keyer)
     candidate_id = str(_uuid.uuid4())
     _candidates[candidate_id] = outcome

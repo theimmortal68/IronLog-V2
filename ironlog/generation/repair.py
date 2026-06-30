@@ -28,6 +28,7 @@ from ..engine.validator import (
 from ..models.library import Movement
 from .assembler import AssembledSession, assemble
 from .context import GenerationContext
+from .gemini import ProposerError
 from .proposer import Proposer, Selections
 from .skeleton import Skeleton
 
@@ -255,7 +256,29 @@ def propose_validate_repair(
         if reasons:
             payload_with_feedback["rejections"] = reasons  # outcome-only feedback
 
-        sel = proposer.propose(payload_with_feedback)
+        # THE ROBUSTNESS GATE: a live proposer (GeminiProposer) can fail on network
+        # transport, timeout, HTTP error, or a non-conforming response (ProposerError).
+        # Such a failure must be treated as a FAILED ATTEMPT — record an outcome-only
+        # reason and retry — so that after max_retries the exhausted path fires and
+        # generate_session degrades to the deterministic fallback_session.  A live
+        # Gemini outage must NEVER surface as an unhandled 500.
+        try:
+            sel = proposer.propose(payload_with_feedback)
+        except ProposerError as e:
+            reasons = [f"PROPOSER_ERROR: {type(e).__name__}"]  # outcome-only, no remedy
+            continue
+        except Exception as e:  # noqa: BLE001
+            # Live-Gemini network/transport failures must degrade, not 500.  Narrow
+            # to httpx transport errors when httpx is importable; anything else
+            # re-raises so genuine programming bugs still surface.
+            try:
+                import httpx  # noqa: PLC0415
+            except ImportError:
+                raise
+            if isinstance(e, httpx.HTTPError):
+                reasons = [f"PROPOSER_ERROR: {type(e).__name__}"]  # outcome-only
+                continue
+            raise
 
         # Menu-membership pre-check (Fork 1 post-check): hard-enforce that every
         # selection is in its slot's candidate menu.  Off-menu → structural
