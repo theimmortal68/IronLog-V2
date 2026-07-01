@@ -26,9 +26,14 @@ class ProposerError(Exception):
 
 
 def _default_http_client():
-    """Construct a real httpx.Client. Imported lazily so tests don't need httpx."""
+    """Construct a real httpx.Client. Imported lazily so tests don't need httpx.
+
+    timeout=60.0 accommodates dynamic thinking responses (~7s typical, up to ~45s
+    worst-case) while still bounding runaway calls.  The default httpx 5s timeout
+    caused systematic ReadTimeout with thinkingBudget=-1.
+    """
     import httpx  # noqa: PLC0415
-    return httpx.Client()
+    return httpx.Client(timeout=60.0)
 
 
 class GeminiProposer:

@@ -1,7 +1,7 @@
 """tests/test_generation_gemini.py — NAMED GATE a: mocked HTTP, no live API call."""
 import json
 import pytest
-from ironlog.generation.gemini import GeminiProposer, ProposerError
+from ironlog.generation.gemini import GeminiProposer, ProposerError, _default_http_client
 
 
 class _FakeResp:
@@ -79,3 +79,17 @@ def test_api_key_from_env(monkeypatch):
     assert sel.rationale == "empty"
     _, kw = http.last
     assert kw["headers"]["x-goog-api-key"] == "env-key"
+
+
+def test_default_http_client_has_generous_timeout():
+    """_default_http_client() must carry a read timeout >= 30s.
+
+    Dynamic thinking (thinkingBudget=-1) takes ~7s typical; the old httpx
+    default of 5s caused systematic ReadTimeout.  This asserts the fix holds.
+    No live network call is made.
+    """
+    c = _default_http_client()
+    assert c.timeout.read is not None, "read timeout must be set (not None / infinite)"
+    assert c.timeout.read >= 30, (
+        f"read timeout {c.timeout.read}s is too short for dynamic thinking responses"
+    )
