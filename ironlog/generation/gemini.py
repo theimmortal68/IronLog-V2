@@ -11,6 +11,7 @@ import os
 from typing import Optional
 
 from ironlog.generation.proposer import (
+    PROPOSER_SYSTEM_INSTRUCTION,
     SELECTIONS_JSON_SCHEMA,
     Selections,
     selections_from_dict,
@@ -65,6 +66,7 @@ class GeminiProposer:
 
         url = f"{_GEMINI_V1BETA}/{self._model}:generateContent"
         body = {
+            "systemInstruction": {"parts": [{"text": PROPOSER_SYSTEM_INSTRUCTION}]},
             "contents": [
                 {
                     "role": "user",
@@ -74,7 +76,7 @@ class GeminiProposer:
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "responseJsonSchema": SELECTIONS_JSON_SCHEMA,
-                "thinkingConfig": {"thinkingBudget": 0},
+                "thinkingConfig": {"thinkingBudget": -1},
             },
         }
         headers = {"x-goog-api-key": self._api_key}
