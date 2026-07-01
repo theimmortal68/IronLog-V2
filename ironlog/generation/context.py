@@ -92,6 +92,8 @@ class GenerationContext:
     candidate_menus: Dict[str, List[int]] = field(default_factory=dict)
     # §3A addendum (ii): movement ids with an open Note / RPE-trend flag
     note_flagged_movement_ids: Set[int] = field(default_factory=set)
+    # Task 3: full Movement lookup for payload enrichment
+    movements: Dict[int, "Movement"] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +330,7 @@ def resolve_context(
         weak_point_hints=weak_hints,
         candidate_menus=menus,
         note_flagged_movement_ids=note_flagged,
+        movements=movements,
     )
 
 
@@ -352,6 +355,24 @@ def _recent_same_role_sessions(db: Session, day_role: str, n: int = 2) -> list:
 
 
 # ---------------------------------------------------------------------------
+# _candidate_descriptor (Task 3)
+# ---------------------------------------------------------------------------
+
+def _candidate_descriptor(mid: int, slot: SlotSpec, ctx: "GenerationContext") -> dict:
+    m = ctx.movements.get(mid)
+    return {
+        "id": mid,
+        "name": m.name if m else str(mid),
+        "primary_muscle": m.primary_muscle.value if (m and m.primary_muscle) else None,
+        "secondary_muscles": list(m.secondary_muscles) if m else [],
+        "lift_category": m.lift_category.value if m else None,
+        "pattern": slot.pattern,
+        "equipment_tags": list(m.equipment_tags) if m else [],
+        "is_program_anchor": mid == slot.program_movement_id,
+    }
+
+
+# ---------------------------------------------------------------------------
 # build_context_payload
 # ---------------------------------------------------------------------------
 
@@ -372,7 +393,10 @@ def build_context_payload(ctx: GenerationContext, skeleton: Skeleton) -> dict:
                 "pattern": s.pattern,
                 "tier_role": s.tier_role,       # brief used s.tier — real field is tier_role
                 "knee_modality": s.knee_modality,
-                "candidates": ctx.candidate_menus.get(s.slot_id, []),
+                "candidates": [
+                    _candidate_descriptor(mid, s, ctx)
+                    for mid in ctx.candidate_menus.get(s.slot_id, [])
+                ],
             }
             for s in skeleton.adaptive_slots
         ],
