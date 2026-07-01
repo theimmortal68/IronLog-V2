@@ -94,6 +94,8 @@ class GenerationContext:
     note_flagged_movement_ids: Set[int] = field(default_factory=set)
     # Task 3: full Movement lookup for payload enrichment
     movements: Dict[int, "Movement"] = field(default_factory=dict)
+    # Task 5: per-slot rep scheme from TierExercise (informational only)
+    slot_rep_schemes: Dict[str, dict] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +342,22 @@ def resolve_context(
 
     owed = compute_owed_requirements(tallies)
 
+    # Task 5: build per-slot rep schemes from TierExercise records (informational)
+    from ..models.program import TierExercise
+    te_by_mid: Dict[int, TierExercise] = {
+        te.movement_id: te
+        for te in db.exec(select(TierExercise)).all()
+    }
+    slot_rep_schemes: Dict[str, dict] = {}
+    for slot in skeleton.adaptive_slots:
+        te = te_by_mid.get(slot.program_movement_id)
+        if te is not None:
+            slot_rep_schemes[slot.slot_id] = {
+                "rep_low": te.rep_low,
+                "rep_high": te.rep_high,
+                "scheme": te.scheme,
+            }
+
     return GenerationContext(
         phase=phase,
         phase_policy=policy,
@@ -352,6 +370,7 @@ def resolve_context(
         candidate_menus=menus,
         note_flagged_movement_ids=note_flagged,
         movements=movements,
+        slot_rep_schemes=slot_rep_schemes,
     )
 
 
@@ -406,6 +425,11 @@ def build_context_payload(ctx: GenerationContext, skeleton: Skeleton) -> dict:
     return {
         "day_role": skeleton.day_role,
         "phase": ctx.phase,
+        "phase_intent": {
+            "objective": ctx.phase_policy.default_objective.value,
+            "rpe_band": [ctx.phase_policy.rpe_band_low, ctx.phase_policy.rpe_band_high],
+            "volume_posture": ctx.phase_policy.volume_posture,
+        },
         "anchors": skeleton.anchor_movement_ids,
         "slots": [
             {
@@ -414,6 +438,7 @@ def build_context_payload(ctx: GenerationContext, skeleton: Skeleton) -> dict:
                 "pattern": s.pattern,
                 "tier_role": s.tier_role,       # brief used s.tier — real field is tier_role
                 "knee_modality": s.knee_modality,
+                "rep_scheme": ctx.slot_rep_schemes.get(s.slot_id),
                 "candidates": [
                     _candidate_descriptor(mid, s, ctx)
                     for mid in ctx.candidate_menus.get(s.slot_id, [])
