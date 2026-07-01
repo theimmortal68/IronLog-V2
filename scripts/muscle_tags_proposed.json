@@ -1,0 +1,1181 @@
+[
+  {
+    "name": "Back Squat [PB]",
+    "base_name": "Back Squat",
+    "lift_category": "BACK_SQUAT",
+    "pattern": "squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Front Squat [PB]",
+    "base_name": "Front Squat",
+    "lift_category": "FRONT_SQUAT",
+    "pattern": "squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Belt Squat [GHR + FT]",
+    "base_name": "Belt Squat",
+    "lift_category": "BACK_SQUAT",
+    "pattern": "squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Bench Press [PB]",
+    "base_name": "Bench Press",
+    "lift_category": "BENCH",
+    "pattern": "bench",
+    "region": "UPPER",
+    "proposed_primary": "MID_LOWER_CHEST",
+    "proposed_secondary": [
+      "FRONT_DELT",
+      "TRICEPS"
+    ]
+  },
+  {
+    "name": "Standing OHP [PB]",
+    "base_name": "Standing OHP",
+    "lift_category": "OHP",
+    "pattern": "ohp",
+    "region": "UPPER",
+    "proposed_primary": "FRONT_DELT",
+    "proposed_secondary": [
+      "SIDE_DELT",
+      "TRICEPS"
+    ]
+  },
+  {
+    "name": "RDL [PB]",
+    "base_name": "RDL",
+    "lift_category": "RDL",
+    "pattern": "rdl",
+    "region": "LOWER",
+    "proposed_primary": "HAMSTRINGS",
+    "proposed_secondary": [
+      "GLUTES",
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "Box Squat [PB]",
+    "base_name": "Box Squat",
+    "lift_category": "BACK_SQUAT",
+    "pattern": "squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Conventional DL [PB]",
+    "base_name": "Conventional DL",
+    "lift_category": "DEADLIFT",
+    "pattern": "deadlift",
+    "region": "LOWER",
+    "proposed_primary": "HAMSTRINGS",
+    "proposed_secondary": [
+      "GLUTES",
+      "SPINAL_ERECTORS",
+      "QUADS"
+    ]
+  },
+  {
+    "name": "Sumo DL [PB]",
+    "base_name": "Sumo DL",
+    "lift_category": "DEADLIFT",
+    "pattern": "sumo_deadlift",
+    "region": "LOWER",
+    "proposed_primary": "HAMSTRINGS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS",
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "Bent Over Row [PB]",
+    "base_name": "Bent Over Row",
+    "lift_category": "ROW",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Staggered RDL [PB]",
+    "base_name": "Staggered RDL",
+    "lift_category": "RDL",
+    "pattern": "rdl",
+    "region": "LOWER",
+    "proposed_primary": "HAMSTRINGS",
+    "proposed_secondary": [
+      "GLUTES",
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "Hip Thrust [HIP_THRUST]",
+    "base_name": "Hip Thrust",
+    "lift_category": "HIP_THRUST",
+    "pattern": "hip_thrust",
+    "region": "LOWER",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS"
+    ]
+  },
+  {
+    "name": "Banded Hip Thrust [HIP_THRUST]",
+    "base_name": "Banded Hip Thrust",
+    "lift_category": "HIP_THRUST",
+    "pattern": "hip_thrust",
+    "region": "LOWER",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS"
+    ]
+  },
+  {
+    "name": "Banded BW Hip Thrust [BAND]",
+    "base_name": "Banded BW Hip Thrust",
+    "lift_category": "NONE",
+    "pattern": "hip_thrust",
+    "region": "LOWER",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS"
+    ]
+  },
+  {
+    "name": "Nordic Curl [GHR]",
+    "base_name": "Nordic Curl",
+    "lift_category": "NONE",
+    "pattern": "nordic_curl",
+    "region": "LOWER",
+    "proposed_primary": "HAMSTRINGS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Nordic Curl - Volume [GHR]",
+    "base_name": "Nordic Curl - Volume",
+    "lift_category": "NONE",
+    "pattern": "nordic_curl",
+    "region": "LOWER",
+    "proposed_primary": "HAMSTRINGS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Reverse Nordic Curl [GHR]",
+    "base_name": "Reverse Nordic Curl",
+    "lift_category": "NONE",
+    "pattern": "reverse_nordic",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Pull-up [TOWER + TUBES]",
+    "base_name": "Pull-up",
+    "lift_category": "NONE",
+    "pattern": "pullup",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": [
+      "BICEPS",
+      "MID_BACK"
+    ]
+  },
+  {
+    "name": "Reverse Hyper [REV_HYPER]",
+    "base_name": "Reverse Hyper",
+    "lift_category": "REV_HYPER",
+    "pattern": "rev_hyper",
+    "region": "LOWER",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS",
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "Light Reverse Hyper [REV_HYPER]",
+    "base_name": "Light Reverse Hyper",
+    "lift_category": "REV_HYPER",
+    "pattern": "rev_hyper",
+    "region": "LOWER",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS",
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "ATG Split Squat",
+    "base_name": "ATG Split Squat",
+    "lift_category": "NONE",
+    "pattern": "atg_squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "ATG Split Squat [BW]",
+    "base_name": "ATG Split Squat",
+    "lift_category": "NONE",
+    "pattern": "atg_squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "ATG Squat Hold",
+    "base_name": "ATG Squat Hold",
+    "lift_category": "NONE",
+    "pattern": "atg_squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Bulgarian Split Squat [DB]",
+    "base_name": "Bulgarian Split Squat",
+    "lift_category": "NONE",
+    "pattern": "split_squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Calf Raise [GHR]",
+    "base_name": "Calf Raise",
+    "lift_category": "NONE",
+    "pattern": "calf_raise",
+    "region": "LOWER",
+    "proposed_primary": "CALVES",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Heels-Elevated Goblet Squat [DB]",
+    "base_name": "Heels-Elevated Goblet Squat",
+    "lift_category": "NONE",
+    "pattern": "goblet_squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Leg Curl [GHR]",
+    "base_name": "Leg Curl",
+    "lift_category": "NONE",
+    "pattern": "leg_curl",
+    "region": "LOWER",
+    "proposed_primary": "HAMSTRINGS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Leg Extension [GHR]",
+    "base_name": "Leg Extension",
+    "lift_category": "NONE",
+    "pattern": "leg_extension",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Reverse Lunge [DB]",
+    "base_name": "Reverse Lunge",
+    "lift_category": "NONE",
+    "pattern": "lunge",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES",
+      "ADDUCTORS"
+    ]
+  },
+  {
+    "name": "Swiss Bar CG Press [SB]",
+    "base_name": "Swiss Bar CG Press",
+    "lift_category": "CG_PRESS",
+    "pattern": "cg_press",
+    "region": "UPPER",
+    "proposed_primary": "TRICEPS",
+    "proposed_secondary": [
+      "MID_LOWER_CHEST",
+      "FRONT_DELT"
+    ]
+  },
+  {
+    "name": "Swiss Bar Press [SB]",
+    "base_name": "Swiss Bar Press",
+    "lift_category": "CG_PRESS",
+    "pattern": "cg_press",
+    "region": "UPPER",
+    "proposed_primary": "TRICEPS",
+    "proposed_secondary": [
+      "MID_LOWER_CHEST",
+      "FRONT_DELT"
+    ]
+  },
+  {
+    "name": "JM Press [SB]",
+    "base_name": "JM Press",
+    "lift_category": "CG_PRESS",
+    "pattern": "cg_press",
+    "region": "UPPER",
+    "proposed_primary": "TRICEPS",
+    "proposed_secondary": [
+      "MID_LOWER_CHEST",
+      "FRONT_DELT"
+    ]
+  },
+  {
+    "name": "Z-Press [DB]",
+    "base_name": "Z-Press",
+    "lift_category": "NONE",
+    "pattern": "ohp_variant",
+    "region": "UPPER",
+    "proposed_primary": "FRONT_DELT",
+    "proposed_secondary": [
+      "SIDE_DELT",
+      "TRICEPS"
+    ]
+  },
+  {
+    "name": "Pendlay Row - Medium [OB]",
+    "base_name": "Pendlay Row - Medium",
+    "lift_category": "ROW",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Pendlay Row - Narrow [OB]",
+    "base_name": "Pendlay Row - Narrow",
+    "lift_category": "ROW",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Pendlay Row - Wide [OB]",
+    "base_name": "Pendlay Row - Wide",
+    "lift_category": "ROW",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "T-Bar Row - Medium [OB + KLEVA + LM]",
+    "base_name": "T-Bar Row - Medium",
+    "lift_category": "NONE",
+    "pattern": "t_bar_row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "T-Bar Row - Narrow [OB + KLEVA + LM]",
+    "base_name": "T-Bar Row - Narrow",
+    "lift_category": "NONE",
+    "pattern": "t_bar_row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "T-Bar Row - Wide [OB + KLEVA + LM]",
+    "base_name": "T-Bar Row - Wide",
+    "lift_category": "NONE",
+    "pattern": "t_bar_row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Andreoni Dips [ANDREONI + FT]",
+    "base_name": "Andreoni Dips",
+    "lift_category": "NONE",
+    "pattern": "dip",
+    "region": "UPPER",
+    "proposed_primary": "MID_LOWER_CHEST",
+    "proposed_secondary": [
+      "TRICEPS",
+      "FRONT_DELT"
+    ],
+    "uncertain_reason": "Grip width on Andreoni station unknown; standard dip assumption MID_LOWER_CHEST primary. User should verify grip style."
+  },
+  {
+    "name": "Andreoni Lat Prayer [ANDREONI + FT]",
+    "base_name": "Andreoni Lat Prayer",
+    "lift_category": "NONE",
+    "pattern": "lat_pullover",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Andreoni Tricep Extension [ANDREONI + FT]",
+    "base_name": "Andreoni Tricep Extension",
+    "lift_category": "NONE",
+    "pattern": "tricep_isolation",
+    "region": "UPPER",
+    "proposed_primary": "TRICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Cable Low-to-High Fly [FT]",
+    "base_name": "Cable Low-to-High Fly",
+    "lift_category": "NONE",
+    "pattern": "cable_fly",
+    "region": "UPPER",
+    "proposed_primary": "UPPER_CHEST",
+    "proposed_secondary": [
+      "FRONT_DELT"
+    ]
+  },
+  {
+    "name": "Cable Tricep Pushdown [FT]",
+    "base_name": "Cable Tricep Pushdown",
+    "lift_category": "NONE",
+    "pattern": "tricep_isolation",
+    "region": "UPPER",
+    "proposed_primary": "TRICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Cable V-Bar Pushdown [FT]",
+    "base_name": "Cable V-Bar Pushdown",
+    "lift_category": "NONE",
+    "pattern": "tricep_isolation",
+    "region": "UPPER",
+    "proposed_primary": "TRICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Chest Supported Row [DB + BENCH]",
+    "base_name": "Chest Supported Row",
+    "lift_category": "NONE",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Cross-Body Cable Lateral Raise [FT]",
+    "base_name": "Cross-Body Cable Lateral Raise",
+    "lift_category": "NONE",
+    "pattern": "lateral_raise",
+    "region": "UPPER",
+    "proposed_primary": "SIDE_DELT",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Cross-Body Cable Rear Delt Fly [FT]",
+    "base_name": "Cross-Body Cable Rear Delt Fly",
+    "lift_category": "NONE",
+    "pattern": "rear_delt_fly",
+    "region": "UPPER",
+    "proposed_primary": "REAR_DELT",
+    "proposed_secondary": []
+  },
+  {
+    "name": "DB Lateral Raise [DB]",
+    "base_name": "DB Lateral Raise",
+    "lift_category": "NONE",
+    "pattern": "lateral_raise",
+    "region": "UPPER",
+    "proposed_primary": "SIDE_DELT",
+    "proposed_secondary": []
+  },
+  {
+    "name": "DB Seal Row [DB + UTIL_SEAT]",
+    "base_name": "DB Seal Row",
+    "lift_category": "NONE",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Decline Swiss Bar Skull Crusher [SB + BENCH]",
+    "base_name": "Decline Swiss Bar Skull Crusher",
+    "lift_category": "NONE",
+    "pattern": "skull_crusher",
+    "region": "UPPER",
+    "proposed_primary": "TRICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Eccentric Pull-up [TOWER]",
+    "base_name": "Eccentric Pull-up",
+    "lift_category": "NONE",
+    "pattern": "pullup",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": [
+      "BICEPS",
+      "MID_BACK"
+    ]
+  },
+  {
+    "name": "Face Pull w/ ER Hold [FT]",
+    "base_name": "Face Pull w/ ER Hold",
+    "lift_category": "NONE",
+    "pattern": "face_pull",
+    "region": "UPPER",
+    "proposed_primary": "REAR_DELT",
+    "proposed_secondary": [
+      "UPPER_TRAPS"
+    ]
+  },
+  {
+    "name": "Heavy Lat Pulldown [FT]",
+    "base_name": "Heavy Lat Pulldown",
+    "lift_category": "NONE",
+    "pattern": "lat_pulldown",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": [
+      "BICEPS",
+      "MID_BACK"
+    ]
+  },
+  {
+    "name": "Incline DB Press [DB + BENCH]",
+    "base_name": "Incline DB Press",
+    "lift_category": "NONE",
+    "pattern": "incline_press",
+    "region": "UPPER",
+    "proposed_primary": "UPPER_CHEST",
+    "proposed_secondary": [
+      "FRONT_DELT",
+      "TRICEPS"
+    ]
+  },
+  {
+    "name": "Incline DB Y-Raise [DB + BENCH]",
+    "base_name": "Incline DB Y-Raise",
+    "lift_category": "NONE",
+    "pattern": "y_raise",
+    "region": "UPPER",
+    "proposed_primary": "REAR_DELT",
+    "proposed_secondary": [
+      "UPPER_TRAPS"
+    ],
+    "uncertain_reason": "Y-raise primarily targets lower traps (not in enum); REAR_DELT chosen as closest available. User should verify."
+  },
+  {
+    "name": "Kneeling Cross-Body Lat Pullaround [FT]",
+    "base_name": "Kneeling Cross-Body Lat Pullaround",
+    "lift_category": "NONE",
+    "pattern": "lat_pullover",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Lat Pulldown [FT]",
+    "base_name": "Lat Pulldown",
+    "lift_category": "NONE",
+    "pattern": "lat_pulldown",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": [
+      "BICEPS",
+      "MID_BACK"
+    ]
+  },
+  {
+    "name": "Lateral Raise [FT]",
+    "base_name": "Lateral Raise",
+    "lift_category": "NONE",
+    "pattern": "lateral_raise",
+    "region": "UPPER",
+    "proposed_primary": "SIDE_DELT",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Meadows Row [OB + LM]",
+    "base_name": "Meadows Row",
+    "lift_category": "NONE",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Rear Delt Fly [DB]",
+    "base_name": "Rear Delt Fly",
+    "lift_category": "NONE",
+    "pattern": "rear_delt_fly",
+    "region": "UPPER",
+    "proposed_primary": "REAR_DELT",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Seated Cable Row [FT]",
+    "base_name": "Seated Cable Row",
+    "lift_category": "NONE",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "Seated DB Press [DB]",
+    "base_name": "Seated DB Press",
+    "lift_category": "NONE",
+    "pattern": "ohp_variant",
+    "region": "UPPER",
+    "proposed_primary": "FRONT_DELT",
+    "proposed_secondary": [
+      "SIDE_DELT",
+      "TRICEPS"
+    ]
+  },
+  {
+    "name": "Single-Arm Cable Chest Press [FT + D-handle]",
+    "base_name": "Single-Arm Cable Chest Press",
+    "lift_category": "NONE",
+    "pattern": "chest_press",
+    "region": "UPPER",
+    "proposed_primary": "MID_LOWER_CHEST",
+    "proposed_secondary": [
+      "FRONT_DELT",
+      "TRICEPS"
+    ]
+  },
+  {
+    "name": "Single-Arm Landmine Press [OB + LM]",
+    "base_name": "Single-Arm Landmine Press",
+    "lift_category": "NONE",
+    "pattern": "landmine_press",
+    "region": "UPPER",
+    "proposed_primary": "FRONT_DELT",
+    "proposed_secondary": [
+      "UPPER_CHEST",
+      "TRICEPS"
+    ],
+    "uncertain_reason": "Landmine press angle is between FRONT_DELT and UPPER_CHEST; FRONT_DELT chosen as primary. User should verify."
+  },
+  {
+    "name": "Single-Arm DB Row [DB]",
+    "base_name": "Single-Arm DB Row",
+    "lift_category": "ROW",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "PureTorque Pro Rotation",
+    "base_name": "PureTorque Pro Rotation",
+    "lift_category": "NONE",
+    "pattern": "rotational_core",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Ab Wheel [WHEEL]",
+    "base_name": "Ab Wheel",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Bear Hover",
+    "base_name": "Bear Hover",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Bear Hover + Shoulder Tap",
+    "base_name": "Bear Hover + Shoulder Tap",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Bird Dog",
+    "base_name": "Bird Dog",
+    "lift_category": "NONE",
+    "pattern": "bird_dog",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": [
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "Cable Crunch [FT]",
+    "base_name": "Cable Crunch",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Cable External Rotation [FT]",
+    "base_name": "Cable External Rotation",
+    "lift_category": "NONE",
+    "pattern": "external_rotation",
+    "region": "CORE",
+    "proposed_primary": "REAR_DELT",
+    "proposed_secondary": [],
+    "uncertain_reason": "Cable External Rotation targets infraspinatus / teres minor (rotator cuff), not directly in enum; REAR_DELT chosen as anatomical neighbour. User should verify."
+  },
+  {
+    "name": "Copenhagen Hold [BENCH]",
+    "base_name": "Copenhagen Hold",
+    "lift_category": "NONE",
+    "pattern": "copenhagen",
+    "region": "CORE",
+    "proposed_primary": "ADDUCTORS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Dead Bug",
+    "base_name": "Dead Bug",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Decline Lying Leg Raise [GHR]",
+    "base_name": "Decline Lying Leg Raise",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Hanging Knee Raise [TOWER]",
+    "base_name": "Hanging Knee Raise",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Hard-Style Plank",
+    "base_name": "Hard-Style Plank",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Hollow Body Hold",
+    "base_name": "Hollow Body Hold",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Hollow Body Tuck Hold",
+    "base_name": "Hollow Body Tuck Hold",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Landmine Rotation [OB + LM]",
+    "base_name": "Landmine Rotation",
+    "lift_category": "NONE",
+    "pattern": "rotational_core",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Plank",
+    "base_name": "Plank",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Short-Lever Copenhagen [BENCH]",
+    "base_name": "Short-Lever Copenhagen",
+    "lift_category": "NONE",
+    "pattern": "copenhagen",
+    "region": "CORE",
+    "proposed_primary": "ADDUCTORS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Band Pull-Aparts",
+    "base_name": "Band Pull-Aparts",
+    "lift_category": "NONE",
+    "pattern": "band_pull_apart",
+    "region": "UPPER",
+    "proposed_primary": "REAR_DELT",
+    "proposed_secondary": [
+      "UPPER_TRAPS"
+    ]
+  },
+  {
+    "name": "Farmer Carries [FARMER HANDLES]",
+    "base_name": "Farmer Carries",
+    "lift_category": "NONE",
+    "pattern": "carry",
+    "region": "NONE",
+    "proposed_primary": "FOREARMS",
+    "proposed_secondary": [
+      "UPPER_TRAPS",
+      "ABS"
+    ],
+    "uncertain_reason": "Carry movements are full-body; FOREARMS chosen as primary structural driver. UPPER_TRAPS is equally defensible. User should verify."
+  },
+  {
+    "name": "Farmer Walk [FARMER]",
+    "base_name": "Farmer Walk",
+    "lift_category": "NONE",
+    "pattern": "carry",
+    "region": "NONE",
+    "proposed_primary": "FOREARMS",
+    "proposed_secondary": [
+      "UPPER_TRAPS",
+      "ABS"
+    ],
+    "uncertain_reason": "Carry movements are full-body; FOREARMS chosen as primary structural driver. UPPER_TRAPS is equally defensible. User should verify."
+  },
+  {
+    "name": "Jump Rope Intervals [JR]",
+    "base_name": "Jump Rope Intervals",
+    "lift_category": "NONE",
+    "pattern": "jump_rope",
+    "region": "NONE",
+    "proposed_primary": "CALVES",
+    "proposed_secondary": [],
+    "uncertain_reason": "Jump rope is cardio-dominant; CALVES chosen as the primary structural muscle engaged. User may prefer a different primary or use a dedicated cardio tag if added to enum."
+  },
+  {
+    "name": "Jump Rope Tabata [JR]",
+    "base_name": "Jump Rope Tabata",
+    "lift_category": "NONE",
+    "pattern": "jump_rope",
+    "region": "NONE",
+    "proposed_primary": "CALVES",
+    "proposed_secondary": [],
+    "uncertain_reason": "Jump rope is cardio-dominant; CALVES chosen as the primary structural muscle engaged. User may prefer a different primary or use a dedicated cardio tag if added to enum."
+  },
+  {
+    "name": "Jump Rope [JR]",
+    "base_name": "Jump Rope",
+    "lift_category": "NONE",
+    "pattern": "jump_rope",
+    "region": "NONE",
+    "proposed_primary": "CALVES",
+    "proposed_secondary": [],
+    "uncertain_reason": "Jump rope is cardio-dominant; CALVES chosen as the primary structural muscle engaged. User may prefer a different primary or use a dedicated cardio tag if added to enum."
+  },
+  {
+    "name": "KB Swing Tabata [KB]",
+    "base_name": "KB Swing Tabata",
+    "lift_category": "NONE",
+    "pattern": "kb_swing",
+    "region": "NONE",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS",
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "KB Swings [KB]",
+    "base_name": "KB Swings",
+    "lift_category": "NONE",
+    "pattern": "kb_swing",
+    "region": "NONE",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS",
+      "SPINAL_ERECTORS"
+    ]
+  },
+  {
+    "name": "Sandbag Carry [SANDBAG]",
+    "base_name": "Sandbag Carry",
+    "lift_category": "NONE",
+    "pattern": "carry",
+    "region": "NONE",
+    "proposed_primary": "FOREARMS",
+    "proposed_secondary": [
+      "UPPER_TRAPS",
+      "ABS"
+    ],
+    "uncertain_reason": "Carry movements are full-body; FOREARMS chosen as primary structural driver. UPPER_TRAPS is equally defensible. User should verify."
+  },
+  {
+    "name": "Sandbag Over-Shoulder [SANDBAG]",
+    "base_name": "Sandbag Over-Shoulder",
+    "lift_category": "NONE",
+    "pattern": "sandbag_toss",
+    "region": "NONE",
+    "proposed_primary": "GLUTES",
+    "proposed_secondary": [
+      "HAMSTRINGS",
+      "SPINAL_ERECTORS"
+    ],
+    "uncertain_reason": "Sandbag Over-Shoulder is a complex explosive hip/shoulder movement; GLUTES chosen as primary driver of the hip extension. User should verify."
+  },
+  {
+    "name": "Slam Ball [BALL]",
+    "base_name": "Slam Ball",
+    "lift_category": "NONE",
+    "pattern": "slam_ball",
+    "region": "NONE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": [
+      "GLUTES",
+      "HAMSTRINGS"
+    ],
+    "uncertain_reason": "Slam Ball is a full-body explosive movement; ABS chosen as primary driver of the slam. GLUTES / HAMSTRINGS also highly involved. User should verify."
+  },
+  {
+    "name": "Bayesian Cable Curl [FT]",
+    "base_name": "Bayesian Cable Curl",
+    "lift_category": "NONE",
+    "pattern": "curl",
+    "region": "UPPER",
+    "proposed_primary": "BICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Dips [ANDREONI + FT]",
+    "base_name": "Dips",
+    "lift_category": "NONE",
+    "pattern": "dip",
+    "region": "UPPER",
+    "proposed_primary": "MID_LOWER_CHEST",
+    "proposed_secondary": [
+      "TRICEPS",
+      "FRONT_DELT"
+    ],
+    "uncertain_reason": "Grip width on Andreoni station unknown; standard dip assumption MID_LOWER_CHEST primary. User should verify grip style."
+  },
+  {
+    "name": "EZ Bar Curl - Medium Grip [EZ]",
+    "base_name": "EZ Bar Curl - Medium Grip",
+    "lift_category": "NONE",
+    "pattern": "curl",
+    "region": "UPPER",
+    "proposed_primary": "BICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "EZ Bar Curl - Narrow Grip [EZ]",
+    "base_name": "EZ Bar Curl - Narrow Grip",
+    "lift_category": "NONE",
+    "pattern": "row",
+    "region": "UPPER",
+    "proposed_primary": "MID_BACK",
+    "proposed_secondary": [
+      "LATS",
+      "REAR_DELT",
+      "BICEPS"
+    ]
+  },
+  {
+    "name": "EZ Bar Curl - Wide Grip [EZ]",
+    "base_name": "EZ Bar Curl - Wide Grip",
+    "lift_category": "NONE",
+    "pattern": "curl",
+    "region": "UPPER",
+    "proposed_primary": "BICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Hammer Curl [DB]",
+    "base_name": "Hammer Curl",
+    "lift_category": "NONE",
+    "pattern": "hammer_curl",
+    "region": "UPPER",
+    "proposed_primary": "BICEPS",
+    "proposed_secondary": [
+      "FOREARMS"
+    ]
+  },
+  {
+    "name": "Incline DB Curl [DB + BENCH]",
+    "base_name": "Incline DB Curl",
+    "lift_category": "NONE",
+    "pattern": "curl",
+    "region": "UPPER",
+    "proposed_primary": "BICEPS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Lat Prayer [ANDREONI + FT]",
+    "base_name": "Lat Prayer",
+    "lift_category": "NONE",
+    "pattern": "lat_pullover",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Sissy Squat",
+    "base_name": "Sissy Squat",
+    "lift_category": "NONE",
+    "pattern": "sissy_squat",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Cable Tibialis Raise",
+    "base_name": "Cable Tibialis Raise",
+    "lift_category": "NONE",
+    "pattern": "tibialis_raise",
+    "region": "LOWER",
+    "proposed_primary": "CALVES",
+    "proposed_secondary": [],
+    "uncertain_reason": "Tibialis anterior is not in the Muscle enum; CALVES chosen as closest lower-leg structure. User should verify or accept."
+  },
+  {
+    "name": "Poliquin Step-up",
+    "base_name": "Poliquin Step-up",
+    "lift_category": "NONE",
+    "pattern": "step_up",
+    "region": "LOWER",
+    "proposed_primary": "QUADS",
+    "proposed_secondary": [
+      "GLUTES"
+    ]
+  },
+  {
+    "name": "Dragon Flag",
+    "base_name": "Dragon Flag",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Face-Up Incline Knee Raise",
+    "base_name": "Face-Up Incline Knee Raise",
+    "lift_category": "NONE",
+    "pattern": "core_stability",
+    "region": "CORE",
+    "proposed_primary": "ABS",
+    "proposed_secondary": []
+  },
+  {
+    "name": "Andreoni Cable Pullover",
+    "base_name": "Andreoni Cable Pullover",
+    "lift_category": "NONE",
+    "pattern": "cable_pullover",
+    "region": "UPPER",
+    "proposed_primary": "LATS",
+    "proposed_secondary": [
+      "MID_BACK"
+    ]
+  }
+]

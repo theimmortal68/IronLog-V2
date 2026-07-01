@@ -139,6 +139,8 @@ class Muscle(str, Enum):
     CALVES = "CALVES"
     ABS = "ABS"
     SPINAL_ERECTORS = "SPINAL_ERECTORS"
+    TIBIALIS = "TIBIALIS"
+    ROTATOR_CUFF = "ROTATOR_CUFF"
 
 
 # --- session / set-log layer ---
