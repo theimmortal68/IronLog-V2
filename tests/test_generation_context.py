@@ -134,7 +134,11 @@ def test_menu_less_slot_is_not_deviation_eligible(gen_db):
         program_movement_id=dummy_mid,
     )
     # Inject all possible signals into the context
-    ctx.weak_point_hints[dummy_mid] = "stalled: test injection"
+    ctx.weak_point_hints[dummy_mid] = {
+        "stall_type": "failed", "failed_count": 2,
+        "e1rm_window": {"sessions": 0, "peak": None, "latest": None},
+        "limiter": {"primary_muscle": None, "secondary_muscles": []},
+    }
     ctx.note_flagged_movement_ids.add(dummy_mid)
     ctx.owed["novelty_owed"][menu_less_slot.slot_id] = True
 

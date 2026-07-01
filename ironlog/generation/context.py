@@ -88,7 +88,7 @@ class GenerationContext:
     tallies: WeeklyTallies
     owed: dict
     recent_signatures: List[dict]
-    weak_point_hints: Dict[int, str]
+    weak_point_hints: Dict[int, dict]
     candidate_menus: Dict[str, List[int]] = field(default_factory=dict)
     # §3A addendum (ii): movement ids with an open Note / RPE-trend flag
     note_flagged_movement_ids: Set[int] = field(default_factory=set)
@@ -179,9 +179,8 @@ def compute_owed_requirements(tallies: WeeklyTallies) -> dict:
 # build_weak_point_hints
 # ---------------------------------------------------------------------------
 
-def build_weak_point_hints(db: Session) -> Dict[int, str]:
-    """L1 soft hint (Fork 3 / §9): for each movement with a MovementState, run
-    detect_stall; if stalled, flag the limiter hint (soft).
+def build_weak_point_hints(db: Session) -> Dict[int, dict]:
+    """Per stalled movement: typed + severity + limiter record (gap D).
 
     Notes:
     - Always calls detect_stall even when window is empty: the failed_stalled arm
@@ -190,8 +189,12 @@ def build_weak_point_hints(db: Session) -> Dict[int, str]:
     - detect_stall is PROGRESS-objective-gated: it always returns StallSignal(False,
       False, False) for non-PROGRESS movements, so we pass PROGRESS unconditionally
       (the stall concept only applies to progress-tracked lifts).
+    - Record shape: {"stall_type": "failed"|"trend"|"both", "failed_count": int,
+      "e1rm_window": {"sessions": int, "peak": float|None, "latest": float|None},
+      "limiter": {"primary_muscle": str|None, "secondary_muscles": [str]}}
     """
-    hints: Dict[int, str] = {}
+    records: Dict[int, dict] = {}
+    movements = {m.id: m for m in db.exec(select(Movement)).all()}
     states = db.exec(select(MovementState)).all()
     for st in states:
         rows = db.exec(
@@ -199,11 +202,29 @@ def build_weak_point_hints(db: Session) -> Dict[int, str]:
         ).all()
         window = select_progress_window(list(rows))
         sig = detect_stall(window, st.consecutive_failed_progressions, Objective.PROGRESS)
-        if sig.stalled:
-            hints[st.movement_id] = (
-                "stalled: bias accessory volume toward the limiter (L1)"
-            )
-    return hints
+        if not sig.stalled:
+            continue
+        if sig.trend_stalled and sig.failed_stalled:
+            stype = "both"
+        elif sig.trend_stalled:
+            stype = "trend"
+        else:
+            stype = "failed"
+        m = movements.get(st.movement_id)
+        records[st.movement_id] = {
+            "stall_type": stype,
+            "failed_count": st.consecutive_failed_progressions,
+            "e1rm_window": {
+                "sessions": len(window),
+                "peak": max(window) if window else None,
+                "latest": window[-1] if window else None,
+            },
+            "limiter": {
+                "primary_muscle": m.primary_muscle.value if (m and m.primary_muscle) else None,
+                "secondary_muscles": list(m.secondary_muscles) if m else [],
+            },
+        }
+    return records
 
 
 # ---------------------------------------------------------------------------
