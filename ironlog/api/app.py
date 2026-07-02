@@ -387,6 +387,29 @@ def get_today_session(db: Session = Depends(get_session)):
     return _serialize_session(ws, db) if ws else None
 
 
+class SessionSummary(BaseModel):
+    id: int
+    date: str
+    day_role: str
+    phase: str
+    status: str
+
+
+@app.get("/sessions", response_model=List[SessionSummary])
+def list_sessions(db: Session = Depends(get_session)):
+    """Past COMPLETED sessions, newest-first (for History)."""
+    from ..models.session import Session as WorkoutSession
+    rows = db.exec(
+        select(WorkoutSession)
+        .where(WorkoutSession.status == SessionStatus.COMPLETED)
+        .order_by(WorkoutSession.id.desc())
+    ).all()
+    return [SessionSummary(
+        id=w.id, date=w.date.isoformat(), day_role=w.day_role,
+        phase=w.phase, status=w.status.value,
+    ) for w in rows]
+
+
 @app.get("/sessions/{session_id}", response_model=SessionDetailResponse)
 def get_session_detail(session_id: int, db: Session = Depends(get_session)):
     from ..models.session import Session as WorkoutSession
