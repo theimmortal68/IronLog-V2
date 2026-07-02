@@ -49,6 +49,9 @@ class AnchorSpec:
     rep_high: Optional[int] = None
     rpe_cap: Optional[float] = None
     rest_seconds: Optional[int] = None
+    # The source Tier's tier_label (e.g. "T1"); carried alongside rest_seconds so
+    # the assembler can set ExerciseGroup.label (client tier-aware rest reads it).
+    tier_label: Optional[str] = None
 
 
 @dataclass
@@ -127,6 +130,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                 anchor_meta.append(AnchorSpec(
                     rep_low=te.rep_low, rep_high=te.rep_high,
                     rpe_cap=te.rpe_cap, rest_seconds=tier.rest_seconds,
+                    tier_label=tier.tier_label,
                 ))
             else:
                 adaptive_slots.append(SlotSpec(
