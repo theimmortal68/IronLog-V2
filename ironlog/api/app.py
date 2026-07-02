@@ -132,6 +132,7 @@ class GenerateResponse(BaseModel):
     exhausted: bool
     attempts: int
     scope: str
+    preview: Optional[SessionDetailResponse] = None
 
 
 class ApproveResponse(BaseModel):
@@ -211,6 +212,9 @@ def generate(req: GenerateRequest, db: Session = Depends(get_session)):
     outcome = generate_session(req.day_role, db, proposer, _week_keyer)
     candidate_id = str(_uuid.uuid4())
     _candidates[candidate_id] = outcome
+    preview = None
+    if outcome.assembled is not None:
+        preview = _serialize_session(outcome.assembled.session, db)
     return GenerateResponse(
         candidate_id=candidate_id,
         day_role=req.day_role,
@@ -219,6 +223,7 @@ def generate(req: GenerateRequest, db: Session = Depends(get_session)):
         scope=(
             "main-work-only; warmups/finishers/Z2 per program doc, not yet in-app"
         ),
+        preview=preview,
     )
 
 
@@ -319,15 +324,32 @@ def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(ge
 # ---------------------------------------------------------------------------
 
 def _serialize_session(ws, db) -> SessionDetailResponse:
+    """Walk the relationship graph and serialize to SessionDetailResponse.
+
+    Also used for in-memory (uncommitted) generate candidates, where ws.id /
+    group.id / exercise.id / planned_set.id are all None (pre-commit). In that
+    case, assign display-only provisional int ids (unique per set) so the
+    response shape matches the committed (real-id) path exactly — the client
+    only shows these; it never round-trips them back to the server, since
+    approve() re-derives everything from the stored candidate, not the preview.
+    """
     from ..models.session import Session as WorkoutSession  # noqa
+    _set_counter = [0]
+
+    def _sid(ps):
+        if ps.id is not None:
+            return ps.id
+        _set_counter[0] += 1
+        return _set_counter[0]
+
     groups_out = []
     groups = sorted(ws.groups, key=lambda g: g.order_index)
-    for g in groups:
+    for gi, g in enumerate(groups):
         ex_out = []
-        for pe in sorted(g.exercises, key=lambda e: e.order_index):
+        for ei, pe in enumerate(sorted(g.exercises, key=lambda e: e.order_index)):
             mv = db.get(Movement, pe.movement_id)
             sets_out = [PlannedSetOut(
-                id=ps.id, set_index=ps.set_index, set_role=ps.set_role.value,
+                id=_sid(ps), set_index=ps.set_index, set_role=ps.set_role.value,
                 is_warmup=ps.is_warmup, target_load=ps.target_load,
                 target_reps_low=ps.target_reps_low, target_reps_high=ps.target_reps_high,
                 target_rpe=ps.target_rpe, target_unassisted_reps=ps.target_unassisted_reps,
@@ -335,19 +357,20 @@ def _serialize_session(ws, db) -> SessionDetailResponse:
                 band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
             ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
             ex_out.append(ExerciseOut(
-                id=pe.id, movement_id=pe.movement_id,
+                id=(pe.id if pe.id is not None else ei), movement_id=pe.movement_id,
                 movement_name=(mv.name if mv else ""), order_index=pe.order_index,
                 scheme=pe.scheme.value, objective=pe.objective.value,
                 unilateral=(mv.unilateral if mv else False),
                 planned_sets=sets_out,
             ))
         groups_out.append(GroupOut(
-            id=g.id, order_index=g.order_index, group_type=g.group_type.value,
-            rounds=g.rounds, rest_seconds=g.rest_seconds, label=g.label, exercises=ex_out,
+            id=(g.id if g.id is not None else gi), order_index=g.order_index,
+            group_type=g.group_type.value, rounds=g.rounds, rest_seconds=g.rest_seconds,
+            label=g.label, exercises=ex_out,
         ))
     return SessionDetailResponse(
-        id=ws.id, date=ws.date.isoformat(), day_role=ws.day_role, phase=ws.phase,
-        status=ws.status.value, groups=groups_out,
+        id=(ws.id if ws.id is not None else 0), date=ws.date.isoformat(),
+        day_role=ws.day_role, phase=ws.phase, status=ws.status.value, groups=groups_out,
     )
 
 
