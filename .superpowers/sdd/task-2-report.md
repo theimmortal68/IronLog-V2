@@ -473,3 +473,128 @@ Full suite:
 None. The single deprecation warning under the naive-datetime test is intentional — that test uses
 `datetime.utcnow()` on purpose to reproduce the project's naive-storage convention and prove
 normalization handles it.
+
+---
+
+# PAYLOAD ENRICHMENT — Task 2, First Half: Muscle Tag Proposal (Steps 1–3)
+
+**Status:** DONE_PROPOSAL_READY
+**Branch:** `feat/payload-enrichment`
+**Date:** 2026-06-30
+
+## Steps Completed
+
+### Step 1 — Failing test written
+`tests/test_library_muscle_tags.py` — exact text from brief.
+
+### Step 2 — Test confirmed failing
+```
+FAILED tests/test_library_muscle_tags.py::test_every_movement_has_a_valid_primary_muscle
+1 failed, 1 passed in 0.09s
+```
+All 108 movements untagged. `test_secondary_muscles_are_valid_and_listy` passes (empty lists fine).
+
+### Step 3 — Proposer run
+`scripts/propose_muscle_tags.py` written and executed via ssh.
+108 proposals → `scripts/muscle_tags_proposed.json`. Zero invalid Muscle values (validated before write).
+
+## Heuristic mapping summary
+
+| Priority | Signal | Examples |
+|---|---|---|
+| 1 | `lift_category` (BACK_SQUAT/FRONT_SQUAT → QUADS; RDL → HAMSTRINGS; BENCH → MID_LOWER_CHEST; OHP → FRONT_DELT; ROW → MID_BACK; HIP_THRUST → GLUTES; REV_HYPER → GLUTES; DEADLIFT → HAMSTRINGS; CG_PRESS → TRICEPS) | T1 lifts + labeled accessories |
+| 2 | base_name keyword matching (nordic, pull-up, lat pulldown, t-bar row, lateral raise, rear delt fly, curl, pushdown, face pull, etc.) | All NONE-category accessories |
+| 3 | `region=CORE` → ABS (except copenhagen→ADDUCTORS, bird dog→ABS+SPINAL_ERECTORS, rotation→ABS) | All core movements |
+| 4 | `progression_mode=CONDITIONING` keywords (farmer/carry→FOREARMS; jump rope→CALVES; kb swing→GLUTES; slam ball→ABS) | 10 conditioning movements |
+
+## Movements flagged uncertain (14)
+
+| Name | Proposed primary | Reason |
+|---|---|---|
+| Cable Tibialis Raise | CALVES | Tibialis anterior not in Muscle enum |
+| Incline DB Y-Raise | REAR_DELT | Y-raise targets lower traps (not in enum) |
+| Single-Arm Landmine Press | FRONT_DELT | Angle ambiguous between FRONT_DELT and UPPER_CHEST |
+| Cable External Rotation | REAR_DELT | Rotator cuff (infraspinatus/teres minor) not in enum |
+| Andreoni Dips | MID_LOWER_CHEST | Grip width on Andreoni station unknown |
+| Dips [ANDREONI + FT] | MID_LOWER_CHEST | Same as above (INACTIVE variant) |
+| Farmer Carries | FOREARMS | UPPER_TRAPS equally defensible |
+| Farmer Walk | FOREARMS | Same |
+| Sandbag Carry | FOREARMS | Same |
+| Jump Rope Intervals | CALVES | Cardio-dominant; structural choice is a simplification |
+| Jump Rope Tabata | CALVES | Same |
+| Jump Rope [JR] | CALVES | Same |
+| Sandbag Over-Shoulder | GLUTES | Complex explosive; hip extension chosen as driver |
+| Slam Ball | ABS | Full-body; ABS primary is defensible but GLUTES/HAMSTRINGS also strong |
+
+## Files written
+- `tests/test_library_muscle_tags.py`
+- `scripts/propose_muscle_tags.py`
+- `scripts/muscle_tags_proposed.json` (108 proposals — the review artifact)
+
+## NOT done (scope gate)
+`ironlog/seed.py` NOT modified. No tags applied. No migration generated. Nothing committed.
+
+Next: user reviews/corrects `scripts/muscle_tags_proposed.json`, then second dispatch applies tags + generates migration 011.
+
+---
+
+# PAYLOAD ENRICHMENT — Task 2, Second Half: Apply Tags + Migration 011
+
+**Status:** DONE
+**Branch:** `feat/payload-enrichment`
+**Date:** 2026-07-01
+
+## Steps Completed
+
+### Taxonomy addition
+- `TIBIALIS = "TIBIALIS"` and `ROTATOR_CUFF = "ROTATOR_CUFF"` added to `ironlog/models/enums.py` `Muscle` enum (now 20 members).
+- `tests/test_library_muscle_fields.py::test_muscle_enum_has_expected_members` updated: added both to expected set.
+- Enum test result: **2 passed in 0.07s** ✓
+
+### Tags applied to seed.py
+- `scripts/apply_muscle_tags.py` written and run: tagged 108 movements, 0 skipped.
+- Six user overrides applied exactly (verified in migration SQL):
+  - `EZ Bar Curl - Narrow Grip [EZ]` → BICEPS / ["FOREARMS"]
+  - `Swiss Bar Press [SB]` → MID_LOWER_CHEST / ["TRICEPS", "FRONT_DELT"]
+  - `Cable Tibialis Raise` → TIBIALIS / []
+  - `Cable External Rotation [FT]` → ROTATOR_CUFF / ["REAR_DELT"]
+  - `Sumo DL [PB]` → GLUTES / ["ADDUCTORS", "QUADS", "SPINAL_ERECTORS", "HAMSTRINGS"]
+  - `Conventional DL [PB]` → GLUTES / ["HAMSTRINGS", "SPINAL_ERECTORS", "QUADS"]
+- All other 102 movements use proposals verbatim (Incline DB Y-Raise kept as REAR_DELT per brief).
+
+### Loader wired
+- `primary_muscle=m.get("primary_muscle")` and `secondary_muscles=m.get("secondary_muscles", [])` added to `Movement(...)` constructor in `seed()`.
+
+### Tag test result
+`tests/test_library_muscle_tags.py`: **2 passed in 0.07s** ✓
+- All 108 movements have a valid primary_muscle.
+- All secondary_muscles lists are valid and list-typed.
+
+### Migration 011 generated
+- `scripts/gen_muscle_backfill.py` created.
+- Generated `deploy/migrations/011_backfill_movement_muscles.sql`: 108 idempotent UPDATE statements, each guarded by `AND primary_muscle IS NULL`.
+
+### Parity test
+`tests/test_migrations.py`: **12 passed in 0.10s** ✓
+
+### Full suite
+`270 passed, 350 warnings in 3.75s` — 0 failed.
+
+## Files Changed
+| File | Action |
+|---|---|
+| `ironlog/models/enums.py` | Added TIBIALIS, ROTATOR_CUFF to Muscle enum |
+| `tests/test_library_muscle_fields.py` | Updated expected set to 20 members |
+| `ironlog/seed.py` | Tagged all 108 MOVEMENTS dicts; wired loader |
+| `tests/test_library_muscle_tags.py` | (Task 2a artifact, now committed) |
+| `scripts/apply_muscle_tags.py` | New — applies tag JSON to seed.py |
+| `scripts/gen_muscle_backfill.py` | New — generates migration 011 |
+| `scripts/propose_muscle_tags.py` | (Task 2a artifact, now committed) |
+| `scripts/muscle_tags_proposed.json` | (Task 2a artifact, now committed) |
+| `deploy/migrations/011_backfill_movement_muscles.sql` | New — 108 idempotent UPDATEs |
+
+## Notes
+- BUILD-AND-TEST-ONLY: `python -m ironlog.seed` NOT run; migration 011 NOT applied to prod — live deploy is user-owned.
+- Two-writer boundary: no current_load / outcome writes in any changed file.
+- apply_muscle_tags.py is idempotent (skips already-tagged entries).
+- Migration 011 is idempotent via `AND primary_muscle IS NULL` guard on every UPDATE.

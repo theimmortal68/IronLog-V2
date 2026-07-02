@@ -21,7 +21,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from .enums import (
     AssistSubtype, AssistUnit, BandCalStatus, CalibrationStatus, EquipPhase,
-    KneeModality, LiftCategory, LoadUnit, Objective, Phase, ProgressionMode,
+    KneeModality, LiftCategory, LoadUnit, Muscle, Objective, Phase, ProgressionMode,
     Region, Scheme, Status,
 )
 # ----------------------------------------------------------------------------
@@ -64,6 +64,10 @@ class Movement(SQLModel, table=True):
     # the full descriptive set is JSON tags.
     load_equipment_id: Optional[int] = Field(default=None, foreign_key="equipment.id")
     equipment_tags: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+    # muscle targeting
+    primary_muscle: Optional[Muscle] = None
+    secondary_muscles: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # progression
     progression_mode: ProgressionMode = ProgressionMode.LADDER

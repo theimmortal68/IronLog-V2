@@ -88,10 +88,14 @@ class GenerationContext:
     tallies: WeeklyTallies
     owed: dict
     recent_signatures: List[dict]
-    weak_point_hints: Dict[int, str]
+    weak_point_hints: Dict[int, dict]
     candidate_menus: Dict[str, List[int]] = field(default_factory=dict)
     # §3A addendum (ii): movement ids with an open Note / RPE-trend flag
     note_flagged_movement_ids: Set[int] = field(default_factory=set)
+    # Task 3: full Movement lookup for payload enrichment
+    movements: Dict[int, "Movement"] = field(default_factory=dict)
+    # Task 5: per-slot rep scheme from TierExercise (informational only)
+    slot_rep_schemes: Dict[str, dict] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -177,9 +181,8 @@ def compute_owed_requirements(tallies: WeeklyTallies) -> dict:
 # build_weak_point_hints
 # ---------------------------------------------------------------------------
 
-def build_weak_point_hints(db: Session) -> Dict[int, str]:
-    """L1 soft hint (Fork 3 / §9): for each movement with a MovementState, run
-    detect_stall; if stalled, flag the limiter hint (soft).
+def build_weak_point_hints(db: Session) -> Dict[int, dict]:
+    """Per stalled movement: typed + severity + limiter record (gap D).
 
     Notes:
     - Always calls detect_stall even when window is empty: the failed_stalled arm
@@ -188,8 +191,12 @@ def build_weak_point_hints(db: Session) -> Dict[int, str]:
     - detect_stall is PROGRESS-objective-gated: it always returns StallSignal(False,
       False, False) for non-PROGRESS movements, so we pass PROGRESS unconditionally
       (the stall concept only applies to progress-tracked lifts).
+    - Record shape: {"stall_type": "failed"|"trend"|"both", "failed_count": int,
+      "e1rm_window": {"sessions": int, "peak": float|None, "latest": float|None},
+      "limiter": {"primary_muscle": str|None, "secondary_muscles": [str]}}
     """
-    hints: Dict[int, str] = {}
+    records: Dict[int, dict] = {}
+    movements = {m.id: m for m in db.exec(select(Movement)).all()}
     states = db.exec(select(MovementState)).all()
     for st in states:
         rows = db.exec(
@@ -197,11 +204,29 @@ def build_weak_point_hints(db: Session) -> Dict[int, str]:
         ).all()
         window = select_progress_window(list(rows))
         sig = detect_stall(window, st.consecutive_failed_progressions, Objective.PROGRESS)
-        if sig.stalled:
-            hints[st.movement_id] = (
-                "stalled: bias accessory volume toward the limiter (L1)"
-            )
-    return hints
+        if not sig.stalled:
+            continue
+        if sig.trend_stalled and sig.failed_stalled:
+            stype = "both"
+        elif sig.trend_stalled:
+            stype = "trend"
+        else:
+            stype = "failed"
+        m = movements.get(st.movement_id)
+        records[st.movement_id] = {
+            "stall_type": stype,
+            "failed_count": st.consecutive_failed_progressions,
+            "e1rm_window": {
+                "sessions": len(window),
+                "peak": max(window) if window else None,
+                "latest": window[-1] if window else None,
+            },
+            "limiter": {
+                "primary_muscle": m.primary_muscle.value if (m and m.primary_muscle) else None,
+                "secondary_muscles": list(m.secondary_muscles) if m else [],
+            },
+        }
+    return records
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +342,22 @@ def resolve_context(
 
     owed = compute_owed_requirements(tallies)
 
+    # Task 5: build per-slot rep schemes from TierExercise records (informational)
+    from ..models.program import TierExercise
+    te_by_mid: Dict[int, TierExercise] = {
+        te.movement_id: te
+        for te in db.exec(select(TierExercise)).all()
+    }
+    slot_rep_schemes: Dict[str, dict] = {}
+    for slot in skeleton.adaptive_slots:
+        te = te_by_mid.get(slot.program_movement_id)
+        if te is not None:
+            slot_rep_schemes[slot.slot_id] = {
+                "rep_low": te.rep_low,
+                "rep_high": te.rep_high,
+                "scheme": te.scheme,
+            }
+
     return GenerationContext(
         phase=phase,
         phase_policy=policy,
@@ -328,6 +369,8 @@ def resolve_context(
         weak_point_hints=weak_hints,
         candidate_menus=menus,
         note_flagged_movement_ids=note_flagged,
+        movements=movements,
+        slot_rep_schemes=slot_rep_schemes,
     )
 
 
@@ -352,6 +395,24 @@ def _recent_same_role_sessions(db: Session, day_role: str, n: int = 2) -> list:
 
 
 # ---------------------------------------------------------------------------
+# _candidate_descriptor (Task 3)
+# ---------------------------------------------------------------------------
+
+def _candidate_descriptor(mid: int, slot: SlotSpec, ctx: "GenerationContext") -> dict:
+    m = ctx.movements.get(mid)
+    return {
+        "id": mid,
+        "name": m.name if m else str(mid),
+        "primary_muscle": m.primary_muscle.value if (m and m.primary_muscle) else None,
+        "secondary_muscles": list(m.secondary_muscles) if m else [],
+        "lift_category": m.lift_category.value if m else None,
+        "pattern": slot.pattern,
+        "equipment_tags": list(m.equipment_tags) if m else [],
+        "is_program_anchor": mid == slot.program_movement_id,
+    }
+
+
+# ---------------------------------------------------------------------------
 # build_context_payload
 # ---------------------------------------------------------------------------
 
@@ -364,6 +425,11 @@ def build_context_payload(ctx: GenerationContext, skeleton: Skeleton) -> dict:
     return {
         "day_role": skeleton.day_role,
         "phase": ctx.phase,
+        "phase_intent": {
+            "objective": ctx.phase_policy.default_objective.value,
+            "rpe_band": [ctx.phase_policy.rpe_band_low, ctx.phase_policy.rpe_band_high],
+            "volume_posture": ctx.phase_policy.volume_posture,
+        },
         "anchors": skeleton.anchor_movement_ids,
         "slots": [
             {
@@ -372,7 +438,11 @@ def build_context_payload(ctx: GenerationContext, skeleton: Skeleton) -> dict:
                 "pattern": s.pattern,
                 "tier_role": s.tier_role,       # brief used s.tier — real field is tier_role
                 "knee_modality": s.knee_modality,
-                "candidates": ctx.candidate_menus.get(s.slot_id, []),
+                "rep_scheme": ctx.slot_rep_schemes.get(s.slot_id),
+                "candidates": [
+                    _candidate_descriptor(mid, s, ctx)
+                    for mid in ctx.candidate_menus.get(s.slot_id, [])
+                ],
             }
             for s in skeleton.adaptive_slots
         ],

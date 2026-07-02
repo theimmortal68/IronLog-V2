@@ -120,6 +120,29 @@ class KneeModality(str, Enum):
     SISSY = "SISSY"     # sissy squats
 
 
+class Muscle(str, Enum):
+    UPPER_CHEST = "UPPER_CHEST"
+    MID_LOWER_CHEST = "MID_LOWER_CHEST"
+    LATS = "LATS"
+    MID_BACK = "MID_BACK"
+    UPPER_TRAPS = "UPPER_TRAPS"
+    FRONT_DELT = "FRONT_DELT"
+    SIDE_DELT = "SIDE_DELT"
+    REAR_DELT = "REAR_DELT"
+    BICEPS = "BICEPS"
+    TRICEPS = "TRICEPS"
+    FOREARMS = "FOREARMS"
+    QUADS = "QUADS"
+    HAMSTRINGS = "HAMSTRINGS"
+    GLUTES = "GLUTES"
+    ADDUCTORS = "ADDUCTORS"
+    CALVES = "CALVES"
+    ABS = "ABS"
+    SPINAL_ERECTORS = "SPINAL_ERECTORS"
+    TIBIALIS = "TIBIALIS"
+    ROTATOR_CUFF = "ROTATOR_CUFF"
+
+
 # --- session / set-log layer ---
 
 class SessionStatus(str, Enum):
