@@ -70,6 +70,7 @@ class ExerciseOut(BaseModel):
     id: int
     movement_id: int
     movement_name: str
+    unilateral: bool = False
     order_index: int
     scheme: str
     objective: str
