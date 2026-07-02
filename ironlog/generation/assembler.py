@@ -78,11 +78,19 @@ def _step_and_floor(movement: Movement, db: DBSession):
 
 
 def _sets_for_scheme(scheme: Scheme, load: Optional[float],
-                     ctx: GenerationContext) -> List[PlannedSet]:
-    """Map scheme → a concrete list of PlannedSets with reps/RPE from the phase band.
+                     ctx: GenerationContext,
+                     rep_low: Optional[int] = None, rep_high: Optional[int] = None,
+                     rpe_cap: Optional[float] = None) -> List[PlannedSet]:
+    """Map scheme -> a concrete list of PlannedSets.
 
-    TOPSET_BACKOFF: TOP set + one BACKOFF at 90 %.
-    Everything else: 3 WORKING sets (STRAIGHT / DOUBLE_PROGRESSION / etc.).
+    TOPSET_BACKOFF: TOP set + one BACKOFF at 90% (reps/RPE still sourced from
+    the phase policy — unchanged; no Phase-1 T1 uses this scheme anymore).
+    Everything else (STRAIGHT / DOUBLE_PROGRESSION / etc.): 3 WORKING sets whose
+    reps/RPE come from the seeded TierExercise (rep_low/rep_high/rpe_cap), NOT
+    the phase-policy band — Task 3 fidelity fix. Falls back to the old defaults
+    (8-12 reps, phase-policy RPE / 8.0) only when the TE fields are None (should
+    not happen for a fully-reconciled program, but keeps structural degeneracy
+    safe rather than crashing).
 
     load is None for a needs-calibration (or bodyweight) movement: the sets still
     assemble structurally but carry target_load=None — never a fabricated floor.
@@ -104,13 +112,18 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
                 target_rpe=pol.rpe_band_low,
             ),
         ]
-    # Default: 3 WORKING sets
+    # Default: 3 WORKING sets — reps/RPE sourced from the seeded TierExercise.
+    lo = rep_low if rep_low is not None else 8
+    hi = rep_high if rep_high is not None else 12
+    rpe = rpe_cap if rpe_cap is not None else (
+        pol.rpe_band_high if pol.rpe_band_high is not None else 8.0
+    )
     return [
         PlannedSet(
             set_index=i, set_role=SetRole.WORKING,
             target_load=load,
-            target_reps_low=8, target_reps_high=12,
-            target_rpe=pol.rpe_band_high,
+            target_reps_low=lo, target_reps_high=hi,
+            target_rpe=rpe,
         )
         for i in range(3)
     ]
@@ -118,8 +131,10 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
 
 def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                     db: DBSession, prospective: Dict[int, float],
-                    is_anchor: bool = False) -> PlannedExercise:
-    """Resolve load, compute sets, collect prospective load.  Does NOT write DB."""
+                    is_anchor: bool = False,
+                    rep_low: Optional[int] = None, rep_high: Optional[int] = None,
+                    rpe_cap: Optional[float] = None) -> PlannedExercise:
+    """Resolve load, compute sets, collect prospective load. Does NOT write DB."""
     state = ctx.movement_states.get(movement.id)
     objective = resolve_objective(movement.objective_override,
                                   ctx.phase_policy.default_objective)
@@ -133,7 +148,8 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
         load = clamp_to_cap(round_to_achievable(base, floor, step), movement.cap)
         # Collect prospective load — caller must NOT write this to MovementState
         prospective[movement.id] = load
-    sets = _sets_for_scheme(movement.scheme, load, ctx)
+    sets = _sets_for_scheme(movement.scheme, load, ctx,
+                            rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap)
     ex = PlannedExercise(
         movement_id=movement.id,
         order_index=ex_order,
@@ -173,14 +189,18 @@ def assemble(selections: Selections, skeleton: Skeleton,
     order = 0
 
     # 1) Anchor movements — STRAIGHT groups, T1 ordering
-    for mid in skeleton.anchor_movement_ids:
+    for mid, meta in zip(skeleton.anchor_movement_ids, skeleton.anchor_meta):
         m = movements[mid]
         group = ExerciseGroup(
             order_index=order,
             group_type=GroupType.STRAIGHT,
             rounds=1,
+            rest_seconds=meta.rest_seconds,
+            label=meta.tier_label,
         )
-        ex = _build_exercise(m, 0, ctx, db, prospective, is_anchor=True)
+        ex = _build_exercise(m, 0, ctx, db, prospective, is_anchor=True,
+                             rep_low=meta.rep_low, rep_high=meta.rep_high,
+                             rpe_cap=meta.rpe_cap)
         group.exercises.append(ex)
         session.groups.append(group)
         order += 1
@@ -215,9 +235,13 @@ def assemble(selections: Selections, skeleton: Skeleton,
                     order_index=0,  # assigned below after all slots are processed
                     group_type=GroupType.GIANT_SET,
                     rounds=3,
+                    rest_seconds=slot.rest_seconds,
+                    label=slot.group_key or None,
                 )
             gg = giant_groups[gk]
-            ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective)
+            ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective,
+                                 rep_low=slot.rep_low, rep_high=slot.rep_high,
+                                 rpe_cap=slot.rpe_cap)
             gg.exercises.append(ex)
         else:
             # knee / conditioning / accessory → own STRAIGHT group
@@ -225,8 +249,12 @@ def assemble(selections: Selections, skeleton: Skeleton,
                 order_index=0,  # assigned below
                 group_type=GroupType.STRAIGHT,
                 rounds=1,
+                rest_seconds=slot.rest_seconds,
+                label=slot.group_key or None,
             )
-            ex = _build_exercise(m, 0, ctx, db, prospective)
+            ex = _build_exercise(m, 0, ctx, db, prospective,
+                                 rep_low=slot.rep_low, rep_high=slot.rep_high,
+                                 rpe_cap=slot.rpe_cap)
             group.exercises.append(ex)
             straight_groups.append(group)
 

@@ -12,6 +12,16 @@ TOPSET_SIX = {
     "Belt Squat [GHR + FT]", "Standing OHP [PB]", "RDL [PB]",
 }
 
+# Movement.scheme == TOPSET_BACKOFF is now dead (Task 2 / Phase-1
+# reconciliation flipped Belt Squat and RDL to STRAIGHT; the Task 2 review
+# fix flipped Bench Press to STRAIGHT too; the fix-topset pass
+# (deploy/migrations/015_kill_topset_backoff.sql) flipped the last three
+# stragglers — Back Squat, Front Squat, Standing OHP — since Back Squat is
+# d2_t1's meso-2 rotation and would otherwise reintroduce the 148.5-class
+# fractional-backoff bug. No movement uses TOPSET_BACKOFF anymore.
+# rpe_capped is unaffected and stays TOPSET_SIX — see
+# tests/test_phase1_reconciliation.py for the flip coverage.
+
 
 @pytest.fixture(scope="module")
 def seeded():
@@ -41,9 +51,9 @@ def test_status_counts(seeded):
     assert c[Status.PREP] == 1
 
 
-def test_topset_backoff_is_exactly_the_six(seeded):
+def test_topset_backoff_scheme_is_dead(seeded):
     tb = {m.name for m in _all(seeded) if m.scheme == Scheme.TOPSET_BACKOFF}
-    assert tb == TOPSET_SIX
+    assert tb == set(), f"TOPSET_BACKOFF should be unused by every movement: {tb}"
 
 
 def test_rpe_capped_xor_exempt(seeded):

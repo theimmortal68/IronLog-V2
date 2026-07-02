@@ -93,38 +93,43 @@ TAXONOMY = {
 
 MOVEMENTS = [
     # ─────────────────────────────────────────────────────────────────────────
-    # T1 TOPSET_BACKOFF lifts (6 — rotating squat slot + bench/OHP/RDL)
+    # T1 rpe_capped lifts (6 — rotating squat slot + bench/OHP/RDL). ALL are
+    # STRAIGHT as of the kill-TOPSET_BACKOFF fix (deploy/migrations/015) — the
+    # program has no top-set/back-off anywhere; the last TOPSET_BACKOFF
+    # stragglers (Back Squat, Front Squat, OHP) were flipped here because Back
+    # Squat is d2_t1's meso-2 rotation and would otherwise reintroduce the
+    # 148.5-class fractional-backoff bug when the program rotates to it.
     # ─────────────────────────────────────────────────────────────────────────
     dict(name="Back Squat [PB]", base_name="Back Squat", region=Region.LOWER,
          lift_category=LiftCategory.BACK_SQUAT, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[10, 5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True, family="back_squat", is_family_anchor=True, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
     dict(name="Front Squat [PB]", base_name="Front Squat", region=Region.LOWER,
          lift_category=LiftCategory.FRONT_SQUAT, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[10, 5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True,
          derived_from="Back Squat [PB]", start_ratio=0.80, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
     dict(name="Belt Squat [GHR + FT]", base_name="Belt Squat", region=Region.LOWER,
          lift_category=LiftCategory.BACK_SQUAT, is_primary=True, status=Status.ACTIVE,
          load_code="GHR", tags=["GHR", "FT"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[10, 5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
          load_floor=0, rpe_capped=True, family="belt_squat", is_family_anchor=True, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
     dict(name="Bench Press [PB]", base_name="Bench Press", region=Region.UPPER,
          lift_category=LiftCategory.BENCH, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True, family="bench", is_family_anchor=True, primary_muscle="MID_LOWER_CHEST", secondary_muscles=["FRONT_DELT", "TRICEPS"]),
     dict(name="Standing OHP [PB]", base_name="Standing OHP", region=Region.UPPER,
          lift_category=LiftCategory.OHP, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True, family="ohp", is_family_anchor=True, primary_muscle="FRONT_DELT", secondary_muscles=["SIDE_DELT", "TRICEPS"]),
     dict(name="RDL [PB]", base_name="RDL", region=Region.LOWER,
          lift_category=LiftCategory.RDL, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[10, 5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True, family="rdl", is_family_anchor=True, primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES", "SPINAL_ERECTORS"]),
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -154,7 +159,7 @@ MOVEMENTS = [
          lift_category=LiftCategory.RDL, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
          scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
-         load_floor=45, primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES", "SPINAL_ERECTORS"]),
+         load_floor=45, unilateral=True, primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES", "SPINAL_ERECTORS"]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Hip Thrust composite family
@@ -218,7 +223,7 @@ MOVEMENTS = [
          status=Status.ACTIVE, load_code=None, tags=[],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10,
-         knee_modality=KneeModality.KOT, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
+         knee_modality=KneeModality.KOT, unilateral=True, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
     dict(name="ATG Split Squat [BW]", base_name="ATG Split Squat", region=Region.LOWER,
          status=Status.ACTIVE, load_code=None, tags=["BW"],
          progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
@@ -230,7 +235,7 @@ MOVEMENTS = [
     dict(name="Bulgarian Split Squat [DB]", base_name="Bulgarian Split Squat",
          region=Region.LOWER, status=Status.ACTIVE, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
     dict(name="Calf Raise [GHR]", base_name="Calf Raise", region=Region.LOWER,
          status=Status.ACTIVE, load_code="GHR", tags=["GHR"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
@@ -355,12 +360,12 @@ MOVEMENTS = [
          base_name="Cross-Body Cable Lateral Raise",
          region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="SIDE_DELT", secondary_muscles=[]),
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True, primary_muscle="SIDE_DELT", secondary_muscles=[]),
     dict(name="Cross-Body Cable Rear Delt Fly [FT]",
          base_name="Cross-Body Cable Rear Delt Fly",
          region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="REAR_DELT", secondary_muscles=[]),
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True, primary_muscle="REAR_DELT", secondary_muscles=[]),
     dict(name="DB Lateral Raise [DB]", base_name="DB Lateral Raise",
          region=Region.UPPER, status=Status.ACTIVE, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
@@ -414,7 +419,7 @@ MOVEMENTS = [
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="OB", tags=["OB", "LM"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[2.5], min_step=2.5, load_floor=0, primary_muscle="MID_BACK", secondary_muscles=["LATS", "REAR_DELT", "BICEPS"]),
+         increment_ladder=[2.5], min_step=2.5, load_floor=0, unilateral=True, primary_muscle="MID_BACK", secondary_muscles=["LATS", "REAR_DELT", "BICEPS"]),
     dict(name="Rear Delt Fly [DB]", base_name="Rear Delt Fly",
          region=Region.UPPER, status=Status.ACTIVE, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
@@ -444,7 +449,7 @@ MOVEMENTS = [
          region=Region.UPPER, lift_category=LiftCategory.ROW, status=Status.ACTIVE,
          load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="MID_BACK", secondary_muscles=["LATS", "REAR_DELT", "BICEPS"]),
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True, primary_muscle="MID_BACK", secondary_muscles=["LATS", "REAR_DELT", "BICEPS"]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Core — LADDER (PureTorque Pro: no bracket → min_step movement-level)
@@ -633,7 +638,7 @@ MOVEMENTS = [
          region=Region.LOWER, status=Status.ACTIVE,
          knee_modality=KneeModality.KOT, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="QUADS", secondary_muscles=["GLUTES"]),
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True, primary_muscle="QUADS", secondary_muscles=["GLUTES"]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # 3 program-required core/upper movements ADDED (close v0.6 program gaps)
@@ -696,6 +701,7 @@ def seed() -> None:
                 is_primary=m.get("is_primary", False),
                 status=m.get("status", Status.ACTIVE),
                 knee_modality=m.get("knee_modality"),
+                unilateral=m.get("unilateral", False),
                 load_equipment_id=_eq_id(m.get("load_code")),
                 equipment_tags=m.get("tags", []),
                 progression_mode=m.get("progression_mode", ProgressionMode.LADDER),

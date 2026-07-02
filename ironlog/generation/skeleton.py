@@ -30,6 +30,28 @@ class SlotSpec:
     group_key: str = ""             # tier_label of the source Tier; used by the
                                     # assembler to group giant slots into one
                                     # ExerciseGroup per tier (e.g. "T2 GS").
+    # Task 3 (assembler fidelity): the TierExercise's literal rep targets/RPE cap
+    # and the source Tier's rest_seconds, carried alongside the slot so the
+    # assembler can source PlannedSet numbers from the seeded program data
+    # instead of hardcoding them.
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None
+    rpe_cap: Optional[float] = None
+    rest_seconds: Optional[int] = None
+
+
+@dataclass
+class AnchorSpec:
+    """Per-anchor TierExercise/Tier metadata, parallel to Skeleton.anchor_movement_ids
+    (same index order — both lists are appended together in lay_skeleton's single
+    pass over tiers/exercises, so zip(anchor_movement_ids, anchor_meta) is safe)."""
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None
+    rpe_cap: Optional[float] = None
+    rest_seconds: Optional[int] = None
+    # The source Tier's tier_label (e.g. "T1"); carried alongside rest_seconds so
+    # the assembler can set ExerciseGroup.label (client tier-aware rest reads it).
+    tier_label: Optional[str] = None
 
 
 @dataclass
@@ -37,6 +59,8 @@ class Skeleton:
     """The session skeleton: anchors + adaptive slots derived from the program."""
     day_role: str
     anchor_movement_ids: List[int] = field(default_factory=list)
+    # Task 3: parallel to anchor_movement_ids (same order/length).
+    anchor_meta: List[AnchorSpec] = field(default_factory=list)
     adaptive_slots: List[SlotSpec] = field(default_factory=list)
 
 
@@ -82,6 +106,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
     ).all()
 
     anchor_movement_ids: List[int] = []
+    anchor_meta: List[AnchorSpec] = []
     adaptive_slots: List[SlotSpec] = []
 
     for tier in tiers:
@@ -102,6 +127,11 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                 ).first()
                 movement_id = mr.movement_id if mr is not None else te.movement_id
                 anchor_movement_ids.append(movement_id)
+                anchor_meta.append(AnchorSpec(
+                    rep_low=te.rep_low, rep_high=te.rep_high,
+                    rpe_cap=te.rpe_cap, rest_seconds=tier.rest_seconds,
+                    tier_label=tier.tier_label,
+                ))
             else:
                 adaptive_slots.append(SlotSpec(
                     slot_id=te.slot_id,
@@ -111,11 +141,14 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     knee_modality=te.knee_modality,
                     program_movement_id=te.movement_id,
                     group_key=tier.tier_label,
+                    rep_low=te.rep_low, rep_high=te.rep_high, rpe_cap=te.rpe_cap,
+                    rest_seconds=tier.rest_seconds,
                 ))
 
     return Skeleton(
         day_role=day_role,
         anchor_movement_ids=anchor_movement_ids,
+        anchor_meta=anchor_meta,
         adaptive_slots=adaptive_slots,
     )
 

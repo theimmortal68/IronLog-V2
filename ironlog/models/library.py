@@ -56,6 +56,7 @@ class Movement(SQLModel, table=True):
     region: Region = Region.NONE
     lift_category: LiftCategory = LiftCategory.NONE
     is_primary: bool = False
+    unilateral: bool = Field(default=False, sa_column_kwargs={"server_default": text("0")})
     is_tracked: bool = True
     status: Status = Status.ACTIVE
     knee_modality: Optional[KneeModality] = None       # cross-session knee-frequency classification (v0.3)

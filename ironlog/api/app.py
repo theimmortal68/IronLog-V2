@@ -337,7 +337,9 @@ def _serialize_session(ws, db) -> SessionDetailResponse:
             ex_out.append(ExerciseOut(
                 id=pe.id, movement_id=pe.movement_id,
                 movement_name=(mv.name if mv else ""), order_index=pe.order_index,
-                scheme=pe.scheme.value, objective=pe.objective.value, planned_sets=sets_out,
+                scheme=pe.scheme.value, objective=pe.objective.value,
+                unilateral=(mv.unilateral if mv else False),
+                planned_sets=sets_out,
             ))
         groups_out.append(GroupOut(
             id=g.id, order_index=g.order_index, group_type=g.group_type.value,

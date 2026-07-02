@@ -5,6 +5,11 @@ Two named tests required by the spec:
   1. assembler_is_deterministic   — fixed selections → fixed, non-empty numbers
   2. assemble_does_not_write_current_load — commit-at-approve gate
 
+Task 6 server fix (cross-repo review): ExerciseGroup.label must mirror the
+source Tier.tier_label so the client can read GroupOut.label to drive T1/T1b
+RPE-adaptive rest.
+  3. assembled_group_labels_match_tier_labels
+
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
 """
@@ -56,3 +61,24 @@ def test_assemble_does_not_write_current_load(gen_db_calibrated):
              for s in gen_db.exec(select(MovementState)).all()}
     assert before == after, "assemble must NOT write current_load (commit-at-approve)"
     assert res.prospective_current_loads, "prospective loads computed in-memory"
+
+
+def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
+    # Task 6 server fix: the client rest timer reads GroupOut.label to decide
+    # T1/T1b RPE-adaptive rest, but the assembler never set ExerciseGroup.label —
+    # it was always None. Thread Tier.tier_label through (AnchorSpec.tier_label
+    # for the anchor site, SlotSpec.group_key — already the tier_label — for the
+    # giant/straight adaptive sites) and assert the assembled labels are real.
+    # D1 Upper Push: T1 (anchor, STRAIGHT) + T2 GS / T3 GS / T4 GS (all giant).
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
+    groups = sorted(res.session.groups, key=lambda g: g.order_index)
+    labels = [g.label for g in groups]
+    assert labels == ["T1", "T2 GS", "T3 GS", "T4 GS"], (
+        f"group labels must mirror the seeded Tier.tier_label order, got {labels}"
+    )
+    assert groups[0].group_type.value == "STRAIGHT" and groups[0].label == "T1"
+    assert groups[1].group_type.value == "GIANT_SET" and groups[1].label == "T2 GS"

@@ -1,0 +1,13 @@
+-- 015_kill_topset_backoff.sql — kill TOPSET_BACKOFF entirely (fix-topset)
+-- Data-only: no schema change. Every UPDATE is guarded with a WHERE clause
+-- that also checks the column doesn't already equal the target value, so
+-- this migration is idempotent and safe to re-run.
+--
+-- The program has no top-set/back-off anywhere. 013/014 flipped Belt Squat,
+-- RDL, and Bench Press off TOPSET_BACKOFF but deliberately left Back Squat,
+-- Front Squat, and OHP as dormant TOPSET_BACKOFF stragglers. Back Squat is
+-- d2_t1's meso-2 rotation, so at meso 2 it becomes the D2 anchor and
+-- reintroduces the 148.5-class fractional-backoff bug (load * 0.9 +
+-- hardcoded reps). This migration finishes the job: every remaining
+-- Movement.scheme == TOPSET_BACKOFF flips to STRAIGHT, so the class is dead.
+UPDATE movement SET scheme = 'STRAIGHT' WHERE scheme = 'TOPSET_BACKOFF';
