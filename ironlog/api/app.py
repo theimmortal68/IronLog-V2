@@ -516,6 +516,18 @@ def _needs_attention_count(program_id: int, db: Session, now: datetime) -> int:
     return count
 
 
+@app.get("/programs/{program_id}/days", response_model=List[str])
+def get_program_days(program_id: int, db: Session = Depends(get_session)):
+    """Training day_roles in order (excludes rest days) — feeds the Today day-picker."""
+    from ..models.program import ProgramDay
+    rows = db.exec(
+        select(ProgramDay)
+        .where(ProgramDay.program_id == program_id)
+        .order_by(ProgramDay.day_index)
+    ).all()
+    return [pd.day_role for pd in rows if not pd.is_rest and pd.day_role]
+
+
 @app.get("/programs/{program_id}/wizard-state", response_model=WizardStateResponse)
 def get_wizard_state(program_id: int, db: Session = Depends(get_session)):
     """Render compute_load_trust per program movement (the wizard read surface).
