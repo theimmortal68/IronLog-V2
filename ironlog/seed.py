@@ -93,17 +93,22 @@ TAXONOMY = {
 
 MOVEMENTS = [
     # ─────────────────────────────────────────────────────────────────────────
-    # T1 TOPSET_BACKOFF lifts (6 — rotating squat slot + bench/OHP/RDL)
+    # T1 rpe_capped lifts (6 — rotating squat slot + bench/OHP/RDL). ALL are
+    # STRAIGHT as of the kill-TOPSET_BACKOFF fix (deploy/migrations/015) — the
+    # program has no top-set/back-off anywhere; the last TOPSET_BACKOFF
+    # stragglers (Back Squat, Front Squat, OHP) were flipped here because Back
+    # Squat is d2_t1's meso-2 rotation and would otherwise reintroduce the
+    # 148.5-class fractional-backoff bug when the program rotates to it.
     # ─────────────────────────────────────────────────────────────────────────
     dict(name="Back Squat [PB]", base_name="Back Squat", region=Region.LOWER,
          lift_category=LiftCategory.BACK_SQUAT, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[10, 5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True, family="back_squat", is_family_anchor=True, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
     dict(name="Front Squat [PB]", base_name="Front Squat", region=Region.LOWER,
          lift_category=LiftCategory.FRONT_SQUAT, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[10, 5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[10, 5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True,
          derived_from="Back Squat [PB]", start_ratio=0.80, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
     dict(name="Belt Squat [GHR + FT]", base_name="Belt Squat", region=Region.LOWER,
@@ -119,7 +124,7 @@ MOVEMENTS = [
     dict(name="Standing OHP [PB]", base_name="Standing OHP", region=Region.UPPER,
          lift_category=LiftCategory.OHP, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.TOPSET_BACKOFF, increment_ladder=[5, 2.5], min_step=2.5,
+         scheme=Scheme.STRAIGHT, increment_ladder=[5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True, family="ohp", is_family_anchor=True, primary_muscle="FRONT_DELT", secondary_muscles=["SIDE_DELT", "TRICEPS"]),
     dict(name="RDL [PB]", base_name="RDL", region=Region.LOWER,
          lift_category=LiftCategory.RDL, is_primary=True, status=Status.ACTIVE,
