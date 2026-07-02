@@ -1,9 +1,11 @@
 """Tests for the Phase-1 seed reconciliation (Task 2 of the in-gym-logging chunk).
 
 Covers: literal rep targets on 13 TierExercises, Tier.rest_seconds across all
-9 tier_label buckets, Movement.scheme flips (Belt Squat + RDL -> STRAIGHT),
-Movement.unilateral flags on 8 movements, and rpe_cap=6.0 on the D6
-Reverse-Hyper-Recovery TierExercise (slot_id="d6_g3c").
+9 tier_label buckets, Movement.scheme flips (Belt Squat + RDL -> STRAIGHT;
+Bench Press -> STRAIGHT via the Task 2 review fix), the matching
+TierExercise.scheme sync for d1_t1/d2_t1/d5_t1, Movement.unilateral flags on
+8 movements, and rpe_cap=6.0 on the D6 Reverse-Hyper-Recovery TierExercise
+(slot_id="d6_g3c").
 
 Uses the real `gen_db` fixture from tests/conftest.py (in-memory DB seeded via
 seed.seed() + seed_phase1_program()). NO from __future__ import annotations
@@ -103,6 +105,24 @@ def test_schemes_straight(gen_db):
     names = {m.name: m for m in gen_db.exec(select(Movement)).all()}
     assert names["Belt Squat [GHR + FT]"].scheme == Scheme.STRAIGHT
     assert names["RDL [PB]"].scheme == Scheme.STRAIGHT
+    # Task 2 review fix: Bench Press seed-source parity with the live-only
+    # fix (the 148.5-class bug — Bench must not regress to a 2-set
+    # top+backoff on a from-scratch reseed).
+    assert names["Bench Press [PB]"].scheme == Scheme.STRAIGHT
+
+
+def test_te_schemes_synced_to_straight(gen_db):
+    # Task 2 review fix: TierExercise.scheme (the string field that flows
+    # into generation/context.py's slot_rep_schemes -> the injected LLM
+    # payload) must match the reconciled Movement.scheme for the three
+    # flipped T1 anchors, not just the deterministic-assembler-authoritative
+    # Movement.scheme.
+    tes = {te.slot_id: te for te in gen_db.exec(select(TierExercise)).all()}
+    for slot_id in ("d1_t1", "d2_t1", "d5_t1"):
+        assert tes[slot_id].scheme == "STRAIGHT", (
+            f"{slot_id}: expected TierExercise.scheme == 'STRAIGHT', "
+            f"got {tes[slot_id].scheme!r}"
+        )
 
 
 def test_unilateral_flags(gen_db):

@@ -13,10 +13,13 @@ TOPSET_SIX = {
 }
 
 # Movement.scheme == TOPSET_BACKOFF (Task 2 / Phase-1 reconciliation flipped
-# Belt Squat and RDL to STRAIGHT; rpe_capped is unaffected and stays TOPSET_SIX
-# — see tests/test_phase1_reconciliation.py for the flip coverage).
-TOPSET_BACKOFF_SCHEME_FOUR = {
-    "Bench Press [PB]", "Back Squat [PB]", "Front Squat [PB]", "Standing OHP [PB]",
+# Belt Squat and RDL to STRAIGHT; the Task 2 review fix flipped Bench Press to
+# STRAIGHT too (seed-source parity with the live-only fix already applied —
+# see the 148.5-class bug note in deploy/migrations/014_scheme_consistency.sql).
+# rpe_capped is unaffected and stays TOPSET_SIX — see
+# tests/test_phase1_reconciliation.py for the flip coverage.
+TOPSET_BACKOFF_SCHEME_THREE = {
+    "Back Squat [PB]", "Front Squat [PB]", "Standing OHP [PB]",
 }
 
 
@@ -48,9 +51,9 @@ def test_status_counts(seeded):
     assert c[Status.PREP] == 1
 
 
-def test_topset_backoff_scheme_is_exactly_the_four(seeded):
+def test_topset_backoff_scheme_is_exactly_the_three(seeded):
     tb = {m.name for m in _all(seeded) if m.scheme == Scheme.TOPSET_BACKOFF}
-    assert tb == TOPSET_BACKOFF_SCHEME_FOUR
+    assert tb == TOPSET_BACKOFF_SCHEME_THREE
 
 
 def test_rpe_capped_xor_exempt(seeded):

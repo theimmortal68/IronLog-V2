@@ -1,600 +1,208 @@
-# Task 2 Completion Report — POST /sessions/{id}/submit (Logging Round-Trip)
+# Task 2 report — Phase-1 seed reconciliation
 
-**Status:** DONE  
-**Commit:** f403f40  
-**Branch:** feat/logging-round-trip
+Commit: `f5c3c3b` on branch `feat/in-gym-logging`
 
----
+## What changed
 
-### Gate Confirmations
+### `ironlog/seed.py` (MOVEMENTS + loader)
 
-**Gate #2 (tap-422 server half):** CONFIRMED. Request with `set_role="WORKING"` and `feedback_tap=None` returns HTTP 422, zero SetLogs written, session status remains PLANNED.
-
-**Gate #3 (idempotency / lost-ack):** CONFIRMED. First submit returns 200 `already_completed=False`; retry returns 200 `already_completed=True`; DB asserts exactly ONE SetLog — no duplicate written.
-
-**Two-writer boundary:** CONFIRMED. `grep -n "current_load|\.e1rm" ironlog/api/app.py` returns zero hits. Handler invokes `run_analysis(session_id, db, _week_keyer)`, never reimplements load computation.
-
----
-
-### Files Changed
-
-- `ironlog/api/app.py` — added `SessionStatus`, `NoteClass`, `SetRole`, `SetLog`, `ExerciseSurvey`, `Note` imports from `..models`; added `SubmitRequest`/`SubmitResponse` import from `.schemas_capture`; added `_TAP_REQUIRED_ROLES` set; added `submit_session` endpoint
-- `tests/test_submit_endpoint.py` — new file, 3 gate tests (verbatim from brief)
-
----
-
-### Pytest Red → Green
-
-Red (before endpoint):
-```
-3 failed, 4 warnings in 0.38s
-```
-
-Green (after endpoint):
-```
-3 passed, 6 warnings in 0.29s
-```
-
-Full suite:
-```
-230 passed, 96 warnings in 2.77s   (baseline was 227)
-```
-
----
-
-### Coercion Handling
-
-`SetLogIn.feedback_tap` is `Optional[str]`; `SetLog.feedback_tap` is `Optional[FeedbackTap]`. Explicit coercion applied:
-```python
-feedback_tap=FeedbackTap(sl.feedback_tap) if sl.feedback_tap is not None else None,
-```
-
-### run_analysis Cold-Start
-
-`run_analysis` calls `.one()` on `EngineState` which doesn't exist in the bare in-memory test DB (no movement/engine seed data). The endpoint wraps the call in `try/except Exception: pass` — consistent with run_analysis.py's docstring: "Cold-start is expected: until ~3 PROGRESS sessions log, the analyzers are data-starved — this is correct, not broken." The write (SetLogs + status flip) is committed before `run_analysis` is invoked, so a cold-start analysis skip never rolls back a successful log. In production (seeded DB), `run_analysis` executes normally.
-
----
-
-## Prior Content (v0.6 Program Definition-Layer, Task 2)
-
-The remainder of this file is from the v0.6 generation task 2 (program definition-layer). Kept for historical reference.
-
----
-
-## Files Created / Modified
-
-| File | Action | Notes |
+**Scheme flips (Movement-level, 2):**
+| Movement | old scheme | new scheme |
 |---|---|---|
-| `ironlog/models/program.py` | Created | Program, ProgramDay, Tier, TierExercise, MesoRotation + TierKind enum |
-| `ironlog/models/__init__.py` | Modified | Exported program models |
-| `deploy/migrations/004_program_tables.sql` | Created | 5 idempotent CREATE TABLE IF NOT EXISTS statements |
-| `ironlog/generation/program_seed.py` | Created | seed_phase1_program() + PROGRAM_TO_LIBRARY map + halt-and-flag resolution |
-| `ironlog/generation/skeleton.py` | Created | SlotSpec, Skeleton, lay_skeleton() |
-| `tests/conftest.py` | Created | gen_db fixture (auto-discovered by pytest) |
-| `tests/_gen_fixtures.py` | Created | Spec-reference stub / re-export |
-| `tests/test_program_seed.py` | Created | 7 seed-correctness tests |
-| `tests/test_generation_skeleton.py` | Created | 6 skeleton tests |
+| Belt Squat [GHR + FT] | TOPSET_BACKOFF | STRAIGHT |
+| RDL [PB] | TOPSET_BACKOFF | STRAIGHT |
 
----
+**Unilateral flags (8):** Meadows Row [OB + LM], Bulgarian Split Squat [DB], ATG Split
+Squat (bracket-less base variant only — not `ATG Split Squat [BW]`), Cross-Body Cable
+Rear Delt Fly [FT], Cross-Body Cable Lateral Raise [FT], Single-Arm DB Row [DB],
+Poliquin Step-up, Staggered RDL [PB] — all now `unilateral=True`.
 
-## Movement Resolution — ALL Resolved (no halt triggered)
+**Loader wiring:** `seed()`'s pass-1 `Movement(...)` constructor now passes
+`unilateral=m.get("unilateral", False)` — previously the dict key was silently dropped.
 
-41 TierExercise slots seeded across D1-D6. Every `movement_id` references a real seeded library
-`Movement`. `test_every_tier_exercise_resolves_to_a_library_movement` passes.
+### `ironlog/generation/program_seed.py` (TierExercise + Tier)
 
-### PROGRAM_TO_LIBRARY map (complete, 31 entries)
-Resolves program-doc names → canonical library Movement.name. Key entries:
-- "Pendlay Row Narrow" → "Pendlay Row - Narrow [OB]"
-- "Belt Squat" → "Belt Squat [GHR + FT]"
-- "Cable Tib Raise" → "Cable Tibialis Raise"
-- "Meadows SA Row" → "Meadows Row [OB + LM]"
-- "Scout Reverse Hyper (180 cap)" → "Reverse Hyper [REV_HYPER]"
-- "Reverse Hyper Recovery" → "Light Reverse Hyper [REV_HYPER]"
-- "Back Squat" → "Back Squat [PB]" (meso-2 rotation)
-- "Pendlay Row" → "Pendlay Row - Medium [OB]" (meso-2 rotation)
+**13 rep target literal changes** (slot_id → new rep_low/rep_high): d1_t1 Bench Press
+(8,8), d1_t2a Pendlay Row Narrow (8,8), d1_t2b Incline DB Press (10,10), d1_t2c
+Face-Up Incline Knee Raise (15,15), d1_t3a Pull-up (8,8), d1_t3b Cross-Body Lateral
+Raise (12,12), d1_t3c Cross-Body Rear Delt Fly (12,12), d1_t4a Seated Cable Row
+(12,12), d1_t4b Ab Wheel Rollout (8,8), d1_t4c Lat Prayer (12,12), d4_t1 Assisted
+Pull-up (5,8), d6_g1b Dips (5,8), d5_t3d Hyper Pro Calf Raise (10,12). All other
+`_add_te` calls unchanged.
 
-Exact-name matches (no map needed):
-"Bench Press [PB]", "Face-Up Incline Knee Raise", "ATG Split Squat", "Dragon Flag",
-"Poliquin Step-up", "Sissy Squat", "Andreoni Cable Pullover", "Cable Tibialis Raise"
+**RPE cap (1):** d6_g3c (Reverse Hyper Recovery, D6 GS3) gets `rpe_cap=6.0`.
 
----
+**Tier.rest_seconds — all 18 seeded tiers**, by tier_label: T1=120, T1b=120,
+T2 GS=90, GS1=90, GS2=90, T3=60, T3 GS=60, T4 GS=60, GS3=60. Coverage: D1 (T1/T2 GS/
+T3 GS/T4 GS), D2 (T1/T1b/T2 GS/T3), D4 (T1/T2 GS/T3 GS), D5 (T1/T1b/T2 GS/T3 GS), D6
+(GS1/GS2/GS3).
 
-## Deferred MesoRotation Rows (DONE_WITH_CONCERNS)
+## Live-DB reconciliation (`scripts/reconcile_phase1.py`)
 
-4 meso-2 variants were not seeded because the movement doesn't exist in the library:
+Blocking prerequisite found: migration `012_add_movement_unilateral.sql` existed in
+the repo (committed 882f209) but had **not actually been applied** to the live DB —
+`movement.unilateral` didn't exist as a column, so the reconcile script failed with
+`no such column: movement.unilateral` on first run. Ran
+`python -m ironlog.migrate` first (applied `012_add_movement_unilateral`), then
+re-ran the reconcile script successfully. This contradicts the task framing's
+"already applied live" claim for migration 012 — flagged for the orchestrator.
 
-| Slot | Meso-1 | Meso-2 wanted | Reason skipped |
-|---|---|---|---|
-| d5_t1 | RDL [PB] | Staggered RDL | Not in library; add before v0.7 |
-| d4_t3b | Meadows Row [OB + LM] | Single-Arm DB Row | Not in library |
-| d5_t2b | Reverse Hyper [REV_HYPER] | Scout RH single-leg | Same library movement; technique note only |
-| d1_t1 | Bench Press [PB] | BMF 21" bar | Same library movement; equipment note only |
+Reconciliation result (all live rows changed to target, no unexpected diffs on
+spot-check):
+- Movement.scheme flips: 2/2
+- Movement.unilateral flags: 8/8
+- TierExercise rep targets: 13/13
+- TierExercise rpe_cap: 1/1
+- Tier.rest_seconds rows: 18/18
 
-**Seeded MesoRotations** (both sides in library):
-- d2_t1: Belt Squat → Back Squat [PB] (meso 2) ✓
-- d4_t2a: Meadows Row → Pendlay Row - Medium [OB] (meso 2) ✓
+Also generated `deploy/migrations/013_phase1_reconciliation.sql` (guarded, idempotent
+UPDATEs, no schema change) so a future reseed/fresh-DB deploy picks up the same
+reconciliation via the normal migration chain.
 
-`test_meso_rotation_swaps_anchor_variant` (D2 Belt↔Back) passes. ✓
+## 3 flagged discrepancies (no scope expansion — flagged only)
 
----
+1. **Bench Press scheme not actually flipped.** The design doc (§S1) claims "flip the
+   remaining Movement.scheme TOPSET_BACKOFF → STRAIGHT: Belt Squat, RDL (Bench already
+   done)" — but `Bench Press [PB]` in `ironlog/seed.py` is still
+   `scheme=Scheme.TOPSET_BACKOFF`. The doc's claim that Bench is "already done" is
+   false against the actual seed state. Left untouched per explicit task scope
+   (Belt Squat + RDL only) — follow-up item for a later task if intended.
+2. **TierExercise.scheme left untouched.** `TierExercise.scheme` (string field on TE
+   rows, e.g. `d2_t1` and `d5_t1` still pass `scheme="TOPSET_BACKOFF"` literally in
+   `program_seed.py`) is a separate field from `Movement.scheme` and was explicitly
+   out of scope — the acceptance test (`test_schemes_straight`) checks
+   `Movement.scheme` only. Minor inconsistency between TE.scheme and the underlying
+   Movement.scheme now exists for Belt Squat (d2_t1) and RDL (d5_t1) TEs; flagged for
+   a later task.
+3. **Two doc/seed name mismatches (nothing to change, no matching row exists):**
+   - "Prone DB Rear Delt Fly" (design doc §S1, `10-12` row) — no Movement or
+     TierExercise with that exact name exists. Closest candidate is `d4_t3a`
+     ("Cross-Body Rear Delt Fly", D4 T3 GS) — a different movement name, already
+     seeded at (10,12) so coincidentally matches the target value, but the doc's name
+     doesn't resolve to any real TE.
+   - "Face Pull" (design doc §S1, `12-15` row) — library `Movement` exists as
+     "Face Pull w/ ER Hold [FT]" but **no TierExercise references it anywhere** in
+     `program_seed.py` — it's not part of the seeded Phase-1 program at all.
 
-## Migration Parity
+## Test results
 
-`test_chain_matches_create_all` passes — `004_program_tables.sql` produces the exact same
-schema as `SQLModel.metadata.create_all()` for all 5 program tables.
+- `tests/test_phase1_reconciliation.py` (new, 6 tests): rep targets (changed + 3
+  unchanged controls: d2_t1, d5_t1, d4_t3a), tier rests (all 9 labels, all rows
+  checked per label), schemes (Belt Squat + RDL == STRAIGHT), unilateral (8 True + 1
+  control False), rpe_cap (d6_g3c == 6.0). Confirmed FAIL against unmodified source
+  first (5 failed / 1 passed — the passing one was the unchanged-controls guard,
+  correctly already matching), then PASS after edits (6/6).
+- `tests/test_migrations.py`: 12/12 passed, including the parity keystone
+  `test_chain_matches_create_all` (013 is data-only, no schema drift).
+- Full suite: **284 passed, 0 failed** (350 warnings, all pre-existing
+  `datetime.utcnow()` deprecation noise, unrelated to this change).
 
-Key type decisions:
-- `tier_kind VARCHAR(11)` — max("T1_STRAIGHT") = 11 chars ✓
-- `knee_modality VARCHAR(6)` — max("NORDIC") = 6 chars (consistent with migration 001) ✓
-- `scheme VARCHAR` (plain `Optional[str]`, not Scheme enum) — program uses COMPOSITE,
-  ASSISTED, REP_AT_CAP, SINGLE_SESSION, FIXED which are not in the existing Scheme enum ✓
-- `is_rest BOOLEAN NOT NULL`, `rounds INTEGER NOT NULL` — no SQL DEFAULT (no server_default) ✓
+### One pre-existing test required a fix (not in the original 5-file list)
 
----
-
-## Pytest Results
-
-```
-.venv/bin/pytest -q
-167 passed, 49 warnings in 0.91s
-```
-
-New tests: 13 (7 seed-correctness + 6 skeleton), all green. Full suite: 167 passed.
-
----
-
-## Production DB Safety Confirmed
-
-- NO `python -m ironlog.seed` executed
-- `seed_phase1_program()` tested only via in-memory SQLite in `gen_db` fixture
-- `test_seed_is_main_work_only` passes — no warmup/finisher/emom/z2/ramp/activation rows
-
----
-
-## Implementation Notes
-
-**conftest.py vs _gen_fixtures.py:**
-`tests/` has no `__init__.py`, so `from tests._gen_fixtures import gen_db` fails (ModuleNotFoundError).
-Fixture placed in `tests/conftest.py` (auto-discovered by pytest). `_gen_fixtures.py` kept as
-spec-reference stub. Test files simplified to omit the explicit import (conftest auto-discovery).
-
-**TierExercise.scheme as Optional[str]:**
-The program uses scheme labels (COMPOSITE, ASSISTED, REP_AT_CAP, SINGLE_SESSION, FIXED) not in
-the existing `Scheme` enum. Using `Optional[str]` avoids extending the enum and keeps the program
-layer independent of the session-layer Scheme vocabulary.
-
----
+`tests/test_library_seed.py::test_topset_backoff_is_exactly_the_six` asserted
+`Movement.scheme == TOPSET_BACKOFF` was exactly a hardcoded 6-movement set including
+Belt Squat and RDL. That invariant is now false by design (this task's whole point).
+Updated: renamed to `test_topset_backoff_scheme_is_exactly_the_four`, added a new
+`TOPSET_BACKOFF_SCHEME_FOUR` constant (Bench Press, Back Squat, Front Squat, Standing
+OHP) distinct from the still-6-member `TOPSET_SIX` (which the separate
+`rpe_capped`-based test still correctly uses — `rpe_capped` is a different field and
+was NOT touched by this task, so it's still true for all 6 original movements
+including Belt Squat and RDL). Included in the commit (6 files total, not the
+original 5) since leaving it broken would violate the "0 failed" full-suite
+requirement for this same change.
 
 ## Commit
 
-Hash: `4ba0845`
-Branch: `feat/v0.6-generation`
-Message: "feat(gen): program definition-layer + Phase 1 main-work seed + skeleton reads program"
+`f5c3c3b` — `feat(seed): Phase-1 reconciliation — literal rep targets, tier rests,
+straight schemes, unilateral flags, RevHyper rpe_cap`
 
----
+Files: `ironlog/seed.py`, `ironlog/generation/program_seed.py`,
+`scripts/reconcile_phase1.py` (new), `deploy/migrations/013_phase1_reconciliation.sql`
+(new), `tests/test_phase1_reconciliation.py` (new), `tests/test_library_seed.py`.
 
-## Task 2 Fix Wave
+Unrelated pre-existing changes (`.superpowers/sdd/task-5-report.md`, `.env.bak-*`,
+`docs/superpowers/plans/2026-06-30-payload-enrichment.md`, `ironlog.db.*-bak-*`) were
+left untouched, not staged, not committed.
 
-### Status: DONE
+## FIX (Task 2 review)
 
-Review findings addressed: guard-bypass (load-bearing), two missing movements, rotation-path test, fixture dead code.
+The review of this task found the two flagged discrepancies above ("3 flagged
+discrepancies" #1 and #2) were real gaps, not out-of-scope — both are fixed here.
 
----
+### Fix 1 — Bench Press seed-source scheme (Important)
 
-### Fix 1 — Two movements added to `ironlog/seed.py` `MOVEMENTS`
+`ironlog/seed.py` line 117 (Bench Press [PB] `dict(...)`): `scheme=Scheme.TOPSET_BACKOFF`
+→ `scheme=Scheme.STRAIGHT`. Live Bench had already been hotfixed to STRAIGHT directly
+against the DB at some earlier point (confirmed by live query pre-migration: Movement
+row already read STRAIGHT), but the seed **source** still said TOPSET_BACKOFF — a
+from-scratch reseed would have silently regressed Bench back to a 2-set top+backoff
+scheme (the class of bug that produced the 148.5 mis-generation). Back Squat, Front
+Squat, and Standing OHP remain `TOPSET_BACKOFF` — they're out-of-Phase-1 alternates,
+dormant, explicitly out of scope.
 
-**`Staggered RDL [PB]`** (§10 compliant):
-- `base_name="Staggered RDL"`, `region=Region.LOWER`, `lift_category=LiftCategory.RDL`
-- `is_primary=True` (matches RDL [PB] convention — barbell primary lifts are is_primary)
-- `status=Status.ACTIVE`, `load_code="PB"`, `tags=["PB"]`
-- `progression_mode=ProgressionMode.LADDER`, `scheme=Scheme.STRAIGHT`
-  - **NOT TOPSET_BACKOFF** — the §10 `test_topset_backoff_is_exactly_the_six` invariant (exactly 6 lifts) holds ✓
-- `increment_ladder=[10, 5, 2.5]`, `min_step=2.5`, `load_floor=45`
-  - Cross-field §10 `test_load_progression_has_increment_source` satisfied ✓
-- Placed in "Primary STRAIGHT lifts" section alongside Box Squat, Conventional DL, etc.
+### Fix 2 — TierExercise.scheme sync (Minor-but-real)
 
-**`Single-Arm DB Row [DB]`** (§10 compliant):
-- `base_name="Single-Arm DB Row"`, `region=Region.UPPER`, `lift_category=LiftCategory.ROW`
-- `status=Status.ACTIVE`, `load_code="DB"`, `tags=["DB"]`
-- Convention matches `DB Seal Row [DB + UTIL_SEAT]` (same DB load source)
-- `progression_mode=ProgressionMode.LADDER`, `scheme=Scheme.DOUBLE_PROGRESSION`
-- `increment_ladder=[2.5]`, `min_step=2.5`, `load_floor=10`
-  - Cross-field §10 `test_load_progression_has_increment_source` satisfied ✓
-- Placed in "Upper accessories — LADDER / DOUBLE_PROGRESSION" section
+`ironlog/generation/program_seed.py`: the three T1 anchor `_add_te(...)` calls whose
+`Movement.scheme` was reconciled to STRAIGHT still passed the literal string
+`scheme="TOPSET_BACKOFF"` for the `TierExercise` row:
+- `d1_t1` (Bench Press [PB]) → `scheme="STRAIGHT"`
+- `d2_t1` (Belt Squat) → `scheme="STRAIGHT"`
+- `d5_t1` (RDL) → `scheme="STRAIGHT"`
 
-**Count updates in `tests/test_library_seed.py`:**
-- `test_total_count_103`: 106 → 108 ✓
-- `test_status_counts` ACTIVE: 97 → 99 ✓
-- All §10 invariants (TOPSET_BACKOFF=6, rpe_capped set, family links, load increment source) remain green ✓
+`ironlog/generation/context.py` (`build_context_payload`, ~lines 345-359) reads
+`te.scheme` into `slot_rep_schemes[slot.slot_id]["scheme"]`, which flows into the
+injected LLM prompt payload. The deterministic session assembler reads
+`Movement.scheme` (already correct pre-fix) and never touches `TierExercise.scheme`,
+so there was no session-plan corruption — but the model was being shown a stale
+`TOPSET_BACKOFF` label for these three slots. No change was needed in `context.py`
+itself; it correctly just relays whatever is on the TE row.
 
----
+### Migration 014
 
-### Fix 2 — Guard-bypass closed in `ironlog/generation/program_seed.py` (LOAD-BEARING)
+New `deploy/migrations/014_scheme_consistency.sql` — data-only, guarded/idempotent
+(matches the `013` pattern: every `UPDATE` has a `WHERE col != 'target'` guard):
+- `movement.scheme = 'STRAIGHT' WHERE name = 'Bench Press [PB]' AND scheme != 'STRAIGHT'`
+- `tierexercise.scheme = 'STRAIGHT' WHERE slot_id IN ('d1_t1','d2_t1','d5_t1') AND scheme != 'STRAIGHT'` (written as 3 separate guarded `UPDATE` statements, one per slot_id, following 013's one-statement-per-fact style)
 
-**Root cause:** The meso-2 rotation path for d5_t1 and d4_t3b had "deferred" comments but NO `_add_mr` calls. Since `_add_mr` → `_resolve` is the only path that raises `ValueError` on an unresolved name, these slots were silently absent from the seeded MesoRotation rows. An unresolved rotation name would never trigger the guard.
+### Live apply + ledger
 
-**Fix applied:**
-1. **PROGRAM_TO_LIBRARY** — added two new entries in the "Meso-2 rotation variants" block:
-   - `"Staggered RDL"` → `"Staggered RDL [PB]"`
-   - `"Single-Arm DB Row"` → `"Single-Arm DB Row [DB]"`
+Live DB (`~/projects/IronLog-V2/ironlog.db` on myflix, `ironlogv2.service`) pre-check
+via direct SQL showed `schema_migrations` stopped at `012_add_movement_unilateral`
+(matches the review's note that "012 may have just been applied" — `013` had never
+been stamped, even though its guarded UPDATEs had apparently already been applied to
+the live rows out-of-band, since `Movement.scheme` for Bench/Belt Squat/RDL and
+`TierExercise.scheme` for `d1_t1` already read STRAIGHT pre-migrate; `d2_t1` and
+`d5_t1` TE rows were still `TOPSET_BACKOFF` pre-migrate).
 
-2. **`_seed_d5`** — captured `_add_te` return value as `d5_t1`, removed deferred comment, added:
-   ```python
-   _add_mr(db, d5_t1, 2, "Staggered RDL", lib)
-   ```
-   This calls `_resolve("Staggered RDL", lib)` which raises `ValueError` on miss.
+Ran `.venv/bin/python -m ironlog.migrate` on myflix: `applied: ['013_phase1_reconciliation', '014_scheme_consistency']`.
+Post-apply ledger is `000`...`014` fully stamped, contiguous, no gaps. Post-apply live
+query confirms: `Movement.scheme` STRAIGHT for Bench/Belt Squat/RDL; `TierExercise.scheme`
+STRAIGHT for `d1_t1`/`d2_t1`/`d5_t1`.
 
-3. **`_seed_d4`** — captured `_add_te` return value as `d4_t3b`, added:
-   ```python
-   _add_mr(db, d4_t3b, 2, "Single-Arm DB Row", lib)
-   ```
+### Tests
 
-4. **Explicit same-movement whitelist** — the two legitimate excluded rotations are now
-   marked with explicit "intentionally NO MesoRotation row" comments, distinct from the
-   bug pattern:
-   - `d1_t1` (already had a clear comment about equipment-note, no change needed)
-   - `d5_t2b` — comment rewritten from "deferred — same library movement; technique note only"
-     to "single-leg Reverse Hyper is a TECHNIQUE note ... intentionally NO MesoRotation row
-     (not a guard-bypass)"
-
-5. **Docstring updated** — `seed_phase1_program` docstring now documents all 4 seeded
-   MesoRotation rows, lists the 2 intentionally-excluded slots separately, and states the
-   guard contract.
-
-**Guard now covers ALL paths:** every intended rotation goes through `_add_mr` → `_resolve` → raises on miss. The "same-movement notes" are explicit whitelist exclusions, not silent omissions.
-
----
-
-### Fix 3 — Rotation-path coverage pinned in `tests/test_program_seed_rotation_guard.py` (NEW FILE)
-
-Three tests in a new file:
-
-**`test_unresolved_meso_rotation_raises`** (the guard test):
-- Monkeypatches `PROGRAM_TO_LIBRARY` so `"Staggered RDL"` maps to `"__BOGUS_NOT_IN_LIBRARY__"`
-- Seeds a fresh in-memory DB and calls `seed_phase1_program`
-- Asserts `pytest.raises(ValueError, match="HALT-AND-FLAG")`
-- TDD red (before fix): the bogus name was never called → no `ValueError` → test FAILED, proving the bypass
-- TDD green (after fix): `_add_mr` calls `_resolve("Staggered RDL", lib)` → lib has no bogus entry → raises ✓
-
-**`test_new_meso_rotations_exist_and_resolve`**:
-- Queries d5_t1 and d4_t3b TierExercise rows
-- Asserts exactly one meso-2 MesoRotation row per slot
-- Asserts each row's `movement_id` matches the correct library Movement ✓
-
-**`test_d5_lower_b_meso2_anchor_is_staggered_rdl`**:
-- Calls `lay_skeleton("D5 Lower B", gen_db, meso_number=2)`
-- Asserts Staggered RDL's id is in `sk.anchor_movement_ids`
-- Confirms the MesoRotation wiring is end-to-end correct ✓
-
----
-
-### Fix 4 — `tests/_gen_fixtures.py` dead code removed
-
-The file had `from tests.conftest import gen_db` which fails at runtime because `tests/` has no `__init__.py` (ModuleNotFoundError). Since no test files import from `_gen_fixtures.py` (conftest auto-discovery is the working path), the broken import was dead code. Removed the import; file is now a documentation-only reference.
-
----
-
-### Pytest Output
-
-```
-# TDD red (before fixes, rotation guard tests only):
-FAILED tests/test_program_seed_rotation_guard.py::test_unresolved_meso_rotation_raises
-FAILED tests/test_program_seed_rotation_guard.py::test_new_meso_rotations_exist_and_resolve
-FAILED tests/test_program_seed_rotation_guard.py::test_d5_lower_b_meso2_anchor_is_staggered_rdl
-3 failed in 0.26s
-
-# TDD green (after fixes, rotation guard tests only):
-3 passed in 0.20s
-
-# Full suite:
-170 passed, 49 warnings in 0.96s
-```
-
-Total: 170 tests (167 prior + 3 new rotation-guard tests). All green.
-
----
+- `tests/test_library_seed.py`: `test_topset_backoff_scheme_is_exactly_the_four` →
+  renamed `test_topset_backoff_scheme_is_exactly_the_three`; `TOPSET_BACKOFF_SCHEME_FOUR`
+  (Bench, Back Squat, Front Squat, Standing OHP) → `TOPSET_BACKOFF_SCHEME_THREE` (Back
+  Squat, Front Squat, Standing OHP; Bench dropped out). `TOPSET_SIX` (`rpe_capped`-based,
+  unaffected) left as-is.
+- `tests/test_phase1_reconciliation.py`: extended `test_schemes_straight` with an
+  assertion that `Bench Press [PB].scheme == Scheme.STRAIGHT`; added new
+  `test_te_schemes_synced_to_straight` asserting `TierExercise.scheme == "STRAIGHT"`
+  for `d1_t1`/`d2_t1`/`d5_t1`.
+- Results (all run on myflix, `.venv/bin/pytest`):
+  - `tests/test_library_seed.py tests/test_phase1_reconciliation.py`: 17 passed, 0 failed
+  - `tests/test_migrations.py` (parity keystone `test_chain_matches_create_all` included): 12 passed, 0 failed
+  - Full suite: **285 passed, 0 failed** (350 warnings, all pre-existing `datetime.utcnow()`
+    deprecation noise, unrelated to this change; +1 vs. the prior 284 baseline from the
+    one new test function added)
 
 ### Commit
 
-Hash: `5167cbf`
-Branch: `feat/v0.6-generation`
-Message: "fix(gen): add Staggered RDL + Single-Arm DB Row; close meso-rotation guard-bypass (resolve-or-raise all paths) + pin rotation-path test"
-
----
-
-## Task 2 fix wave
-
-**Commit:** `598fe99`  
-**Branch:** `feat/logging-round-trip`  
-**Date:** 2026-06-28
-
-### Swallow removal
-
-Removed the `try/except Exception: pass` block wrapping `run_analysis(session_id, db, _week_keyer)` in the `submit_session` handler (`ironlog/api/app.py`). The call is now bare. The preceding `db.commit()` already durably saves SetLogs/surveys/notes/status before `run_analysis` is reached, so a run_analysis failure surfaces correctly (HTTP 500) rather than silently returning 200 with an un-analyzed session. Production always has EngineState + MovementState; the blanket swallow was masking real errors.
-
-### State-seeding helper
-
-Added `_seed_analysis_state(engine, movement_id=3)` to `tests/test_submit_endpoint.py`. Seeds: `EngineState(id=1, CALIBRATION)` + `PhasePolicy(CALIBRATION, PROGRESS default)` + `Movement(id=movement_id)` + `MovementState(movement_id)`. Uses explicit `id=3` for Movement so existing test bodies (`movement_id=3`) remain stable without modification.
-
-Applied in the two gate tests that reach `run_analysis`:
-- `test_submit_writes_setlogs_and_completes` — `_seed_analysis_state(engine)` added before submit
-- `test_submit_idempotent_lost_ack_retry_writes_nothing_new` — `_seed_analysis_state(engine)` added before first submit
-
-`test_submit_rejects_working_set_without_tap_422_and_writes_nothing` rejects at 422 before `run_analysis`, no seeding needed — left unchanged.
-
-### New seam test: `test_submit_fires_run_analysis`
-
-Seeds a full planned graph inline (Movement → Session(PLANNED) → ExerciseGroup → PlannedExercise → PlannedSet, set_role=WORKING, target_rpe=8.0) + EngineState/PhasePolicy/MovementState. Submits one SetLog with `planned_set_id` linked and `feedback_tap=ON_TARGET`. Asserts `Session.analyzed_at is not None` after the HTTP 200 response.
-
-**Delete-call confirmation:** temporarily replaced `run_analysis(session_id, db, _week_keyer)` with `pass` in the handler; `test_submit_fires_run_analysis` went red with:
-```
-AssertionError: run_analysis seam did not fire: Session.analyzed_at is None after submit
-assert None is not None
-```
-Call restored; test green again.
-
-### pytest tails
-
-Submit-only run (4 tests):
-```
-4 passed, 8 warnings in 0.33s
-```
-
-Full suite:
-```
-231 passed, 98 warnings in 2.92s
-```
-
----
-
-## Final-review fix wave (server)
-
-**Commit:** `0c8f94d`
-**Branch:** `feat/logging-round-trip`
-**Date:** 2026-06-28
-
-### Survey/note write-branch test: `test_submit_writes_surveys_and_notes`
-
-Added to `tests/test_submit_endpoint.py` (Fork-4 B/C coverage lock).
-
-**Gap closed:** Every prior submit test passed `"surveys": [], "notes": []`, leaving the non-empty ExerciseSurvey + Note write path untested. The handler already wrote them correctly (lines 259–266 of `ironlog/api/app.py`) — no handler change needed.
-
-**Test approach:** Reuses `_client()`, `_seed_analysis_state(engine)`, `_planned_session(engine)` exactly like the other gate tests. Posts one WORKING SetLog (with `feedback_tap="ON_TARGET"`) + one ExerciseSurveyIn (`sticking_point="BOTTOM"`, `asymmetry_flag=True`, `technique_flag=False`) + one NoteIn (`movement_id=3`, `text="felt unstable at the bottom"`). Asserts:
-- HTTP 200, `already_completed=False`
-- 1 ExerciseSurvey row with correct `sticking_point`/`asymmetry_flag`/`technique_flag`
-- 1 Note row: `classification == NoteClass.JOURNAL`, `confirmed is False`, `applied is False` (deferred-classification contract locked)
-- 1 SetLog (sanity)
-
-**Handler worked first try** — the write branch was already correct; this test purely adds coverage.
-
-### pytest tails
-
-New test alone:
-```
-1 passed, 5 warnings in 0.29s
-```
-
-Full suite:
-```
-236 passed, 105 warnings in 3.13s
-```
-
-Total: 236 tests, 0 failed (235 prior + 1 new).
-
----
----
-
-# FIRST-RUN WIZARD — Task 2: `compute_load_trust` (the shared keystone)
-
-**Status:** DONE
-**Branch:** `feat/first-run-wizard`
-**Files:** created `ironlog/generation/load_trust.py`, `tests/test_load_trust.py`
-
-## The function
-
-`compute_load_trust(movement, state, db, as_of) -> LoadTrustResult` is the single shared
-load-trustworthiness function. Trust is DERIVED every call from event-facts — never a stored
-verdict. Public surface:
-
-- `LoadTrust` enum: `UNKNOWN` / `STALE` / `FRESH`
-- `LoadTrustResult` dataclass: `trust`, `value: Optional[float]`, `load_field: Optional[str]`
-- `load_field_for_mode(mode) -> Optional[str]`
-- `compute_load_trust(movement, state, db, as_of) -> LoadTrustResult`
-
-Tasks 3 (generation resolver), 4 (wizard-state endpoint), and 5 (completion gate) all import this
-one definition — no per-surface reimplementation.
-
-## The five behavior points
-
-1. **Per-mode load field** (`load_field_for_mode`): LADDER/COMPOSITE → `"current_load"`;
-   ASSISTED → `"assist_level"`; PROTOCOL/CONDITIONING/NONE → `None`. A `None` load_field means
-   bodyweight: returns `LoadTrustResult(FRESH, None, None)` immediately — always FRESH, never
-   UNKNOWN, never asked (no load to set).
-
-2. **Value resolution** (`_resolve_value`, mirrors `resolve_start_load` in `assembler.py` MINUS the
-   floor): load field present (`IS NOT NULL`) → use it; ELSE derived-ratio (movement has
-   `start_ratio` + `derived_from_id` and the anchor `MovementState` has an `e1rm`) →
-   `start_ratio * anchor.e1rm`; ELSE → `None` → UNKNOWN. **The `movement.load_floor … else 0.0`
-   floor fallback is DROPPED** — that silent-wrong floor is the bug being fixed; an unconfigured
-   movement returns UNKNOWN, never a fake floor load.
-
-3. **IS-NULL-not-zero presence** (subtle guard): presence is checked with `if v is not None`,
-   never falsy / `== 0`. `assist_level == 0.0` (unassisted pull-ups) is a VALID, configured, FRESH
-   value — NOT UNKNOWN. Verified by `test_assisted_null_is_unknown_but_zero_is_fresh`.
-
-4. **Recency = `max(last working SetLog.performed_at, MovementState.confirmed_at)`**. Working sets
-   only (`is_warmup == False`). FRESH if recency within 30 days of `as_of`; STALE if value present
-   but recency is None or > 30 days; UNKNOWN only if no value (point 2). Confirmed-40d-ago but
-   logged-3d-ago → FRESH via the max; warmup-only recent set does NOT refresh (STALE).
-
-5. **Derived-ratio value** (value-resolution nuance): a derived movement with no own `current_load`
-   but a configured anchor (`anchor.e1rm`) resolves to `start_ratio * anchor.e1rm`, NOT UNKNOWN — so
-   the wizard does not over-ask for movements that derive load from a parent. Verified with its own
-   load-less state (→ FRESH via `confirmed_at`) and with no state at all (→ value resolves, recency
-   None → STALE).
-
-**Tz handling:** project default for `performed_at` / `confirmed_at` is naive `datetime.utcnow()`,
-while callers (and the wizard tests) pass tz-aware `as_of`. Added `_as_naive_utc(dt)` — aware →
-UTC then drop tzinfo; naive unchanged. All recency candidates and `as_of` pass through it before
-subtraction, so naive-vs-aware never raises. Covered by
-`test_naive_stored_datetimes_are_comparable_with_aware_as_of`.
-
-## Tests (TDD red → green)
-
-Red (module missing):
-```
-E   ModuleNotFoundError: No module named 'ironlog.generation.load_trust'
-1 error in 0.09s
-```
-
-Green (`tests/test_load_trust.py`, 11 tests):
-```
-...........                                                              [100%]
-11 passed, 1 warning in 0.18s
-```
-
-Test inventory: load_field_for_mode (all 6 modes), LADDER no-load→UNKNOWN, present+recent→FRESH,
-present+old→STALE, recency-via-working-SetLog max, warmup-does-not-count, bodyweight/PROTOCOL
-always-FRESH, assisted null-vs-zero (IS-NULL guard), derived-ratio with own state, derived-ratio
-with no state, naive/aware comparability.
-
-Full suite:
-```
-247 passed, 106 warnings in 3.18s
-```
-0 failed. Build-and-test-only, in-memory SQLite, server-side on myflix.
-
-## Commit
-
-`feat(wizard): compute_load_trust shared keystone (computed trust; IS-NULL-not-zero; bodyweight-always-fresh; derived-ratio value)` — hash recorded at bottom.
-
-## Concerns
-
-None. The single deprecation warning under the naive-datetime test is intentional — that test uses
-`datetime.utcnow()` on purpose to reproduce the project's naive-storage convention and prove
-normalization handles it.
-
----
-
-# PAYLOAD ENRICHMENT — Task 2, First Half: Muscle Tag Proposal (Steps 1–3)
-
-**Status:** DONE_PROPOSAL_READY
-**Branch:** `feat/payload-enrichment`
-**Date:** 2026-06-30
-
-## Steps Completed
-
-### Step 1 — Failing test written
-`tests/test_library_muscle_tags.py` — exact text from brief.
-
-### Step 2 — Test confirmed failing
-```
-FAILED tests/test_library_muscle_tags.py::test_every_movement_has_a_valid_primary_muscle
-1 failed, 1 passed in 0.09s
-```
-All 108 movements untagged. `test_secondary_muscles_are_valid_and_listy` passes (empty lists fine).
-
-### Step 3 — Proposer run
-`scripts/propose_muscle_tags.py` written and executed via ssh.
-108 proposals → `scripts/muscle_tags_proposed.json`. Zero invalid Muscle values (validated before write).
-
-## Heuristic mapping summary
-
-| Priority | Signal | Examples |
-|---|---|---|
-| 1 | `lift_category` (BACK_SQUAT/FRONT_SQUAT → QUADS; RDL → HAMSTRINGS; BENCH → MID_LOWER_CHEST; OHP → FRONT_DELT; ROW → MID_BACK; HIP_THRUST → GLUTES; REV_HYPER → GLUTES; DEADLIFT → HAMSTRINGS; CG_PRESS → TRICEPS) | T1 lifts + labeled accessories |
-| 2 | base_name keyword matching (nordic, pull-up, lat pulldown, t-bar row, lateral raise, rear delt fly, curl, pushdown, face pull, etc.) | All NONE-category accessories |
-| 3 | `region=CORE` → ABS (except copenhagen→ADDUCTORS, bird dog→ABS+SPINAL_ERECTORS, rotation→ABS) | All core movements |
-| 4 | `progression_mode=CONDITIONING` keywords (farmer/carry→FOREARMS; jump rope→CALVES; kb swing→GLUTES; slam ball→ABS) | 10 conditioning movements |
-
-## Movements flagged uncertain (14)
-
-| Name | Proposed primary | Reason |
-|---|---|---|
-| Cable Tibialis Raise | CALVES | Tibialis anterior not in Muscle enum |
-| Incline DB Y-Raise | REAR_DELT | Y-raise targets lower traps (not in enum) |
-| Single-Arm Landmine Press | FRONT_DELT | Angle ambiguous between FRONT_DELT and UPPER_CHEST |
-| Cable External Rotation | REAR_DELT | Rotator cuff (infraspinatus/teres minor) not in enum |
-| Andreoni Dips | MID_LOWER_CHEST | Grip width on Andreoni station unknown |
-| Dips [ANDREONI + FT] | MID_LOWER_CHEST | Same as above (INACTIVE variant) |
-| Farmer Carries | FOREARMS | UPPER_TRAPS equally defensible |
-| Farmer Walk | FOREARMS | Same |
-| Sandbag Carry | FOREARMS | Same |
-| Jump Rope Intervals | CALVES | Cardio-dominant; structural choice is a simplification |
-| Jump Rope Tabata | CALVES | Same |
-| Jump Rope [JR] | CALVES | Same |
-| Sandbag Over-Shoulder | GLUTES | Complex explosive; hip extension chosen as driver |
-| Slam Ball | ABS | Full-body; ABS primary is defensible but GLUTES/HAMSTRINGS also strong |
-
-## Files written
-- `tests/test_library_muscle_tags.py`
-- `scripts/propose_muscle_tags.py`
-- `scripts/muscle_tags_proposed.json` (108 proposals — the review artifact)
-
-## NOT done (scope gate)
-`ironlog/seed.py` NOT modified. No tags applied. No migration generated. Nothing committed.
-
-Next: user reviews/corrects `scripts/muscle_tags_proposed.json`, then second dispatch applies tags + generates migration 011.
-
----
-
-# PAYLOAD ENRICHMENT — Task 2, Second Half: Apply Tags + Migration 011
-
-**Status:** DONE
-**Branch:** `feat/payload-enrichment`
-**Date:** 2026-07-01
-
-## Steps Completed
-
-### Taxonomy addition
-- `TIBIALIS = "TIBIALIS"` and `ROTATOR_CUFF = "ROTATOR_CUFF"` added to `ironlog/models/enums.py` `Muscle` enum (now 20 members).
-- `tests/test_library_muscle_fields.py::test_muscle_enum_has_expected_members` updated: added both to expected set.
-- Enum test result: **2 passed in 0.07s** ✓
-
-### Tags applied to seed.py
-- `scripts/apply_muscle_tags.py` written and run: tagged 108 movements, 0 skipped.
-- Six user overrides applied exactly (verified in migration SQL):
-  - `EZ Bar Curl - Narrow Grip [EZ]` → BICEPS / ["FOREARMS"]
-  - `Swiss Bar Press [SB]` → MID_LOWER_CHEST / ["TRICEPS", "FRONT_DELT"]
-  - `Cable Tibialis Raise` → TIBIALIS / []
-  - `Cable External Rotation [FT]` → ROTATOR_CUFF / ["REAR_DELT"]
-  - `Sumo DL [PB]` → GLUTES / ["ADDUCTORS", "QUADS", "SPINAL_ERECTORS", "HAMSTRINGS"]
-  - `Conventional DL [PB]` → GLUTES / ["HAMSTRINGS", "SPINAL_ERECTORS", "QUADS"]
-- All other 102 movements use proposals verbatim (Incline DB Y-Raise kept as REAR_DELT per brief).
-
-### Loader wired
-- `primary_muscle=m.get("primary_muscle")` and `secondary_muscles=m.get("secondary_muscles", [])` added to `Movement(...)` constructor in `seed()`.
-
-### Tag test result
-`tests/test_library_muscle_tags.py`: **2 passed in 0.07s** ✓
-- All 108 movements have a valid primary_muscle.
-- All secondary_muscles lists are valid and list-typed.
-
-### Migration 011 generated
-- `scripts/gen_muscle_backfill.py` created.
-- Generated `deploy/migrations/011_backfill_movement_muscles.sql`: 108 idempotent UPDATE statements, each guarded by `AND primary_muscle IS NULL`.
-
-### Parity test
-`tests/test_migrations.py`: **12 passed in 0.10s** ✓
-
-### Full suite
-`270 passed, 350 warnings in 3.75s` — 0 failed.
-
-## Files Changed
-| File | Action |
-|---|---|
-| `ironlog/models/enums.py` | Added TIBIALIS, ROTATOR_CUFF to Muscle enum |
-| `tests/test_library_muscle_fields.py` | Updated expected set to 20 members |
-| `ironlog/seed.py` | Tagged all 108 MOVEMENTS dicts; wired loader |
-| `tests/test_library_muscle_tags.py` | (Task 2a artifact, now committed) |
-| `scripts/apply_muscle_tags.py` | New — applies tag JSON to seed.py |
-| `scripts/gen_muscle_backfill.py` | New — generates migration 011 |
-| `scripts/propose_muscle_tags.py` | (Task 2a artifact, now committed) |
-| `scripts/muscle_tags_proposed.json` | (Task 2a artifact, now committed) |
-| `deploy/migrations/011_backfill_movement_muscles.sql` | New — 108 idempotent UPDATEs |
-
-## Notes
-- BUILD-AND-TEST-ONLY: `python -m ironlog.seed` NOT run; migration 011 NOT applied to prod — live deploy is user-owned.
-- Two-writer boundary: no current_load / outcome writes in any changed file.
-- apply_muscle_tags.py is idempotent (skips already-tagged entries).
-- Migration 011 is idempotent via `AND primary_muscle IS NULL` guard on every UPDATE.
+Files: `ironlog/seed.py`, `ironlog/generation/program_seed.py`,
+`deploy/migrations/014_scheme_consistency.sql` (new), `tests/test_library_seed.py`,
+`tests/test_phase1_reconciliation.py`, this report.
+
+Unrelated pre-existing working-tree changes (`.superpowers/sdd/task-5-report.md`,
+`.env.bak-*`, `docs/superpowers/plans/2026-06-30-payload-enrichment.md`,
+`ironlog.db.*-bak-*`) were left untouched, not staged, not committed — same as Task 2.

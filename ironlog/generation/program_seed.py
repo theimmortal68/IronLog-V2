@@ -223,7 +223,7 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120)
     _add_te(db, t1.id, "d1_t1", "Bench Press [PB]", lib, 1, "anchor",
             pattern="bench", rep_low=8, rep_high=8, rpe_cap=8.0,
-            scheme="TOPSET_BACKOFF")
+            scheme="STRAIGHT")
 
     # T2 GS — Pendlay Row Narrow / Incline DB Press / Face-Up Incline Knee Raise
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90)
@@ -267,7 +267,7 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120)
     d2_t1 = _add_te(db, t1.id, "d2_t1", "Belt Squat", lib, 1, "anchor",
                     pattern="squat", rep_low=5, rep_high=8, rpe_cap=8.0,
-                    scheme="TOPSET_BACKOFF")
+                    scheme="STRAIGHT")
     _add_mr(db, d2_t1, 2, "Back Squat", lib)
 
     # T1b — Barbell Hip Thrust (semi)
@@ -338,7 +338,7 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120)
     d5_t1 = _add_te(db, t1.id, "d5_t1", "RDL", lib, 1, "anchor",
                     pattern="rdl", rep_low=4, rep_high=6, rpe_cap=8.0,
-                    scheme="TOPSET_BACKOFF")
+                    scheme="STRAIGHT")
     # meso-2: RDL → Staggered RDL (distinct movement → resolve-or-raise, MesoRotation row)
     _add_mr(db, d5_t1, 2, "Staggered RDL", lib)
 
