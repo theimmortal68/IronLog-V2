@@ -419,6 +419,46 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)):
     return _serialize_session(ws, db)
 
 
+class LoggedSet(BaseModel):
+    movement_id: int
+    movement_name: str
+    set_index: int
+    reps: Optional[int] = None
+    load: Optional[float] = None
+    tap: Optional[str] = None
+    is_warmup: bool
+
+
+class LoggedSetsResponse(BaseModel):
+    session_id: int
+    date: str
+    day_role: str
+    logs: List[LoggedSet]
+
+
+@app.get("/sessions/{session_id}/logs", response_model=LoggedSetsResponse)
+def get_session_logs(session_id: int, db: Session = Depends(get_session)):
+    """Logged actuals (SetLogs) for a session, in log order; client groups by movement."""
+    from ..models.session import Session as WorkoutSession, SetLog
+    ws = db.get(WorkoutSession, session_id)
+    if ws is None:
+        raise HTTPException(404, "session not found")
+    rows = db.exec(
+        select(SetLog).where(SetLog.session_id == session_id).order_by(SetLog.id)
+    ).all()
+    logs = []
+    for sl in rows:
+        mv = db.get(Movement, sl.movement_id)
+        logs.append(LoggedSet(
+            movement_id=sl.movement_id, movement_name=(mv.name if mv else ""),
+            set_index=sl.set_index, reps=sl.actual_reps, load=sl.actual_load,
+            tap=(sl.feedback_tap.value if sl.feedback_tap else None),
+            is_warmup=sl.is_warmup,
+        ))
+    return LoggedSetsResponse(
+        session_id=session_id, date=ws.date.isoformat(), day_role=ws.day_role, logs=logs)
+
+
 # ---------------------------------------------------------------------------
 # Wizard read path (load-config state — first-run wizard, Task 4)
 # ---------------------------------------------------------------------------
