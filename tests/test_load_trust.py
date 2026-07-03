@@ -156,6 +156,37 @@ def test_derived_ratio_resolves_value_with_no_own_state():
         assert r.trust == LoadTrust.STALE  # value present but no recency anchor
 
 
+def test_derived_ratio_anchor_pick_is_deterministic_across_multiple_day_rows():
+    """Progression engine (v0.6+) can legitimately create multiple
+    (movement_id, day_id) MovementState rows for one movement (independent
+    day tracks). The derived-ratio anchor lookup must not pick an arbitrary
+    row among them — it must deterministically pick the anchor's most
+    recently updated e1rm."""
+    e = _db()
+    with DbSession(e) as s:
+        anchor = _mv(s, name="AnchorMultiDay")
+        # inserted first, but its e1rm is the STALER update
+        anchor_st_old = MovementState(movement_id=anchor.id, day_id="dayA",
+                                       e1rm=250.0, e1rm_updated_at=NOW - timedelta(days=10))
+        s.add(anchor_st_old)
+        s.commit()
+        # inserted second, and it holds the MOST RECENTLY updated e1rm
+        anchor_st_new = MovementState(movement_id=anchor.id, day_id="dayB",
+                                       e1rm=300.0, e1rm_updated_at=NOW - timedelta(days=2))
+        s.add(anchor_st_new)
+        s.commit()
+
+        derived = _mv(s, name="DerivedMultiDay", start_ratio=0.8, derived_from_id=anchor.id)
+        d_st = MovementState(movement_id=derived.id, current_load=None, confirmed_at=NOW - timedelta(days=5))
+        s.add(d_st)
+        s.commit()
+
+        r = compute_load_trust(derived, d_st, s, NOW)
+        # must resolve from anchor_st_new (most recently updated), NOT anchor_st_old
+        # (which an un-ordered .first() would return since it was inserted first)
+        assert r.value == pytest.approx(0.8 * 300.0)
+
+
 def test_naive_stored_datetimes_are_comparable_with_aware_as_of():
     e = _db()
     with DbSession(e) as s:
