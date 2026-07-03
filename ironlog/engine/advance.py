@@ -19,6 +19,8 @@ class SessionPerf:
     hit_target: bool          # all working sets hit rep_high (both sides for unilateral)
     max_rpe: float            # highest RPE across working sets
     all_sides_cleared: bool   # unilateral AND-gate (True for bilateral)
+    session_performed: bool = False       # RULE_DRIVEN: RPE-exempt, just "did it happen" (Task 3)
+    last_set_hit_target: bool = False     # SINGLE_SESSION: last-set-only gate (Task 3)
 
 
 @dataclass
@@ -48,7 +50,65 @@ def _rpe8(state, perf, movement, window) -> AdvanceResult:
     return AdvanceResult(False, rule, streak)
 
 
-_DISPATCH = {ProgressionRule.RPE_8_STANDARD: _rpe8}
+def _at_cap(state, movement) -> bool:
+    return (state.current_load is not None and movement.cap is not None
+            and state.current_load >= movement.cap)
+
+
+def _rule_driven(state, perf, movement, window) -> AdvanceResult:
+    rule = ProgressionRule.RULE_DRIVEN.value
+    if _at_cap(state, movement):
+        # ceiling reached: hand off to the rep-ladder rule (rep_target seeds
+        # to rep_ladder[0] via _rep_ladder's own None-current-target branch);
+        # the returned active_rule is REP_LADDER — the caller persists the switch.
+        return _rep_ladder(state, perf, movement, window)
+    if not perf.session_performed:                        # RPE-exempt: ignore hit_target/max_rpe
+        return AdvanceResult(False, rule, 0)
+    streak = state.consecutive_advance_count + 1
+    if streak >= window:
+        ladder_len = len(movement.increment_ladder or [])
+        new_tier = min(state.current_increment_tier + 1, ladder_len - 1)
+        return AdvanceResult(True, rule, 0, new_tier=new_tier)
+    return AdvanceResult(False, rule, streak)
+
+
+def _single_session(state, perf, movement, window) -> AdvanceResult:
+    rule = ProgressionRule.SINGLE_SESSION.value
+    if perf.last_set_hit_target and perf.max_rpe <= 8.0:   # window is always 1 for this rule
+        ladder_len = len(movement.increment_ladder or [])
+        new_tier = min(state.current_increment_tier + 1, ladder_len - 1)
+        return AdvanceResult(True, rule, 0, new_tier=new_tier)
+    return AdvanceResult(False, rule, 0)
+
+
+def _rep_ladder(state, perf, movement, window) -> AdvanceResult:
+    rule = ProgressionRule.REP_LADDER.value
+    ladder = movement.rep_ladder or []
+    current = getattr(state, "current_rep_target", None)
+    if current is None:                                    # freshly transitioned onto the ladder
+        return AdvanceResult(False, rule, 0, new_rep_target=ladder[0] if ladder else None)
+    if not _clean(perf) or current not in ladder:
+        return AdvanceResult(False, rule, 0, new_rep_target=current)
+    streak = state.consecutive_advance_count + 1
+    if streak < window:
+        return AdvanceResult(False, rule, streak, new_rep_target=current)
+    idx = ladder.index(current)
+    if idx >= len(ladder) - 1:                              # terminal rung -> maintenance
+        return AdvanceResult(False, rule, 0, new_rep_target=current)
+    return AdvanceResult(True, rule, 0, new_rep_target=ladder[idx + 1])
+
+
+def _fixed_load(state, perf, movement, window) -> AdvanceResult:
+    return AdvanceResult(False, ProgressionRule.FIXED_LOAD.value, state.consecutive_advance_count)
+
+
+_DISPATCH = {
+    ProgressionRule.RPE_8_STANDARD: _rpe8,
+    ProgressionRule.RULE_DRIVEN: _rule_driven,
+    ProgressionRule.SINGLE_SESSION: _single_session,
+    ProgressionRule.REP_LADDER: _rep_ladder,
+    ProgressionRule.FIXED_LOAD: _fixed_load,
+}
 
 
 def advance(rule, state, perf, movement, confirmation_window) -> AdvanceResult:

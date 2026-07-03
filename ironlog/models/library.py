@@ -164,6 +164,7 @@ class MovementState(SQLModel, table=True):
     consecutive_advance_count: int = Field(default=0, sa_column_kwargs={"server_default": text("0")})
     active_rule: Optional[str] = None
     current_body_position: Optional[str] = None
+    current_rep_target: Optional[int] = None            # rep-ladder rule state (Task 3)
     unassisted_max_rolling: Optional[int] = None
     stall_signal: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
