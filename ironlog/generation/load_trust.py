@@ -58,8 +58,16 @@ def _resolve_value(movement, state, db, field):
         if v is not None:          # IS NULL check — assist_level == 0 is a real value
             return v
     if field == "current_load" and movement.start_ratio is not None and movement.derived_from_id is not None:
+        # Progression engine (v0.6+) allows multiple (movement_id, day_id) rows
+        # per movement (independent day tracks), so an un-ordered .first() would
+        # return an arbitrary day's row. Order by most-recently-updated e1rm so
+        # the anchor's current strength wins deterministically; id.desc() is a
+        # stable tiebreak. Proper long-term fix: the derived relationship should
+        # carry the anchor's specific day_id — deferred until derived-anchor
+        # semantics are actually exercised across multiple day tracks.
         anchor = db.exec(select(MovementState).where(
-            MovementState.movement_id == movement.derived_from_id)).first()
+            MovementState.movement_id == movement.derived_from_id
+        ).order_by(MovementState.e1rm_updated_at.desc().nullslast(), MovementState.id.desc())).first()
         if anchor is not None and anchor.e1rm is not None:
             return movement.start_ratio * anchor.e1rm
     return None
