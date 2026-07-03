@@ -81,6 +81,21 @@ class MovementStateDelta:
     anchor_load: Optional[float] = None
     anchor_reps: Optional[int] = None
     anchor_rpe: Optional[float] = None
+    # v0.6 (Task 6): progression-engine carrier fields, populated by
+    # persistence/run_analysis.py after analyze_session() returns — this
+    # dataclass stays a plain data carrier, no new logic lives in
+    # _analyze_movement for any of these. "None = don't touch" holds for all
+    # of them EXCEPT stall_signal, which is gated by stall_signal_computed
+    # because None is itself a valid value to WRITE (clear) for that field.
+    day_id: Optional[str] = None
+    new_assist_level: Optional[float] = None
+    new_rep_target: Optional[int] = None
+    new_body_position: Optional[str] = None
+    active_rule: Optional[str] = None
+    new_consecutive_advance_count: Optional[int] = None
+    new_unassisted_max_rolling: Optional[int] = None
+    stall_signal: Optional[dict] = None
+    stall_signal_computed: bool = False
 
 
 @dataclass

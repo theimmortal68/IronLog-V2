@@ -16,7 +16,7 @@ descriptive JSON.
 from datetime import date, datetime
 from typing import List, Optional
 
-from sqlalchemy import Column, JSON, text
+from sqlalchemy import Column, JSON, UniqueConstraint, text
 from sqlmodel import Field, Relationship, SQLModel
 
 from .enums import (
@@ -94,6 +94,12 @@ class Movement(SQLModel, table=True):
     band_eligible: bool = False                        # HT: uses a band pair
     notes: Optional[str] = None
 
+    # per-movement progression-rule config (progression engine, v0.6+)
+    progression_rule: Optional[str] = None
+    assist_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
+    position_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
+    rep_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
+
     load_equipment: Optional[Equipment] = Relationship(back_populates="movements")
     state: Optional["MovementState"] = Relationship(back_populates="movement")
 class PhasePolicy(SQLModel, table=True):
@@ -128,8 +134,11 @@ class EngineState(SQLModel, table=True):
     active_program_id: Optional[int] = Field(default=None, foreign_key="program.id")  # single-active pointer (Fork 3)
 class MovementState(SQLModel, table=True):
     """Per-movement dynamic state."""
+    __table_args__ = (UniqueConstraint("movement_id", "day_id", name="uq_movementstate_movement_day"),)
+
     id: Optional[int] = Field(default=None, primary_key=True)
-    movement_id: int = Field(foreign_key="movement.id", index=True, unique=True)
+    movement_id: int = Field(foreign_key="movement.id", index=True)
+    day_id: Optional[str] = Field(default=None, index=True)  # composite key w/ movement_id (progression engine, v0.6+)
 
     calibration_status: CalibrationStatus = CalibrationStatus.INHERITED
     e1rm: Optional[float] = None
@@ -150,6 +159,14 @@ class MovementState(SQLModel, table=True):
     ht_plates: Optional[float] = None
     ht_band_pair_id: Optional[int] = Field(default=None, foreign_key="bandpair.id")
     ht_felt_peak: Optional[float] = None
+
+    # progression engine (v0.6+)
+    consecutive_advance_count: int = Field(default=0, sa_column_kwargs={"server_default": text("0")})
+    active_rule: Optional[str] = None
+    current_body_position: Optional[str] = None
+    current_rep_target: Optional[int] = None            # rep-ladder rule state (Task 3)
+    unassisted_max_rolling: Optional[int] = None
+    stall_signal: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
     movement: Optional[Movement] = Relationship(back_populates="state")
 

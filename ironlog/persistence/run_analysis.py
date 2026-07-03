@@ -12,6 +12,7 @@ feed it. Cold-start is expected: until ~3 PROGRESS sessions log, the analyzers
 are data-starved — this is correct, not broken.
 """
 
+import logging
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from typing import Callable, Hashable, List
@@ -19,6 +20,7 @@ from typing import Callable, Hashable, List
 from sqlmodel import Session as DBSession
 from sqlmodel import col, select
 
+from ..engine.advance import SessionPerf, advance, roll_unassisted_max
 from ..engine.analysis import (
     AnalysisContext,
     AnalysisResult,
@@ -28,12 +30,17 @@ from ..engine.analysis import (
     analyze_session,
 )
 from ..engine.calibration import evaluate_calibration_flip
+from ..engine.e1rm import implied_rir
 from ..engine.progression import resolve_objective
-from ..engine.stall import STALL_WINDOW
+from ..engine.stall import STALL_WINDOW, build_stall_signal
 from ..models.enums import CalibrationStatus, Objective
 from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
-from ..models.session import PlannedSet, Session as WorkoutSession, SetLog
+from ..models.session import (
+    ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
+)
 from .apply import apply_analysis
+
+logger = logging.getLogger(__name__)
 
 WeekKey = Hashable
 
@@ -89,6 +96,133 @@ def already_analyzed(session_id: int, db: DBSession) -> bool:
     return session.analyzed_at is not None
 
 
+def _resolve_movement_state(db: DBSession, movement_id: int, day_id: str) -> MovementState:
+    """Get-or-create with legacy-row adoption (composite (movement_id, day_id) key).
+
+    Every pre-Task-1 row (and every existing test fixture seeded before the
+    progression engine) has exactly one MovementState per movement_id, with
+    day_id left at its None default. Naive "miss -> create a new row" would
+    leave those fixtures with two rows per movement_id and break their
+    movement_id-only `.one()` lookups (MultipleResultsFound). Instead:
+    exact (movement_id, day_id) match first; else adopt the legacy
+    (day_id IS NULL) row for this movement_id by stamping its day_id (this
+    mirrors exactly what the Task-1 migration's own backfill does for real
+    DB rows — consistent, not a hack); else create a fresh row.
+    """
+    state = db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == movement_id,
+            MovementState.day_id == day_id,
+        )
+    ).first()
+    if state is not None:
+        return state
+    legacy = db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == movement_id,
+            col(MovementState.day_id).is_(None),
+        )
+    ).first()
+    if legacy is not None:
+        legacy.day_id = day_id
+        db.add(legacy)
+        db.flush()
+        return legacy
+    fresh = MovementState(movement_id=movement_id, day_id=day_id)
+    db.add(fresh)
+    db.flush()
+    return fresh
+
+
+def _build_session_perf(mid: int, movement: Movement, set_logs: List[SetLog],
+                         planned_sets: dict) -> SessionPerf:
+    """Build a SessionPerf for one movement from its raw SetLog/PlannedSet rows.
+
+    Groups this movement's non-warmup SetLog rows by set_index — unilateral
+    movements log two SetLog rows sharing the same set_index (one per side;
+    there is no side-identifying column), bilateral movements have exactly
+    one row per set_index (grouping degenerates trivially).
+    """
+    groups: dict = defaultdict(list)
+    for sl in set_logs:
+        if sl.movement_id != mid or sl.is_warmup:
+            continue
+        groups[sl.set_index].append(sl)
+
+    def _group_hits(rows) -> bool:
+        if not rows:
+            return False
+        for sl in rows:
+            ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
+            if ps is None or ps.target_reps_high is None:
+                return False
+            if sl.actual_reps is None or sl.actual_reps < ps.target_reps_high:
+                return False
+        return True
+
+    hit_target = bool(groups) and all(_group_hits(rows) for rows in groups.values())
+    all_sides_cleared = hit_target if movement.unilateral else True
+
+    max_rpe = 0.0
+    for rows in groups.values():
+        for sl in rows:
+            ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
+            if sl.rpe_numeric is not None:
+                v = sl.rpe_numeric
+            elif ps is not None and ps.target_rpe is not None and sl.feedback_tap is not None:
+                v = 10.0 - implied_rir(ps.target_rpe, sl.feedback_tap)
+            else:
+                continue
+            if v > max_rpe:
+                max_rpe = v
+
+    last_set_hit_target = False
+    if groups:
+        max_idx = max(groups.keys())
+        last_set_hit_target = _group_hits(groups[max_idx])
+
+    unassisted_set1_reps = None
+    if groups:
+        min_idx = min(groups.keys())
+        for sl in groups[min_idx]:
+            if sl.actual_unassisted_reps is not None:
+                unassisted_set1_reps = sl.actual_unassisted_reps
+                break
+
+    return SessionPerf(
+        hit_target=hit_target,
+        max_rpe=max_rpe,
+        all_sides_cleared=all_sides_cleared,
+        session_performed=True,  # this movement had logged sets this session
+        last_set_hit_target=last_set_hit_target,
+        unassisted_set1_reps=unassisted_set1_reps,
+    )
+
+
+def _confirmation_window(db: DBSession, mid: int, set_logs: List[SetLog],
+                          planned_sets: dict) -> int:
+    """T1 (incl. "T1b") -> 1; everything else, including an unresolvable
+    label, -> 2 (the accessory default is the safe side)."""
+    for sl in set_logs:
+        if sl.movement_id != mid or sl.planned_set_id is None:
+            continue
+        ps = planned_sets.get(sl.planned_set_id)
+        if ps is None:
+            continue
+        pex = db.exec(
+            select(PlannedExercise).where(PlannedExercise.id == ps.planned_exercise_id)
+        ).first()
+        if pex is None:
+            continue
+        grp = db.exec(
+            select(ExerciseGroup).where(ExerciseGroup.id == pex.group_id)
+        ).first()
+        if grp is None or grp.label is None:
+            continue
+        return 1 if grp.label.startswith("T1") else 2
+    return 2
+
+
 def run_analysis(
     session_id: int,
     db: DBSession,
@@ -138,14 +272,14 @@ def run_analysis(
     # Build per-movement analysis inputs from current state + this session's sets.
     movements_inputs = []
     state_by_mv = {}
+    movement_by_mv = {}
     for mid in movement_ids:
-        state = db.exec(
-            select(MovementState).where(MovementState.movement_id == mid)
-        ).one()
+        state = _resolve_movement_state(db, mid, workout.day_role)
         state_by_mv[mid] = state
         movement = db.exec(
             select(Movement).where(Movement.id == mid)
         ).one()
+        movement_by_mv[mid] = movement
         logged = []
         for sl in set_logs:
             if sl.movement_id != mid:
@@ -175,6 +309,73 @@ def run_analysis(
         engine_state=EngineStateInput(current_phase=phase),
     )
     result = analyze_session(ctx)
+
+    # v0.6 (Task 6): wire the progression engine's advance() onto each logged
+    # movement. day_id is stamped on every delta unconditionally (apply_analysis
+    # needs it to resolve the (movement_id, day_id) row regardless of whether
+    # the advance step below succeeds). The rest of this block (SessionPerf
+    # construction through advance() through the stall-signal write) is wrapped
+    # per-movement in try/except: on failure, log it and leave that movement's
+    # delta exactly as analyze_session produced it — "a broken engine step
+    # reduces to your program yesterday" (design spec §9). Fallback invariant:
+    # NEVER writes current_load; run_analysis must complete regardless.
+    day_id = workout.day_role
+    for d in result.movement_deltas:
+        d.day_id = day_id
+        mid = d.movement_id
+        state = state_by_mv[mid]
+        movement = movement_by_mv[mid]
+        try:
+            perf = _build_session_perf(mid, movement, set_logs, planned_sets)
+            window = _confirmation_window(db, mid, set_logs, planned_sets)
+            adv = advance(movement.progression_rule, state, perf, movement, window)
+
+            new_unassisted_max_rolling = None
+            if perf.unassisted_set1_reps is not None:
+                new_unassisted_max_rolling = roll_unassisted_max(
+                    state.unassisted_max_rolling, perf.unassisted_set1_reps
+                )
+
+            consecutive_failed_for_stall = (
+                d.new_consecutive_failed if d.new_consecutive_failed is not None
+                else state.consecutive_failed_progressions
+            )
+            prior_rows = db.exec(
+                select(E1rmHistory).where(E1rmHistory.movement_id == mid)
+            ).all()
+            progress_e1rms = select_progress_window(list(prior_rows))
+            stall = build_stall_signal(
+                movement_id=mid,
+                day_id=day_id,
+                consecutive_failed=consecutive_failed_for_stall,
+                progress_e1rms=progress_e1rms,
+                current_load=state.current_load,
+                limiting_muscle=movement.primary_muscle,
+            )
+            if adv.advanced:
+                stall = None  # clear on advance regardless of what build_stall_signal returned
+
+            # Commit computed values onto the delta only after the whole step
+            # succeeded — a mid-way exception must leave no partial writes.
+            d.active_rule = adv.active_rule
+            d.new_consecutive_advance_count = adv.consecutive_advance_count
+            if adv.new_tier is not None:
+                d.new_tier = adv.new_tier
+            if adv.new_assist_level is not None:
+                d.new_assist_level = adv.new_assist_level
+            if adv.new_rep_target is not None:
+                d.new_rep_target = adv.new_rep_target
+            if adv.new_body_position is not None:
+                d.new_body_position = adv.new_body_position
+            if new_unassisted_max_rolling is not None:
+                d.new_unassisted_max_rolling = new_unassisted_max_rolling
+            d.stall_signal_computed = True
+            d.stall_signal = stall
+        except Exception:
+            logger.exception(
+                "progression-engine advance step failed for movement_id=%s session_id=%s",
+                mid, session_id,
+            )
 
     # Calibration flips: for each CALIBRATING lift, build weekly-max estimates
     # including this session's just-computed e1RM (synthetic in-memory row; the

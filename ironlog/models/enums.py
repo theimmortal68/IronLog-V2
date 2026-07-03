@@ -177,3 +177,36 @@ class NoteClass(str, Enum):
     TRANSIENT_FLAG = "TRANSIENT_FLAG"
     PROGRAMMING_REQUEST = "PROGRAMMING_REQUEST"
     JOURNAL = "JOURNAL"
+
+
+# --- progression engine ---
+
+class ProgressionRule(str, Enum):
+    RPE_8_STANDARD = "RPE_8_STANDARD"
+    SINGLE_SESSION = "SINGLE_SESSION"
+    RULE_DRIVEN = "RULE_DRIVEN"
+    INCLINE_REDUCTION = "INCLINE_REDUCTION"
+    ASSISTANCE_REDUCTION = "ASSISTANCE_REDUCTION"
+    REP_LADDER = "REP_LADDER"
+    BODY_POSITION = "BODY_POSITION"
+    PULL_UP_ROLLING_MAX = "PULL_UP_ROLLING_MAX"
+    FIXED_LOAD = "FIXED_LOAD"
+
+
+class StallType(str, Enum):
+    FAILED_PROGRESSION = "FAILED_PROGRESSION"
+    PLATEAU = "PLATEAU"
+    REGRESSION = "REGRESSION"
+
+
+class StallSeverity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class BodyPosition(str, Enum):
+    TUCK = "tuck"
+    SINGLE_LEG_EXTENDED = "single_leg_extended"
+    STRADDLE = "straddle"
+    FULL = "full"
