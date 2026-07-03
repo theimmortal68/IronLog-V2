@@ -26,6 +26,21 @@ in one file until the runner supports true per-statement transactional
 execution. If you need several non-idempotent changes, use several files. This
 contract is pinned by `tests/test_migrations.py::test_executescript_non_atomicity_first_stmt_persists_on_failure`.
 
+### Carve-out: purely-additive schema changes may be multi-statement (2026-07-03)
+
+The rule guards against **silent data corruption** — a data `UPDATE`/`INSERT`/`DELETE`
+that half-applies leaves *wrong data with no error*, discovered months later. A
+**purely-additive schema** change (`ADD COLUMN`, `CREATE INDEX`, `CREATE TABLE`)
+does not have that failure mode: a partial failure is a **loud** `duplicate`
+error at re-run, not silent corruption. So a migration whose statements are
+**all additive schema** may be multi-statement (e.g. `016_progression_engine_schema.sql`
+adds 10 columns in one file). **Data changes (`UPDATE`/`INSERT`/`DELETE`, or a
+backfill after `ADD COLUMN`) remain strictly single-statement or idempotent**
+until the runner supports per-statement atomicity (banked follow-up: split-on-`;`
++ record/savepoint each — do it before the first migration that needs
+multi-statement data changes). The line is drawn at the *failure mode*, not the
+syntactic shape of the file.
+
 ## Parity invariant
 
 The model layer (`create_all`) and these migrations are two expressions of the
