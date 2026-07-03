@@ -23,6 +23,27 @@ def test_belt_squat_rep_ladder_advances_reps_two_session():
                 SessionPerf(hit_target=True, max_rpe=7.0, all_sides_cleared=True, session_performed=True), mv, 2)
     assert r.advanced is True and r.new_rep_target == 10
 
+def test_vbar_single_session_advances_on_clean_last_set():
+    mv = Movement(name="V-Bar Pushdown", pattern="press", increment_ladder=[5,5,5], cap=200)
+    st = MovementState(movement_id=1, day_id="d4", current_increment_tier=0)
+    r = advance(ProgressionRule.SINGLE_SESSION, st,
+                SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True, last_set_hit_target=True), mv, 1)
+    assert r.advanced is True and r.new_tier == 1   # one clean last set at RPE 8 -> advance
+
+def test_vbar_single_session_no_advance_when_last_set_missed():
+    mv = Movement(name="V-Bar Pushdown", pattern="press", increment_ladder=[5,5,5], cap=200)
+    st = MovementState(movement_id=1, day_id="d4", current_increment_tier=0)
+    r = advance(ProgressionRule.SINGLE_SESSION, st,
+                SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True, last_set_hit_target=False), mv, 1)
+    assert r.advanced is False
+
+def test_vbar_single_session_no_advance_when_rpe_over_8():
+    mv = Movement(name="V-Bar Pushdown", pattern="press", increment_ladder=[5,5,5], cap=200)
+    st = MovementState(movement_id=1, day_id="d4", current_increment_tier=0)
+    r = advance(ProgressionRule.SINGLE_SESSION, st,
+                SessionPerf(hit_target=True, max_rpe=9.0, all_sides_cleared=True, last_set_hit_target=True), mv, 1)
+    assert r.advanced is False
+
 def test_fixed_load_never_advances():
     mv = Movement(name="Rev Hyper Recovery", pattern="hinge")
     st = MovementState(movement_id=1, day_id="d6", current_load=90)
