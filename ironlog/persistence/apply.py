@@ -41,15 +41,23 @@ def apply_analysis(
     MEASURED for any movement_id in calibration_flips. Never writes current_load.
     """
     # Resolve every row first — a missing row raises here, before any mutation.
+    # Keyed on (movement_id, day_id): callers on the composite-key path (v0.6+,
+    # run_analysis) stamp d.day_id before calling apply_analysis; every older
+    # caller/test leaves it at the None default, and `col == None` on a
+    # SQLAlchemy where() clause translates to IS NULL, so this is backward
+    # compatible with every pre-existing delta/fixture.
     states = {
-        d.movement_id: db.exec(
-            select(MovementState).where(MovementState.movement_id == d.movement_id)
+        (d.movement_id, d.day_id): db.exec(
+            select(MovementState).where(
+                MovementState.movement_id == d.movement_id,
+                MovementState.day_id == d.day_id,
+            )
         ).one()
         for d in result.movement_deltas
     }
     now = datetime.now(timezone.utc)
     for d in result.movement_deltas:
-        state = states[d.movement_id]
+        state = states[(d.movement_id, d.day_id)]
         if d.new_e1rm is not None:
             state.e1rm = d.new_e1rm
             state.e1rm_updated_at = now
@@ -79,5 +87,23 @@ def apply_analysis(
             state.consecutive_failed_progressions = d.new_consecutive_failed
         if d.movement_id in calibration_flips:
             state.calibration_status = CalibrationStatus.MEASURED
+        # v0.6 (Task 6): progression-engine earned-state writes. Never
+        # current_load — that stays commit_session's exclusive job.
+        if d.new_assist_level is not None:
+            state.assist_level = d.new_assist_level
+        if d.new_rep_target is not None:
+            state.current_rep_target = d.new_rep_target
+        if d.new_body_position is not None:
+            state.current_body_position = d.new_body_position
+        if d.active_rule is not None:
+            state.active_rule = d.active_rule
+        if d.new_consecutive_advance_count is not None:
+            state.consecutive_advance_count = d.new_consecutive_advance_count
+        if d.new_unassisted_max_rolling is not None:
+            state.unassisted_max_rolling = d.new_unassisted_max_rolling
+        if d.stall_signal_computed:
+            # None is a valid WRITE here (clears the signal on advance) —
+            # distinct from every other new_* field's "None = don't touch".
+            state.stall_signal = d.stall_signal
         db.add(state)
     db.commit()
