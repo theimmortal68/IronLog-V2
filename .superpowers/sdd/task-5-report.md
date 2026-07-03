@@ -1,93 +1,106 @@
-# Task 5 Report — wizard-resolve (write) + start (gate) + the spine test
+# Task 5 Report — Typed stall signal
 
 **Status:** DONE
-**Branch:** `feat/first-run-wizard`
-**Commit:** `4c11e53` — `feat(wizard): POST wizard-resolve (confirmed_at only-on-touched) + start (gate + activate); spine can't-disagree test`
-**Full suite:** 261 passed, 0 failed (was ~255 + 6 new).
+**Branch:** `feat/progression-engine`
+**Scope:** `ironlog/engine/stall.py` enrichment only — pure module, no DB/HTTP.
 
-This is the THIRD and final consumer of the `compute_load_trust` keystone — the wizard's WRITE + completion-gate surfaces. The server phase is now built-and-tested-stable.
+## Note on this file
 
-## What was built
+The working tree had a stale, uncommitted version of `task-5-report.md` on
+disk before this task started, titled "phase_intent + per-slot rep_scheme in
+payload" on branch `feat/payload-enrichment` — an unrelated feature, not part
+of the 6-task progression-engine plan (`docs/superpowers/plans/2026-07-03-progression-engine.md`)
+this repo is currently building. It did not match `task-5-brief.md` (typed
+stall signal) and was overwritten. Flagging in case it was orphaned
+in-progress work from a concurrent session sharing this NFS-mounted repo —
+nothing from that content was folded in here since it belongs to a different
+feature/branch.
 
-### DTOs (`ironlog/api/schemas_wizard.py`)
-Mirror spec §5: `WizardResolution(movement_id:int, value:float)`, `WizardResolveRequest(resolutions:List[WizardResolution])`, `WizardResolveResponse(resolved:int, needs_attention_count:int, ready_to_start:bool)`, `StartProgramResponse(program_id:int, started:bool, active:bool)`.
+## What Changed
 
-### Shared enumeration/gate helpers (`ironlog/api/app.py`)
-Extracted `_program_movement_ids(program_id, db)` (TierExercises + MesoRotations across the program's days/tiers) and `_needs_attention_count(program_id, db, now)` (UNKNOWN+STALE over load-bearing movements via the SHARED `compute_load_trust`, bodyweight excluded). `get_wizard_state` was refactored to use the same enumeration helper, so the read surface, the write surface, and the gate all derive from one function — they cannot diverge.
+### `ironlog/engine/stall.py`
 
-### `POST /programs/{program_id}/wizard-resolve`
-Per-mode write: `load_field_for_mode(movement.progression_mode)` decides `current_load` (LADDER/COMPOSITE) vs `assist_level` (ASSISTED); `setattr(state, field, value)` + `state.confirmed_at = now`. Get-or-create the MovementState row per resolved movement (preserve existing fields if present). **§7.3 honesty pin:** iterates `req.resolutions` ONLY — never loops over all program movements — so confirmed_at is stamped strictly on touched movements. Bodyweight resolutions (load_field None) are skipped. Recomputes `needs_attention_count` after commit. 404 if program or a resolution's movement is missing.
+- Added `StallSeverity`/`StallType` imports from `ironlog.models.enums` (both
+  enums already existed there, defined by Task 1's schema work).
+- Added constant `STALL_FAILED_HIGH_MULT = 2` next to the existing
+  `STALL_WINDOW` / `STALL_MIN_SESSIONS` / `STALL_EPSILON_PCT` /
+  `STALL_FAILED_THRESHOLD`.
+- Added `_window_trend_pct(progress_e1rms)` — percent change from the start to
+  the end of the same trailing `STALL_WINDOW` slice `detect_stall` inspects.
+- Added `_is_extended_flat(progress_e1rms)` — True when the *whole* history
+  (not just the last window) is flat within `STALL_EPSILON_PCT`, used to
+  upgrade a plateau to `high` severity.
+- Added `build_stall_signal(movement_id, day_id, consecutive_failed,
+  progress_e1rms, current_load, limiting_muscle) -> Optional[dict]`:
+  1. Calls the existing `detect_stall(progress_e1rms, consecutive_failed,
+     Objective.PROGRESS)` for the core stalled/not-stalled gate — reuses it
+     verbatim, no reimplementation of the two-arm logic.
+  2. Returns `None` immediately if `signal.stalled` is `False`.
+  3. Otherwise classifies:
+     - `consecutive_failed >= STALL_FAILED_THRESHOLD` → `FAILED_PROGRESSION`;
+       severity `high` at `>= STALL_FAILED_THRESHOLD * STALL_FAILED_HIGH_MULT`
+       (4), else `low`. This branch takes priority over the trend arm (a
+       lift can be both failed- and trend-stalled simultaneously; the failed
+       signal is the more actionable one).
+     - Else if the window's trend is negative beyond `STALL_EPSILON_PCT` →
+       `REGRESSION` (severity `high` if the decline is beyond
+       `2×STALL_EPSILON_PCT`, else `medium`).
+     - Else → `PLATEAU` (severity `high` on an extended flat window per
+       `_is_extended_flat`, else `medium`).
+  4. Returns a dict with keys `movement_id`, `day_id`, `stall_type`,
+     `severity`, `duration_sessions`, `current_load`, `e1rm_trend`,
+     `limiting_muscle` — **no `is_swappable` key**, per the brief.
+- `stall_type`/`severity` are emitted as the enum `.value` strings (plain
+  `"FAILED_PROGRESSION"` / `"low"` etc.), matching the test assertions and the
+  existing `str, Enum` convention (JSON/DB-clean).
+- No `from __future__ import annotations` added (project-wide constraint);
+  module stays pure — no imports beyond `dataclasses`, `typing`, and the
+  sibling enums module.
 
-### `POST /programs/{program_id}/start`
-Gate: if `_needs_attention_count > 0` → `started=false, active=false` (refuse, no writes). If ready → singleton get-or-create `EngineState(id=1)`, set `active_program_id = program_id`, stamp `Program.started_at = now`, return `started=true, active=true`. 404 if program missing.
+### `tests/test_stall_signal.py` (new, verbatim from the brief)
 
-### Two-writer adherence
-The resolve endpoint writes ONLY the canonical load field + `confirmed_at`. It never touches `e1rm`, `calibration_status`, `current_increment_tier`, or the ceiling/failure counters — proven by `test_resolve_preserves_other_movementstate_fields` (pre-seeds those fields, asserts all unchanged after a resolve that sets current_load).
+5 tests: failed-progression low→high severity escalation, plateau from a flat
+e1RM trend, regression from a negative trend, no-stall returns `None`, and a
+guard that `is_swappable` is never a key in the signal.
 
-## Tests (`tests/test_wizard_resolve_and_start.py`, 6 tests, all green)
+## TDD Process
 
-- **`test_spine_wizard_finish_guarantees_clean_generation` (THE SPINE, §7.2+§7.6):** seeds a LADDER + ASSISTED + bodyweight(PROTOCOL) program. Before resolve: wizard-state `ready_to_start=false`, needs=2 (bodyweight excluded), `/start` refuses. Resolves both load-bearing movements. After: (a) wizard-state reports `ready_to_start=true`/needs=0; (b) `/start` returns `{started:true, active:true}`; (c) for each load-bearing movement it asserts `wizard_state.trust == compute_load_trust(...).trust == FRESH` AND `resolve_start_load(...) is not None` (generation prescribes a real number, not needs-calibration). It proves the wizard surface verdict EQUALS the generation resolver verdict because they call the same function — they can't disagree. Bodyweight asserted FRESH (legit no-load), never blocking.
-- **`test_resolve_stamps_confirmed_at_only_on_touched` (§7.3):** resolve A (UNKNOWN→185) stamps A.confirmed_at + writes A.current_load; untouched FRESH B's confirmed_at stays at its sentinel (now−5d) and its load unchanged. Catches stamp-everything.
-- **`test_resolve_assisted_writes_assist_level_not_current_load`:** ASSISTED resolve writes `assist_level=20`, leaves `current_load=None`, stamps confirmed_at.
-- **`test_resolve_preserves_other_movementstate_fields`:** two-writer boundary (above).
-- **`test_start_gate_refuses_then_activates`:** UNKNOWN program → `/start` refuses, no active pointer / started_at; resolve → `/start` activates (EngineState.active_program_id==pid, started_at set).
-- **`test_start_404_when_program_missing`:** both endpoints 404 on a missing program.
+- **RED:** wrote the test file first; `pytest tests/test_stall_signal.py -q`
+  failed at collection with `ImportError: cannot import name
+  'build_stall_signal'` — confirmed failing for the right reason (function
+  didn't exist yet), not a typo.
+- **GREEN:** implemented `build_stall_signal` per the priority order above;
+  reran — all 5 pass.
+- **Full suite:** reran the whole repo's pytest — all pre-existing tests still
+  green, no regressions.
 
 ## pytest tails
+
 ```
-# new file (red → green):
-5 failed, 1 passed   (red, before implementation)
-6 passed, 23 warnings in 0.41s   (green)
-# full suite:
-261 passed, 333 warnings in 3.63s
+$ ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest tests/test_stall_signal.py -q'
+.....                                                                    [100%]
+5 passed in 0.06s
+
+$ ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
+325 passed, 432 warnings in 5.47s
 ```
 
-## Notes / concerns
-- `import compute_load_trust` / `load_field_for_mode` from `ironlog/generation/load_trust.py` — trust is NOT reimplemented anywhere; the spine test enforces this by comparing surfaces.
-- Added a module-level `from datetime import datetime` to app.py (the new `_needs_attention_count` annotation evaluates at module load; project has no `from __future__ import annotations`).
-- Build-and-test-only, in-memory; prod DB NOT reseeded/touched. Schema columns (confirmed_at, active_program_id, started_at) already existed on the models from prior tasks.
-- Deprecation warnings are pre-existing `datetime.utcnow()` usage repo-wide; not in scope.
+(Warnings are pre-existing `datetime.utcnow()` deprecation noise repo-wide,
+unrelated to this change.)
 
-## Task 5 spine-test tighten
+## Concerns
 
-**Status:** DONE — spine test is now RED-against-reimplementation (was the weak "agreement-on-trivially-FRESH-inputs" form).
-**Branch:** `feat/first-run-wizard`
-**Scope:** test-only tightening; production code unchanged (the red-demo flip was applied then restored — `git diff ironlog/` is empty).
+- None on the implementation. `duration_sessions` and `e1rm_trend`'s exact
+  numeric semantics aren't pinned by the brief's tests (only `stall_type`,
+  `severity`, `limiting_muscle`, and the absence of `is_swappable` are
+  asserted) — I picked reasonable values (consecutive_failed count for the
+  failed arm; trailing-window length for the trend arm; `e1rm_trend` as a
+  percent change) documented inline. If the caller (a later task wiring this
+  into `run_analysis`/persistence) expects a different shape for those two
+  fields, that's a one-line adjustment, not a redesign.
+- Confirmed the stray pre-existing `task-5-report.md` content (see note above)
+  was unrelated to this task before overwriting it.
 
-### The problem
-The old `test_spine_wizard_finish_guarantees_clean_generation` compared the three surfaces (wizard-state endpoint, `compute_load_trust`, generation's `resolve_start_load`) only on just-resolved, value-present, trivially-FRESH movements (LADDER current_load=145, ASSISTED assist_level=10). Any naive reimplementation (falsy `if value:` presence check, missing derived-ratio path, old floor fallback) would ALSO agree on those simple cases → green-but-can't-go-red.
+## Commit
 
-### Edges added (the divergence edges)
-1. **ASSISTED `assist_level = 0` (IS-NULL-not-falsy):** new movement resolved via wizard to `0.0`. `compute_load_trust` returns FRESH (0.0 is a real value via the IS-NOT-NULL check in `_resolve_value`). A falsy `(value is not None and value)` presence check mis-handles it as UNKNOWN.
-2. **Derived-ratio movement:** new LADDER movement with `start_ratio=0.8` + `derived_from_id=anchor`, own `current_load=None`, anchor `MovementState.e1rm=200.0`, recent `confirmed_at` → `compute_load_trust` resolves `0.8*200 = 160.0` → FRESH (not UNKNOWN). A reimpl missing the derived-ratio path calls it UNKNOWN.
-
-### Cross-surface assertions (now span the edges)
-For every load-bearing movement `[ladder, assisted, assisted_zero, derived]`:
-- `wiz_trust[mid] == compute_load_trust(...).trust.value == LoadTrust.FRESH.value` (wizard-state endpoint verdict == generation keystone verdict).
-- `resolve_start_load(mv, st, db) is not None` (load-bearing: assisted_zero resolves to `0.0` — falsy but valid; `is not None`, never a bare truthy assert).
-- Derived specifically: `resolve_start_load(derived, ...) == 160.0` (the derived value, not None).
-- Pre-resolve `needs_attention_count == 3` (ladder/assisted/assisted_zero UNKNOWN; derived already FRESH via derived path; bodyweight excluded).
-
-### RED-against-naive-reimpl confirmation
-**Surface flipped:** the wizard-state endpoint `get_wizard_state` in `ironlog/api/app.py` — replaced the shared `compute_load_trust(...)` call with a naive inline reimpl that resolves the value (incl. the derived path) but applies the **falsy** presence rule `LoadTrust.FRESH if (val is not None and val) else LoadTrust.UNKNOWN` (the `and val` mis-handles `assist_level == 0.0`).
-
-Running ONLY the spine test against the flip → **RED**:
-```
-        state1 = client.get(f"/programs/{pid}/wizard-state").json()
->       assert state1["needs_attention_count"] == 0
-E       assert 1 == 0
-tests/test_wizard_resolve_and_start.py:297: AssertionError
-1 failed, 7 warnings in 0.36s
-```
-The naive wizard-state surface reported `assist_level=0.0` as UNKNOWN (needs=1) while the real `compute_load_trust` (used by the resolve response + generation) says FRESH (needs=0) → the surfaces diverged → test caught it. The derived-ratio edge is independently protected by the cross-surface equality + `== 160.0` assertions (a no-derived-path reimpl diverges there).
-
-**Production restored** to the shared `compute_load_trust` call; `git diff ironlog/` empty.
-
-### pytest tails (real, shared code)
-```
-# spine test alone:
-1 passed, 18 warnings in 0.27s
-# full suite:
-261 passed, 339 warnings in 3.64s
-```
-Count: **261 passed, 0 failed** (no new test functions; the spine test was tightened in place, +62/-13 lines). NO `from __future__ import annotations`; build-and-test-only, in-memory; prod DB untouched.
+`feat(engine): typed stall signal (severity taxonomy over detect_stall, no is_swappable)`
