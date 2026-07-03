@@ -9,6 +9,19 @@ def test_hip_thrust_advances_at_rpe9_rule_driven():
                 SessionPerf(hit_target=True, max_rpe=9.0, all_sides_cleared=True, session_performed=True), mv, 1)
     assert r.advanced is True and r.new_tier == 1   # RPE-exempt: RPE 9 still advances
 
+def test_rule_driven_advances_every_session_regardless_of_passed_window():
+    # Below cap: RULE_DRIVEN must advance every session (spec §1.3), even for
+    # a movement whose confirmation_window resolves to 2 (i.e. NOT tier T1) —
+    # the pre-cap tier-advance branch hardcodes window=1 internally, mirroring
+    # _single_session's own hardcoded gate.
+    mv = Movement(name="Some Non-T1 RULE_DRIVEN Movement", pattern="hinge",
+                   increment_ladder=[5,5,5], cap=300)
+    st = MovementState(movement_id=1, day_id="d2", current_increment_tier=0, current_load=100)
+    r = advance(ProgressionRule.RULE_DRIVEN, st,
+                SessionPerf(hit_target=True, max_rpe=7.0, all_sides_cleared=True, session_performed=True),
+                mv, 2)
+    assert r.advanced is True and r.new_tier == 1
+
 def test_hip_thrust_transitions_to_rep_ladder_at_cap():
     mv = Movement(name="Hip Thrust", pattern="hinge", increment_ladder=[5], cap=220, rep_ladder=[8,10,12])
     st = MovementState(movement_id=1, day_id="d2", current_load=220, current_increment_tier=0)  # at cap

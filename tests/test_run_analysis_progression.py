@@ -245,3 +245,29 @@ def test_raising_advance_leaves_state_untouched_and_completes(monkeypatch):
         # counters) is untouched by the try/except and still runs normally.
         assert st.e1rm is not None
         assert st.consecutive_ceiling_sessions == 1
+
+
+# ---------------------------------------------------------------------------
+# (f) unconfigured progression_rule: active_rule must stay None, never the
+# literal string "None" (advance()'s unknown-rule fallback bug — every
+# seeded movement today has progression_rule=None since live config is a
+# deferred follow-on, so this path is hit on every first logged session).
+# ---------------------------------------------------------------------------
+
+def test_unconfigured_progression_rule_leaves_active_rule_none_not_stringified():
+    engine = _make_engine()
+    with Session(engine) as db:
+        _seed_common(db)
+        _seed_movement(db, 1)  # no progression_rule kwarg -> defaults to None
+        db.add(MovementState(movement_id=1, calibration_status=CalibrationStatus.MEASURED,
+                              current_load=135.0))
+        db.commit()
+        _seed_session(db, 1, 1, label="T1")
+
+        run_analysis(1, db, WEEK_KEYER)
+
+        st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
+        assert st.active_rule is None, "must be None, not the stringified \"None\""
+        # e1rm bookkeeping still runs normally even with no progression rule configured.
+        assert st.e1rm is not None
+        assert st.consecutive_ceiling_sessions == 1

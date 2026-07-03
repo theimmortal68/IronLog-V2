@@ -27,7 +27,7 @@ class SessionPerf:
 @dataclass
 class AdvanceResult:
     advanced: bool
-    active_rule: str
+    active_rule: Optional[str]
     consecutive_advance_count: int
     new_tier: Optional[int] = None
     new_assist_level: Optional[float] = None
@@ -62,11 +62,16 @@ def _rule_driven(state, perf, movement, window) -> AdvanceResult:
         # ceiling reached: hand off to the rep-ladder rule (rep_target seeds
         # to rep_ladder[0] via _rep_ladder's own None-current-target branch);
         # the returned active_rule is REP_LADDER — the caller persists the switch.
+        # This is a separate 2-session rule, so it gets the ORIGINAL received
+        # window, not the pre-cap hardcoded window below.
         return _rep_ladder(state, perf, movement, window)
     if not perf.session_performed:                        # RPE-exempt: ignore hit_target/max_rpe
         return AdvanceResult(False, rule, 0)
+    # Pre-cap tier-advance is every-session (spec §1.3), regardless of the
+    # confirmation_window a non-T1 tier label would otherwise resolve to —
+    # hardcode window=1 here, mirroring _single_session's own hardcoded gate.
     streak = state.consecutive_advance_count + 1
-    if streak >= window:
+    if streak >= 1:
         ladder_len = len(movement.increment_ladder or [])
         new_tier = min(state.current_increment_tier + 1, ladder_len - 1)
         return AdvanceResult(True, rule, 0, new_tier=new_tier)
@@ -174,6 +179,10 @@ _DISPATCH = {
 def advance(rule, state, perf, movement, confirmation_window) -> AdvanceResult:
     fn = _DISPATCH.get(rule)
     if fn is None:
-        # fallback invariant: unknown/unhandled rule -> no change (spec §9)
-        return AdvanceResult(False, getattr(rule, "value", str(rule)), state.consecutive_advance_count)
+        # fallback invariant: unknown/unhandled rule -> no change (spec §9).
+        # active_rule is None here (never the stringified "None") — every
+        # seeded movement today has progression_rule=None (live config is a
+        # deferred follow-on), and the apply layer's `if d.active_rule is not
+        # None` guard depends on this to correctly skip the write.
+        return AdvanceResult(False, None, state.consecutive_advance_count)
     return fn(state, perf, movement, confirmation_window)
