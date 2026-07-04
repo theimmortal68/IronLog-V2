@@ -234,10 +234,12 @@ def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
     # NOTE: the vanilla gen_db_calibrated fixture leaves the HT movement with
     # no ht_plates/ht_band_config (only current_load), so the assembler's
     # raise-plates shortcut never even engages a band (band_config == []).
-    # To exercise the wear-gate we force an at-cap band setup first -- 202
-    # plates + Orange (bottom 220, peak 247), mirroring
-    # test_add_band_when_plates_capped in test_ht_next_setup.py -- so a
-    # reconfigure is guaranteed, then retire Orange and confirm it's excluded.
+    # To exercise the wear-gate NON-VACUOUSLY we force a NOT-at-cap band setup:
+    # 180 plates + Orange (bottom 198, peak 225). Ungated, the raise-plates
+    # shortcut WOULD fire (185+Orange, bottom 203 <= 220) and KEEP Orange in
+    # the config -- so retiring Orange genuinely distinguishes gated from
+    # ungated behavior (an at-cap 202 setup would exclude Orange by pure
+    # arithmetic regardless of `usable`, making the test vacuous).
     gen_db = gen_db_calibrated
     ht_mv = gen_db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
@@ -249,7 +251,7 @@ def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
     st = gen_db.exec(
         select(MovementState).where(MovementState.movement_id == ht_mv.id)
     ).one()
-    st.ht_plates = 202.0
+    st.ht_plates = 180.0
     st.ht_band_config = [orange.id]
     gen_db.add(st)
     gen_db.commit()
