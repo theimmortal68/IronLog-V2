@@ -53,6 +53,7 @@ class Tier(SQLModel, table=True):
     tier_kind: TierKind
     rest_seconds: Optional[int] = None
     rounds: int = 1
+    shoe: Optional[str] = None    # display-only footwear label ("Metcon 9", "Adipower II")
 
 
 class TierExercise(SQLModel, table=True):

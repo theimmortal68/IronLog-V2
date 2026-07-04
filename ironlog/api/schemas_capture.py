@@ -84,6 +84,7 @@ class GroupOut(BaseModel):
     rounds: int
     rest_seconds: Optional[int] = None
     label: Optional[str] = None
+    shoe: Optional[str] = None
     exercises: List[ExerciseOut]
 
 

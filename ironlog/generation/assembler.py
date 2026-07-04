@@ -197,6 +197,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
             rounds=1,
             rest_seconds=meta.rest_seconds,
             label=meta.tier_label,
+            shoe=meta.shoe,
         )
         ex = _build_exercise(m, 0, ctx, db, prospective, is_anchor=True,
                              rep_low=meta.rep_low, rep_high=meta.rep_high,
@@ -237,6 +238,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                     rounds=3,
                     rest_seconds=slot.rest_seconds,
                     label=slot.group_key or None,
+                    shoe=slot.shoe,
                 )
             gg = giant_groups[gk]
             ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective,
@@ -251,6 +253,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                 rounds=1,
                 rest_seconds=slot.rest_seconds,
                 label=slot.group_key or None,
+                shoe=slot.shoe,
             )
             ex = _build_exercise(m, 0, ctx, db, prospective,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
