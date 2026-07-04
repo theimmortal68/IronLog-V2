@@ -224,3 +224,47 @@ def test_rule_driven_non_composite_at_cap_still_hands_to_rep_ladder():
         mv, 1,
     )
     assert r.active_rule == ProgressionRule.REP_LADDER.value
+
+
+# ---------------------------------------------------------------------------
+# 4. wear-gate: a retired BandPair must never be prescribed (Task 1)
+# ---------------------------------------------------------------------------
+
+def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
+    # NOTE: the vanilla gen_db_calibrated fixture leaves the HT movement with
+    # no ht_plates/ht_band_config (only current_load), so the assembler's
+    # raise-plates shortcut never even engages a band (band_config == []).
+    # To exercise the wear-gate we force an at-cap band setup first -- 202
+    # plates + Orange (bottom 220, peak 247), mirroring
+    # test_add_band_when_plates_capped in test_ht_next_setup.py -- so a
+    # reconfigure is guaranteed, then retire Orange and confirm it's excluded.
+    gen_db = gen_db_calibrated
+    ht_mv = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+    orange = gen_db.exec(
+        select(BandPair).where(BandPair.label == "#0 Orange")
+    ).one()
+
+    st = gen_db.exec(
+        select(MovementState).where(MovementState.movement_id == ht_mv.id)
+    ).one()
+    st.ht_plates = 202.0
+    st.ht_band_config = [orange.id]
+    gen_db.add(st)
+    gen_db.commit()
+
+    # Retire Orange -- the band the HT movement is currently using.
+    orange.usable = False
+    gen_db.add(orange)
+    gen_db.commit()
+
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D2 Lower A", gen_db)
+    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    sel = program_selections(sk)
+    assembled = assemble(sel, sk, ctx, gen_db)
+
+    ht_set = _first_ht_working_set(assembled)
+    assert ht_set.band_config is not None
+    assert orange.id not in ht_set.band_config          # retired Orange is never prescribed

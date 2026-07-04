@@ -222,7 +222,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
     to MovementState or commit anything.
     """
     movements = {m.id: m for m in db.exec(select(Movement)).all()}
-    band_inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb)
+    band_inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
                       for bp in db.exec(select(BandPair)).all()]
     session = WorkoutSession(
         date=date.today(),
