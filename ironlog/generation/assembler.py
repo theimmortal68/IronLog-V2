@@ -13,14 +13,15 @@ NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sqlmodel import Session as DBSession, select
 
+from ..engine.band_composite import Band, config_peak, ht_next_setup
 from ..engine.loading import clamp_to_cap, round_to_achievable
 from ..engine.progression import resolve_objective
-from ..models.enums import GroupType, Scheme, SessionStatus, SetRole
-from ..models.library import Equipment, Movement, MovementState
+from ..models.enums import GroupType, LiftCategory, ProgressionMode, Scheme, SessionStatus, SetRole
+from ..models.library import BandPair, Equipment, Movement, MovementState
 from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet
 from ..models.session import Session as WorkoutSession
 from .context import GenerationContext
@@ -34,6 +35,10 @@ class AssembledSession:
     """The fully assembled in-memory session returned by assemble()."""
     session: WorkoutSession
     prospective_current_loads: Dict[int, float] = field(default_factory=dict)
+    # HT (band-composite) prospective setup — movement_id -> (plates, config).
+    # Mirrors prospective_current_loads: computed here, written only by
+    # commit_session at approval (Option-C two-writer boundary).
+    prospective_ht_setups: Dict[int, Tuple[float, list]] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -129,11 +134,36 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
     ]
 
 
+def _is_ht_movement(movement: Movement) -> bool:
+    """HT (band-composite) detection — mirrors validator._check_ht_safety."""
+    return (movement.lift_category == LiftCategory.HIP_THRUST
+            or movement.progression_mode == ProgressionMode.COMPOSITE)
+
+
+def _resolve_ht_current_setup(state: Optional[MovementState], load: Optional[float]) -> Tuple[float, list]:
+    """Read the movement's current (plates, config) from state, with safe defaults:
+    plates from ht_plates, else the resolved load, else 0.0; config from
+    ht_band_config, else [ht_band_pair_id], else []."""
+    if state is not None and state.ht_plates is not None:
+        plates = state.ht_plates
+    else:
+        plates = load if load is not None else 0.0
+    if state is not None and state.ht_band_config is not None:
+        config = list(state.ht_band_config)
+    elif state is not None and state.ht_band_pair_id is not None:
+        config = [state.ht_band_pair_id]
+    else:
+        config = []
+    return plates, config
+
+
 def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                     db: DBSession, prospective: Dict[int, float],
                     is_anchor: bool = False,
                     rep_low: Optional[int] = None, rep_high: Optional[int] = None,
-                    rpe_cap: Optional[float] = None) -> PlannedExercise:
+                    rpe_cap: Optional[float] = None,
+                    band_inventory: Optional[List[Band]] = None,
+                    prospective_ht: Optional[Dict[int, Tuple[float, list]]] = None) -> PlannedExercise:
     """Resolve load, compute sets, collect prospective load. Does NOT write DB."""
     state = ctx.movement_states.get(movement.id)
     objective = resolve_objective(movement.objective_override,
@@ -150,6 +180,19 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
         prospective[movement.id] = load
     sets = _sets_for_scheme(movement.scheme, load, ctx,
                             rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap)
+
+    if _is_ht_movement(movement) and band_inventory is not None:
+        cur_plates, cur_config = _resolve_ht_current_setup(state, load)
+        by_id = {b.id: b for b in band_inventory}
+        new_plates, new_config = ht_next_setup(cur_plates, cur_config, band_inventory)
+        peak = config_peak(new_plates, new_config, by_id)
+        for ps in sets:
+            ps.target_plates = new_plates
+            ps.band_config = list(new_config)
+            ps.target_felt_peak = peak
+        if prospective_ht is not None:
+            prospective_ht[movement.id] = (new_plates, list(new_config))
+
     ex = PlannedExercise(
         movement_id=movement.id,
         order_index=ex_order,
@@ -178,6 +221,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
     to MovementState or commit anything.
     """
     movements = {m.id: m for m in db.exec(select(Movement)).all()}
+    band_inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb)
+                      for bp in db.exec(select(BandPair)).all()]
     session = WorkoutSession(
         date=date.today(),
         day_role=skeleton.day_role,
@@ -186,6 +231,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
         rationale=selections.rationale,
     )
     prospective: Dict[int, float] = {}
+    prospective_ht: Dict[int, Tuple[float, list]] = {}
     order = 0
 
     # 1) Anchor movements — STRAIGHT groups, T1 ordering
@@ -200,7 +246,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
         )
         ex = _build_exercise(m, 0, ctx, db, prospective, is_anchor=True,
                              rep_low=meta.rep_low, rep_high=meta.rep_high,
-                             rpe_cap=meta.rpe_cap)
+                             rpe_cap=meta.rpe_cap,
+                             band_inventory=band_inventory, prospective_ht=prospective_ht)
         group.exercises.append(ex)
         session.groups.append(group)
         order += 1
@@ -241,7 +288,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
             gg = giant_groups[gk]
             ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
-                                 rpe_cap=slot.rpe_cap)
+                                 rpe_cap=slot.rpe_cap,
+                                 band_inventory=band_inventory, prospective_ht=prospective_ht)
             gg.exercises.append(ex)
         else:
             # knee / conditioning / accessory → own STRAIGHT group
@@ -254,7 +302,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
             )
             ex = _build_exercise(m, 0, ctx, db, prospective,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
-                                 rpe_cap=slot.rpe_cap)
+                                 rpe_cap=slot.rpe_cap,
+                                 band_inventory=band_inventory, prospective_ht=prospective_ht)
             group.exercises.append(ex)
             straight_groups.append(group)
 
@@ -272,4 +321,5 @@ def assemble(selections: Selections, skeleton: Skeleton,
         order += 1
         session.groups.append(g)
 
-    return AssembledSession(session=session, prospective_current_loads=prospective)
+    return AssembledSession(session=session, prospective_current_loads=prospective,
+                            prospective_ht_setups=prospective_ht)
