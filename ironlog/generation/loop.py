@@ -59,16 +59,18 @@ def commit_session(
     repairs: List,
     fallback_used: bool,
 ) -> Session:
-    """The SOLE writer of current_load (Fork 7c).
+    """The SOLE writer of current_load / ht_plates / ht_band_config (Fork 7c, Option-C).
 
     1. Persists the Session graph (session + groups + exercises + sets) via
        SQLAlchemy cascade on db.add(session).
-    2. Writes current_load from assembled.prospective_current_loads to each
+    2. Writes current_load from assembled.prospective_current_loads, and
+       ht_plates/ht_band_config from assembled.prospective_ht_setups, to each
        MovementState, creating the row if it doesn't exist yet.
     3. Writes a GenerationLog provenance row (Fork 7d).
     4. Sets approved_at.
 
-    This is the ONLY place generation writes current_load.
+    This is the ONLY place generation writes current_load, ht_plates, or
+    ht_band_config.
     """
     session = assembled.session
     session.status = SessionStatus.PLANNED
@@ -78,14 +80,25 @@ def commit_session(
     db.commit()
     db.refresh(session)
 
-    # Write prospective_current_loads — the sole generation write of current_load
-    for mid, load in assembled.prospective_current_loads.items():
+    # Write prospective_current_loads and prospective_ht_setups — the sole
+    # generation write of current_load / ht_plates / ht_band_config. Merged into
+    # one get-or-create loop (over the union of touched movement ids) so a
+    # movement appearing in both maps (every HT movement does) gets a single
+    # MovementState row instead of two independent inserts racing the unique
+    # constraint on (movement_id, day_id).
+    touched_mids = set(assembled.prospective_current_loads) | set(assembled.prospective_ht_setups)
+    for mid in touched_mids:
         st = db.exec(
             select(MovementState).where(MovementState.movement_id == mid)
         ).first()
         if st is None:
             st = MovementState(movement_id=mid)
-        st.current_load = load          # THE ONLY PLACE generation writes current_load
+        if mid in assembled.prospective_current_loads:
+            st.current_load = assembled.prospective_current_loads[mid]   # THE ONLY PLACE generation writes current_load
+        if mid in assembled.prospective_ht_setups:
+            plates, config = assembled.prospective_ht_setups[mid]
+            st.ht_plates = plates             # THE ONLY PLACE generation writes ht_plates
+            st.ht_band_config = list(config)  # THE ONLY PLACE generation writes ht_band_config
         db.add(st)
 
     # Provenance row (Fork 7d)

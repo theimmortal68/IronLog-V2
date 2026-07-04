@@ -1,0 +1,47 @@
+from ironlog.engine.band_composite import (
+    Band, _all_configs, config_bottom, config_peak, ht_next_setup,
+)
+
+INV = [Band(0,18,45), Band(1,36,90), Band(2,60,150), Band(3,80,200), Band(4,130,325), Band(5,190,475)]
+
+def test_raise_plates_within_config_when_room():
+    # 180 + Orange (bottom 198) -> +5 plates, same config (no reconfigure)
+    assert ht_next_setup(180, [0], INV, 5, 220) == (185, [0])
+
+def test_add_band_when_plates_capped():
+    # Orange caps at 202 plates (bottom 220). From 202+Orange (peak 247), next needs a reconfigure.
+    plates, config = ht_next_setup(202, [0], INV, 5, 220)
+    assert (plates + sum(b.peak for b in INV if b.id in config)) > 247   # peak advanced
+    assert plates + sum(b.rest for b in INV if b.id in config) <= 220    # legal bottom
+    assert len(set(config)) == len(config)                              # each band once
+
+def test_never_exceeds_bottom_clamp():
+    plates, config = ht_next_setup(202, [0], INV, 5, 220)
+    assert plates + sum(b.rest for b in INV if b.id in config) <= 220
+
+def test_smallest_peak_step():
+    # from a capped Orange, the chosen next peak is the least peak strictly greater than current
+    plate_step, clamp = 5, 220
+    by_id = {b.id: b for b in INV}
+    cur_peak = 202 + 45
+    plates, config = ht_next_setup(202, [0], INV, plate_step, clamp)
+    nxt = plates + sum(b.peak for b in INV if b.id in config)
+    assert nxt > cur_peak
+
+    # enumerate every feasible (plates, config) under the same params
+    # ht_next_setup uses internally, and confirm `nxt` is truly the smallest
+    # feasible peak strictly above cur_peak — not just *a* larger one.
+    feasible_peaks = []
+    for cfg in _all_configs(INV):
+        srest = sum(by_id[b].rest for b in cfg)
+        if srest > clamp:
+            continue
+        max_plates = int((clamp - srest) // plate_step) * plate_step
+        p = 0.0
+        while p <= max_plates:
+            if config_bottom(p, cfg, by_id) <= clamp:
+                feasible_peaks.append(config_peak(p, cfg, by_id))
+            p += plate_step
+
+    # no feasible setup has a peak strictly between cur_peak and nxt
+    assert not any(cur_peak < pk < nxt for pk in feasible_peaks)

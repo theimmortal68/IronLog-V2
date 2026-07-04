@@ -39,6 +39,7 @@ from .schemas_wizard import (
     StartProgramResponse, WizardMovement, WizardResolveRequest,
     WizardResolveResponse, WizardStateResponse,
 )
+from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.loop import commit_session, generate_session
 from ..generation.load_trust import compute_load_trust, load_field_for_mode
@@ -306,6 +307,13 @@ def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(ge
     db.add(ws)
     db.commit()
 
+    # Single-band HT felt-peak refinement (Task 5): a logged HT set that used
+    # exactly one band is a clean signal for that band's true peak resistance.
+    # Runs after the SetLog write above so it sees this session's felt_peak
+    # rows; independent of run_analysis (BandPair.peak_lb is inventory
+    # calibration, not current_load/ht_plates/ht_band_config).
+    refine_from_logged_ht(session_id, db)
+
     # Fire the analyze-at-log seam (v0.6 two-writer boundary: run_analysis owns
     # current_load; this handler never writes it).  The SetLog write committed
     # above — a run_analysis failure does NOT lose the logged workout (the write
@@ -355,6 +363,7 @@ def _serialize_session(ws, db) -> SessionDetailResponse:
                 target_rpe=ps.target_rpe, target_unassisted_reps=ps.target_unassisted_reps,
                 target_assisted_reps=ps.target_assisted_reps, target_plates=ps.target_plates,
                 band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
+                band_config=ps.band_config,
             ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
             ex_out.append(ExerciseOut(
                 id=(pe.id if pe.id is not None else ei), movement_id=pe.movement_id,

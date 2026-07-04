@@ -11,7 +11,7 @@ caller derives `current_load` from the tier at generation time).
 from dataclasses import dataclass
 from typing import Optional
 
-from ..models.enums import ProgressionRule
+from ..models.enums import LiftCategory, ProgressionMode, ProgressionRule
 
 
 @dataclass
@@ -56,8 +56,23 @@ def _at_cap(state, movement) -> bool:
             and state.current_load >= movement.cap)
 
 
+def _is_ht_composite(movement) -> bool:
+    """HT (band-composite) detection — mirrors validator._check_ht_safety /
+    generation.assembler._is_ht_movement."""
+    return (getattr(movement, "lift_category", None) == LiftCategory.HIP_THRUST
+            or getattr(movement, "progression_mode", None) == ProgressionMode.COMPOSITE)
+
+
 def _rule_driven(state, perf, movement, window) -> AdvanceResult:
     rule = ProgressionRule.RULE_DRIVEN.value
+    if _is_ht_composite(movement):
+        # Band-composite HT: the assembler (ht_next_setup, Task 4) resolves the
+        # next (plates, band_config) setup at generation time from ht_plates/
+        # ht_band_config, not from current_load/tier — this rule always no-ops
+        # for COMPOSITE/HIP_THRUST movements, at-cap or not, preserving the
+        # streak rather than resetting or switching rules. One progression
+        # path, not two.
+        return AdvanceResult(False, rule, state.consecutive_advance_count)
     if _at_cap(state, movement):
         # ceiling reached: hand off to the rep-ladder rule (rep_target seeds
         # to rep_ladder[0] via _rep_ladder's own None-current-target branch);

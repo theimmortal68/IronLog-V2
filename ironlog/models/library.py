@@ -44,7 +44,7 @@ class BandPair(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     label: str                                # "#0 Orange" .. "#5 Purple"
     bottom_lb: float
-    peak_lb: float                            # ~2.1x bottom (geometry)
+    peak_lb: float                            # rated/side x5; bottom is x2 (2.5x bottom)
     calibration_status: BandCalStatus = BandCalStatus.MODELED
     inspection_date: Optional[date] = None    # wear-gate prompt
     usable: bool = True                       # #5 false: bottom alone > clamp
@@ -167,6 +167,7 @@ class MovementState(SQLModel, table=True):
     current_rep_target: Optional[int] = None            # rep-ladder rule state (Task 3)
     unassisted_max_rolling: Optional[int] = None
     stall_signal: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    ht_band_config: Optional[list] = Field(default=None, sa_column=Column(JSON))  # HT band-composite (Task 1)
 
     movement: Optional[Movement] = Relationship(back_populates="state")
 

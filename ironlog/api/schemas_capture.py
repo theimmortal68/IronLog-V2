@@ -64,6 +64,7 @@ class PlannedSetOut(BaseModel):
     target_plates: Optional[float] = None
     band_pair_id: Optional[int] = None
     target_felt_peak: Optional[float] = None
+    band_config: Optional[List[int]] = None
 
 
 class ExerciseOut(BaseModel):

@@ -81,6 +81,7 @@ class PlannedSet(SQLModel, table=True):
     target_plates: Optional[float] = None
     band_pair_id: Optional[int] = Field(default=None, foreign_key="bandpair.id")
     target_felt_peak: Optional[float] = None
+    band_config: Optional[list] = Field(default=None, sa_column=Column(JSON))  # HT band-composite (Task 1)
 
     planned_exercise: Optional[PlannedExercise] = Relationship(back_populates="planned_sets")
 

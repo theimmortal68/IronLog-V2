@@ -245,8 +245,12 @@ def _check_equipment_not_in_manifest(session: Session, ctx: ValidationContext) -
 def _check_ht_safety(session: Session, ctx: ValidationContext) -> List[Violation]:
     """HT bottom-clamp safety (REJECT, hardware-safety per docs/01 §4.1).
     Emits HT_BOTTOM_OVER_LIMIT when bottom_total exceeds ctx.ht_bottom_clamp.
-    Emits HT_BAND_NOT_REGISTERED when the prescribed band_pair_id is not in
-    ctx.band_bottom_lb — fail loud rather than substitute 0."""
+    Emits HT_BAND_NOT_REGISTERED when any band id in the set's band config is
+    not in ctx.band_bottom_lb — fail loud rather than substitute 0.
+
+    Band ids come from ps.band_config (multi-band composite, Task 1's JSON
+    list); falls back to [ps.band_pair_id] when band_config is None and
+    band_pair_id is set (back-compat with the single-band prescription)."""
     violations: List[Violation] = []
     for group in session.groups:
         for ex in group.exercises:
@@ -258,20 +262,32 @@ def _check_ht_safety(session: Session, ctx: ValidationContext) -> List[Violation
             if not is_ht:
                 continue
             for ps in ex.planned_sets:
-                if ps.target_plates is None or ps.band_pair_id is None:
+                if ps.band_config is not None:
+                    band_ids = ps.band_config
+                elif ps.band_pair_id is not None:
+                    band_ids = [ps.band_pair_id]
+                else:
+                    band_ids = []
+                if ps.target_plates is None or not band_ids:
                     continue  # incomplete prescription; can't evaluate
-                if ps.band_pair_id not in ctx.band_bottom_lb:
-                    violations.append(Violation(
-                        kind=ViolationKind.REJECT,
-                        rule=RuleCode.HT_BAND_NOT_REGISTERED,
-                        message=(f"HT band_pair_id {ps.band_pair_id} not registered in "
-                                 f"ctx.band_bottom_lb — cannot evaluate bottom-clamp safety"),
-                        group_index=group.order_index,
-                        movement_id=ex.movement_id,
-                        set_index=ps.set_index,
-                    ))
-                    continue  # do NOT compute bottom_total from a missing entry
-                bottom_total = ps.target_plates + ctx.band_bottom_lb[ps.band_pair_id]
+                bottom_total = ps.target_plates
+                band_ok = True
+                for band_id in band_ids:
+                    if band_id not in ctx.band_bottom_lb:
+                        violations.append(Violation(
+                            kind=ViolationKind.REJECT,
+                            rule=RuleCode.HT_BAND_NOT_REGISTERED,
+                            message=(f"HT band_pair_id {band_id} not registered in "
+                                     f"ctx.band_bottom_lb — cannot evaluate bottom-clamp safety"),
+                            group_index=group.order_index,
+                            movement_id=ex.movement_id,
+                            set_index=ps.set_index,
+                        ))
+                        band_ok = False
+                        continue  # do NOT compute bottom_total from a missing entry
+                    bottom_total += ctx.band_bottom_lb[band_id]
+                if not band_ok:
+                    continue  # skip bottom-clamp calc for this set
                 if bottom_total > ctx.ht_bottom_clamp:
                     violations.append(Violation(
                         kind=ViolationKind.REJECT,
