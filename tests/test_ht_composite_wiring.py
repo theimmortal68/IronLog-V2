@@ -40,6 +40,18 @@ def _first_ht_working_set(assembled) -> PlannedSet:
     raise AssertionError("no HT (target_plates-bearing) set found in assembled session")
 
 
+def _planned_sets_for_movement(assembled, movement_id):
+    """All PlannedSets belonging to the given movement_id, regardless of
+    whether target_plates is populated (unlike _first_ht_working_set, which
+    specifically searches for a populated HT slot)."""
+    out = []
+    for g in assembled.session.groups:
+        for ex in g.exercises:
+            if ex.movement_id == movement_id:
+                out.extend(ex.planned_sets)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # 1. assembler HT slot
 # ---------------------------------------------------------------------------
@@ -70,6 +82,32 @@ def test_assembled_ht_carries_plates_and_config(gen_db_calibrated):
     assert assembled.prospective_ht_setups[ht_mv.id] == (
         ht_set.target_plates, ht_set.band_config,
     )
+
+
+def test_uncalibrated_ht_does_not_fabricate_plates(gen_db):
+    """A fully uncalibrated HT movement (no current_load, no ht_plates) must be
+    assembled needs-calibration-style: no target_plates/band_config/target_felt_peak
+    fabricated, and no entry recorded in prospective_ht_setups. Mirrors the
+    non-HT needs-calibration path's "never fabricate a floor" guarantee."""
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D2 Lower A", gen_db)
+    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    sel = program_selections(sk)
+
+    assembled = assemble(sel, sk, ctx, gen_db)
+
+    ht_mv = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+
+    ht_sets = _planned_sets_for_movement(assembled, ht_mv.id)
+    assert ht_sets, "expected the HT movement to be assembled into at least one set"
+    for ps in ht_sets:
+        assert ps.target_plates is None
+        assert not ps.band_config
+        assert ps.target_felt_peak is None
+
+    assert ht_mv.id not in assembled.prospective_ht_setups
 
 
 def test_assemble_does_not_write_ht_setup(gen_db_calibrated):
@@ -142,6 +180,31 @@ def test_rule_driven_composite_ht_at_cap_is_noop():
     assert r.active_rule == ProgressionRule.RULE_DRIVEN.value
     assert r.new_rep_target is None, "must NOT hand off to REP_LADDER"
     assert r.consecutive_advance_count == 2, "streak must be preserved, not reset"
+
+
+def test_rule_driven_composite_ht_below_cap_is_noop():
+    # Below cap, COMPOSITE/HIP_THRUST movements must still no-op — the assembler
+    # (ht_next_setup), not this rule's tier-advance path, drives HT progression
+    # regardless of cap. One progression path, not two.
+    mv = Movement(
+        name="Hip Thrust [HIP_THRUST]", base_name="Hip Thrust",
+        lift_category=LiftCategory.HIP_THRUST,
+        progression_mode=ProgressionMode.COMPOSITE,
+        increment_ladder=[5], cap=220, rep_ladder=[8, 10, 12],
+    )
+    st = MovementState(movement_id=1, day_id="d2", current_load=100,
+                       current_increment_tier=0, consecutive_advance_count=2)
+    r = advance(
+        ProgressionRule.RULE_DRIVEN, st,
+        SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True,
+                   session_performed=True),
+        mv, 1,
+    )
+    assert r.advanced is False
+    assert r.active_rule == ProgressionRule.RULE_DRIVEN.value
+    assert r.new_tier is None, "must NOT bump the tier"
+    assert r.consecutive_advance_count == st.consecutive_advance_count == 2, \
+        "streak must be preserved, not reset"
 
 
 def test_rule_driven_non_composite_at_cap_still_hands_to_rep_ladder():

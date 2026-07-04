@@ -181,7 +181,8 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     sets = _sets_for_scheme(movement.scheme, load, ctx,
                             rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap)
 
-    if _is_ht_movement(movement) and band_inventory is not None:
+    has_current_ht_setup = base is not None or (state is not None and state.ht_plates is not None)
+    if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:
         cur_plates, cur_config = _resolve_ht_current_setup(state, load)
         by_id = {b.id: b for b in band_inventory}
         new_plates, new_config = ht_next_setup(cur_plates, cur_config, band_inventory)
