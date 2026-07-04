@@ -45,3 +45,32 @@ def test_smallest_peak_step():
 
     # no feasible setup has a peak strictly between cur_peak and nxt
     assert not any(cur_peak < pk < nxt for pk in feasible_peaks)
+
+
+def test_band_defaults_usable_true():
+    assert Band(0, 18, 45).usable is True
+
+
+def test_search_skips_retired_band():
+    # Red (id 1) retired. From a capped Orange the reconfigure must not pick Red.
+    inv = [Band(0, 18, 45), Band(1, 36, 90, False), Band(2, 60, 150),
+           Band(3, 80, 200), Band(4, 130, 325), Band(5, 190, 475)]
+    plates, config = ht_next_setup(202, [0], inv, 5, 220)
+    assert 1 not in config
+
+
+def test_current_config_with_retired_band_reconfigures_off_it():
+    # Orange (id 0) is the current config but is now retired -> skip the
+    # raise-plates shortcut, reconfigure to a usable band (drop Orange).
+    inv = [Band(0, 18, 45, False), Band(1, 36, 90), Band(2, 60, 150),
+           Band(3, 80, 200), Band(4, 130, 325), Band(5, 190, 475)]
+    plates, config = ht_next_setup(180, [0], inv, 5, 220)
+    assert 0 not in config
+
+
+def test_all_bands_retired_falls_back_to_plates_only():
+    # No usable band -> the only usable config is the empty (plates-only) one.
+    inv = [Band(0, 18, 45, False), Band(1, 36, 90, False)]
+    plates, config = ht_next_setup(100, [0], inv, 5, 220)
+    assert config == []          # no retired band prescribed
+    assert plates >= 100
