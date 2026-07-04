@@ -20,7 +20,7 @@ from sqlmodel import SQLModel, Session as DBSession, create_engine, select
 from ironlog.models.enums import (
     BandCalStatus, FeedbackTap, GroupType, Objective, Scheme, SetRole,
 )
-from ironlog.models.library import BandPair, Movement
+from ironlog.models.library import BandPair, Movement, MovementState
 from ironlog.models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet,
     Session as IronSession, SetLog,
@@ -234,3 +234,34 @@ def test_three_sessions_with_outlier_stay_modeled():
         # observed 45, 46, 70 -> spread 25 over mean ~53.7 = 47% > 15% -> not consistent
         status = _plant_and_refine_sessions(db, mv.id, [225.0, 226.0, 250.0])
         assert status == BandCalStatus.MODELED
+
+
+def test_refine_does_not_write_generation_time_fields():
+    """Option-C guardrail: refine_from_logged_ht must never touch the
+    generation-time fields (current_load / ht_plates / ht_band_config) —
+    those belong to the assembler/commit path, not inventory calibration."""
+    engine = _make_engine()
+    with DBSession(engine) as db:
+        band = BandPair(id=0, label="#0 Orange", bottom_lb=18.0, peak_lb=45.0,
+                        calibration_status=BandCalStatus.MODELED)
+        mv = Movement(name="Hip Thrust [HIP_THRUST]", base_name="Hip Thrust")
+        db.add(band); db.add(mv); db.commit(); db.refresh(band); db.refresh(mv)
+
+        state = MovementState(movement_id=mv.id, current_load=200.0,
+                              ht_plates=180.0, ht_band_config=[0])
+        db.add(state); db.commit(); db.refresh(state)
+        state_id = state.id
+        peak_before = db.get(BandPair, 0).peak_lb
+
+        # observed = 255-180 = 75 != seeded peak 45, so the EMA nudge moves peak_lb.
+        sid = _log_ht_session(db, movement_id=mv.id, band_config=[0],
+                              target_plates=180.0, actual_plates=180.0,
+                              felt_peak=255.0, session_date=date(2026, 7, 1))
+        refine_from_logged_ht(sid, db)
+
+        state = db.get(MovementState, state_id)
+        assert state.current_load == 200.0
+        assert state.ht_plates == 180.0
+        assert state.ht_band_config == [0]
+        # prove refine actually ran (not a vacuous pass): peak_lb moved.
+        assert db.get(BandPair, 0).peak_lb != peak_before
