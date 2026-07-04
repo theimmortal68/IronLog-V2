@@ -10,11 +10,15 @@ refine_from_logged_ht(session_id, db) is called from the submit path
 (api/app.py submit_session) after that session's SetLogs are committed. It
 nudges each qualifying band's BandPair.peak_lb toward the observed value via
 an EMA (peak_lb = round(0.7*peak_lb + 0.3*observed, 1)), and — once a band
-has accumulated N=3 qualifying single-band readings across ALL sessions ever
-logged (not just this one) — flips BandPair.calibration_status from MODELED
-to MEASURED. The reading count is derived by re-scanning history each call
-(no new counter column / migration needed): a SetLog qualifies for a band iff
-it has a non-null felt_peak and its resolved config is that single band.
+has accumulated readings from N=3 DISTINCT sessions ever logged (not just
+this one) whose most-recent-3 session observations agree within 15% of their
+mean — flips BandPair.calibration_status from MODELED to MEASURED. Multiple
+qualifying sets logged within the same session collapse to ONE observation
+for that session (their mean) — a single high-rep session can't substitute
+for corroboration across separate training days. The observations are
+derived by re-scanning history each call (no new counter column / migration
+needed): a SetLog qualifies for a band iff it has a non-null felt_peak and
+its resolved config is that single band.
 
 Band-config resolution per SetLog: PlannedSet.band_config (the Task-1
 multi-band JSON list) if present and non-empty; else PlannedSet.band_pair_id
@@ -37,7 +41,8 @@ from ..models.enums import BandCalStatus
 from ..models.library import BandPair
 from ..models.session import PlannedSet, SetLog
 
-CONSISTENT_READINGS_TO_MEASURE = 3
+CONSISTENT_SESSIONS_TO_MEASURE = 3
+CONSISTENCY_TOLERANCE = 0.15
 
 
 def _resolved_band_config(sl: SetLog, ps: Optional[PlannedSet]) -> Optional[List[int]]:
@@ -63,18 +68,39 @@ def _load_planned_sets(db: DBSession, set_logs: List[SetLog]) -> dict:
     return planned_sets
 
 
-def _count_single_band_readings(db: DBSession, band_id: int) -> int:
-    """How many logged sets (across ALL sessions ever) resolve to a
-    single-band config equal to `band_id` and carry a non-null felt_peak."""
+def _single_band_session_observations(db: DBSession, band_id: int) -> List[float]:
+    """One observed peak per DISTINCT session (mean of that session's qualifying
+    single-band readings for `band_id`), ordered by session_id ascending. A set
+    qualifies iff it has a non-null felt_peak, resolves to the single band
+    `band_id`, and has a plates reference (actual_plates or the PlannedSet's
+    target_plates)."""
     all_logs = db.exec(select(SetLog).where(col(SetLog.felt_peak).is_not(None))).all()
     planned_sets = _load_planned_sets(db, all_logs)
-    count = 0
+    by_session: dict = {}
     for sl in all_logs:
         ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
         config = _resolved_band_config(sl, ps)
-        if config is not None and len(config) == 1 and config[0] == band_id:
-            count += 1
-    return count
+        if config is None or len(config) != 1 or config[0] != band_id:
+            continue
+        plates = sl.actual_plates
+        if plates is None and ps is not None:
+            plates = ps.target_plates
+        if plates is None:
+            continue
+        by_session.setdefault(sl.session_id, []).append(sl.felt_peak - plates)
+    return [sum(by_session[sid]) / len(by_session[sid]) for sid in sorted(by_session)]
+
+
+def _is_consistent(observations: List[float]) -> bool:
+    """True iff there are >= N distinct-session observations and the most recent
+    N agree within CONSISTENCY_TOLERANCE of their mean."""
+    if len(observations) < CONSISTENT_SESSIONS_TO_MEASURE:
+        return False
+    window = observations[-CONSISTENT_SESSIONS_TO_MEASURE:]
+    mean = sum(window) / len(window)
+    if mean <= 0:
+        return False
+    return (max(window) - min(window)) <= CONSISTENCY_TOLERANCE * mean
 
 
 def refine_from_logged_ht(session_id: int, db: DBSession) -> None:
@@ -85,8 +111,9 @@ def refine_from_logged_ht(session_id: int, db: DBSession) -> None:
     back to the PlannedSet's target_plates), compute the observed peak, and
     nudge that BandPair's peak_lb toward it via an EMA. Multi-band sets, and
     sets with no resolvable config, are skipped — can't isolate the signal.
-    Bands touched this call are then checked against the N=3 threshold for a
-    MODELED -> MEASURED calibration_status flip.
+    Bands touched this call are then checked against the distinct-session
+    consistency gate (see `_is_consistent`) for a MODELED -> MEASURED
+    calibration_status flip.
     """
     set_logs = db.exec(select(SetLog).where(SetLog.session_id == session_id)).all()
     ht_logs = [sl for sl in set_logs if sl.felt_peak is not None]
@@ -123,7 +150,7 @@ def refine_from_logged_ht(session_id: int, db: DBSession) -> None:
 
     db.flush()
     for band_id in touched_band_ids:
-        if _count_single_band_readings(db, band_id) >= CONSISTENT_READINGS_TO_MEASURE:
+        if _is_consistent(_single_band_session_observations(db, band_id)):
             band = db.get(BandPair, band_id)
             if band.calibration_status != BandCalStatus.MEASURED:
                 band.calibration_status = BandCalStatus.MEASURED

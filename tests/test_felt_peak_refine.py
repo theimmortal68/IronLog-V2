@@ -168,3 +168,69 @@ def test_two_readings_do_not_yet_flip_to_measured():
 
         blue = db.get(BandPair, blue.id)
         assert blue.calibration_status == BandCalStatus.MODELED
+
+
+def test_three_sets_one_session_does_not_flip():
+    engine = _make_engine()
+    with DBSession(engine) as db:
+        band = BandPair(id=0, label="#0 Orange", bottom_lb=18.0, peak_lb=45.0,
+                        calibration_status=BandCalStatus.MODELED)
+        mv = Movement(name="Hip Thrust [HIP_THRUST]", base_name="Hip Thrust")
+        db.add(band); db.add(mv); db.commit(); db.refresh(band); db.refresh(mv)
+        # ONE session; three qualifying single-band sets on that session.
+        sid = _log_ht_session(db, movement_id=mv.id, band_config=[0],
+                              target_plates=180.0, actual_plates=180.0,
+                              felt_peak=225.0, session_date=date(2026, 7, 1))
+        # add two more sets to the SAME session
+        grp = ExerciseGroup(session_id=sid, order_index=1, group_type=GroupType.STRAIGHT)
+        db.add(grp); db.commit(); db.refresh(grp)
+        pex = PlannedExercise(group_id=grp.id, movement_id=mv.id, order_index=0,
+                              scheme=Scheme.STRAIGHT, objective=Objective.MAINTAIN)
+        db.add(pex); db.commit(); db.refresh(pex)
+        for _ in range(2):
+            ps = PlannedSet(planned_exercise_id=pex.id, set_index=0, set_role=SetRole.WORKING,
+                            target_plates=180.0, band_config=[0])
+            db.add(ps); db.commit(); db.refresh(ps)
+            db.add(SetLog(session_id=sid, movement_id=mv.id, planned_set_id=ps.id,
+                          set_index=0, set_role=SetRole.WORKING, is_warmup=False,
+                          actual_plates=180.0, felt_peak=225.0,
+                          feedback_tap=FeedbackTap.ON_TARGET))
+        db.commit()
+
+        refine_from_logged_ht(sid, db)
+        assert db.get(BandPair, 0).calibration_status == BandCalStatus.MODELED
+
+
+def _plant_and_refine_sessions(db, mv_id, peaks):
+    """One qualifying single-band (Orange) session per felt_peak in `peaks`,
+    plates 180, then refine each. Returns the final band status."""
+    for i, fp in enumerate(peaks):
+        sid = _log_ht_session(db, movement_id=mv_id, band_config=[0],
+                              target_plates=180.0, actual_plates=180.0,
+                              felt_peak=fp, session_date=date(2026, 7, 1 + i))
+        refine_from_logged_ht(sid, db)
+    return db.get(BandPair, 0).calibration_status
+
+
+def test_three_consistent_sessions_flip_to_measured():
+    engine = _make_engine()
+    with DBSession(engine) as db:
+        db.add(BandPair(id=0, label="#0 Orange", bottom_lb=18.0, peak_lb=45.0,
+                        calibration_status=BandCalStatus.MODELED))
+        mv = Movement(name="Hip Thrust [HIP_THRUST]", base_name="Hip Thrust")
+        db.add(mv); db.commit(); db.refresh(mv)
+        # observed = felt_peak-180 -> 45,46,47 : spread 2, mean 46 -> ~4% <= 15%
+        status = _plant_and_refine_sessions(db, mv.id, [225.0, 226.0, 227.0])
+        assert status == BandCalStatus.MEASURED
+
+
+def test_three_sessions_with_outlier_stay_modeled():
+    engine = _make_engine()
+    with DBSession(engine) as db:
+        db.add(BandPair(id=0, label="#0 Orange", bottom_lb=18.0, peak_lb=45.0,
+                        calibration_status=BandCalStatus.MODELED))
+        mv = Movement(name="Hip Thrust [HIP_THRUST]", base_name="Hip Thrust")
+        db.add(mv); db.commit(); db.refresh(mv)
+        # observed 45, 46, 70 -> spread 25 over mean ~53.7 = 47% > 15% -> not consistent
+        status = _plant_and_refine_sessions(db, mv.id, [225.0, 226.0, 250.0])
+        assert status == BandCalStatus.MODELED
