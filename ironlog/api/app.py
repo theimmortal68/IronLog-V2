@@ -436,6 +436,21 @@ class LoggedSet(BaseModel):
     load: Optional[float] = None
     tap: Optional[str] = None
     is_warmup: bool
+    rpe_numeric: Optional[float] = None
+    felt_peak: Optional[float] = None
+
+
+class SurveyOut(BaseModel):
+    movement_id: int
+    movement_name: str
+    asymmetry_flag: Optional[bool] = None
+    technique_flag: Optional[bool] = None
+    sticking_point: Optional[str] = None
+
+
+class NoteOut(BaseModel):
+    movement_id: Optional[int] = None
+    text: str
 
 
 class LoggedSetsResponse(BaseModel):
@@ -443,15 +458,20 @@ class LoggedSetsResponse(BaseModel):
     date: str
     day_role: str
     logs: List[LoggedSet]
+    surveys: List[SurveyOut] = []
+    notes: List[NoteOut] = []
 
 
 @app.get("/sessions/{session_id}/logs", response_model=LoggedSetsResponse)
 def get_session_logs(session_id: int, db: Session = Depends(get_session)):
-    """Logged actuals (SetLogs) for a session, in log order; client groups by movement."""
-    from ..models.session import Session as WorkoutSession, SetLog
+    """Logged actuals (SetLogs) + per-exercise surveys + notes for a session.
+    Client groups sets by movement and matches surveys/notes by movement_id."""
+    from ..models.session import (
+        Session as WorkoutSession, SetLog, ExerciseSurvey, Note)
     ws = db.get(WorkoutSession, session_id)
     if ws is None:
         raise HTTPException(404, "session not found")
+
     rows = db.exec(
         select(SetLog).where(SetLog.session_id == session_id).order_by(SetLog.id)
     ).all()
@@ -463,9 +483,30 @@ def get_session_logs(session_id: int, db: Session = Depends(get_session)):
             set_index=sl.set_index, reps=sl.actual_reps, load=sl.actual_load,
             tap=(sl.feedback_tap.value if sl.feedback_tap else None),
             is_warmup=sl.is_warmup,
+            rpe_numeric=sl.rpe_numeric, felt_peak=sl.felt_peak,
         ))
+
+    survey_rows = db.exec(
+        select(ExerciseSurvey).where(ExerciseSurvey.session_id == session_id)
+        .order_by(ExerciseSurvey.id)
+    ).all()
+    surveys = []
+    for sv in survey_rows:
+        mv = db.get(Movement, sv.movement_id)
+        surveys.append(SurveyOut(
+            movement_id=sv.movement_id, movement_name=(mv.name if mv else ""),
+            asymmetry_flag=sv.asymmetry_flag, technique_flag=sv.technique_flag,
+            sticking_point=sv.sticking_point,
+        ))
+
+    note_rows = db.exec(
+        select(Note).where(Note.session_id == session_id).order_by(Note.id)
+    ).all()
+    notes = [NoteOut(movement_id=n.movement_id, text=n.text) for n in note_rows]
+
     return LoggedSetsResponse(
-        session_id=session_id, date=ws.date.isoformat(), day_role=ws.day_role, logs=logs)
+        session_id=session_id, date=ws.date.isoformat(), day_role=ws.day_role,
+        logs=logs, surveys=surveys, notes=notes)
 
 
 # ---------------------------------------------------------------------------
