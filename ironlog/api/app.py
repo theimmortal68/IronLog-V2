@@ -366,7 +366,7 @@ def _serialize_session(ws, db) -> SessionDetailResponse:
         groups_out.append(GroupOut(
             id=(g.id if g.id is not None else gi), order_index=g.order_index,
             group_type=g.group_type.value, rounds=g.rounds, rest_seconds=g.rest_seconds,
-            label=g.label, exercises=ex_out,
+            label=g.label, shoe=g.shoe, exercises=ex_out,
         ))
     return SessionDetailResponse(
         id=(ws.id if ws.id is not None else 0), date=ws.date.isoformat(),

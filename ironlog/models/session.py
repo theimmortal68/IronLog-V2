@@ -43,6 +43,7 @@ class ExerciseGroup(SQLModel, table=True):
     rounds: int = 1                                # giant sets = 3
     rest_seconds: Optional[int] = None
     label: Optional[str] = None
+    shoe: Optional[str] = None    # display-only footwear cue (from Tier.shoe); never engine-read
 
     session: Optional[Session] = Relationship(back_populates="groups")
     exercises: List["PlannedExercise"] = Relationship(back_populates="group")
