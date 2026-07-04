@@ -65,9 +65,10 @@ PHASES = [
 ]
 
 # calibrated HT band pairs (x1.15 table, #0 anchored, #5 unusable)
-BANDS = [("#0 Orange", 14, 30, True), ("#1 Red", 29, 60, True),
-         ("#2 Blue", 47, 100, True), ("#3 Green", 63, 133, True),
-         ("#4 Black", 102, 217, True), ("#5 Purple", 151, 317, False)]
+# rest = rated/side x2, peak = rated/side x5 (HT band-composite formula, Task 1)
+BANDS = [("#0 Orange", 18, 45, True), ("#1 Red", 36, 90, True),
+         ("#2 Blue", 60, 150, True), ("#3 Green", 80, 200, True),
+         ("#4 Black", 130, 325, True), ("#5 Purple", 190, 475, True)]
 
 # per-lift sticking-point options (seed)
 TAXONOMY = {

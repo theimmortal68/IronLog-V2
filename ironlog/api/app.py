@@ -355,6 +355,7 @@ def _serialize_session(ws, db) -> SessionDetailResponse:
                 target_rpe=ps.target_rpe, target_unassisted_reps=ps.target_unassisted_reps,
                 target_assisted_reps=ps.target_assisted_reps, target_plates=ps.target_plates,
                 band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
+                band_config=ps.band_config,
             ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
             ex_out.append(ExerciseOut(
                 id=(pe.id if pe.id is not None else ei), movement_id=pe.movement_id,
