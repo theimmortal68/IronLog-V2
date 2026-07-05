@@ -130,3 +130,48 @@ def test_load_and_reps_override_apply_at_prescription(gen_db_calibrated):
     assert reverted_set.target_load == engine_load
     assert reverted_set.target_reps_low == baseline_reps_low
     assert reverted_set.target_reps_high == baseline_reps_high
+
+
+def test_load_override_applies_even_when_a_movement_override_coexists(gen_db_calibrated):
+    """Fix 1 guard: a slot may carry BOTH a MOVEMENT and a LOAD override at once
+    (the generalized table enforces no per-slot uniqueness). The assembler's
+    override lookup must filter to LOAD/REPS so a bare .first() cannot return the
+    MOVEMENT row and silently drop the load adjustment.
+
+    The MOVEMENT override is inserted FIRST (lower id) so an unfiltered .first()
+    would return it — this case fails without the symmetric override_type filter.
+    It swaps bench -> bench (same movement) to keep the engine load stable, so the
+    only expected change to the T1 prescription is the LOAD override's +10.
+    """
+    gen_db = gen_db_calibrated
+    te = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d1_t1")
+    ).one()
+    note = Note(text="test")
+    gen_db.add(note)
+    gen_db.commit()
+    gen_db.refresh(note)
+
+    engine_load = _t1_planned_set(_assemble(gen_db)).target_load
+    assert engine_load is not None
+
+    # MOVEMENT override first (lower id) — bench->bench, a no-op swap.
+    mv_ov = SlotMovementOverride(
+        tier_exercise_id=te.id, override_movement_id=te.movement_id,
+        source_note_id=note.id, active=True,
+        override_type=OverrideType.MOVEMENT,
+    )
+    gen_db.add(mv_ov)
+    gen_db.commit()
+    # LOAD override second (higher id).
+    load_ov = SlotMovementOverride(
+        tier_exercise_id=te.id, override_movement_id=te.movement_id,
+        source_note_id=note.id, active=True,
+        override_type=OverrideType.LOAD, load_delta=10,
+    )
+    gen_db.add(load_ov)
+    gen_db.commit()
+
+    both = _t1_planned_set(_assemble(gen_db))
+    assert both.target_load == engine_load + 10, \
+        "LOAD override must apply even when a MOVEMENT override coexists on the slot"

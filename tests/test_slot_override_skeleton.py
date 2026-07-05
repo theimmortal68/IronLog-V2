@@ -8,6 +8,7 @@ NO from __future__ import annotations (project-wide constraint).
 from sqlmodel import SQLModel, Session as DBSession, create_engine, select
 
 from ironlog.generation.skeleton import lay_skeleton
+from ironlog.models.enums import OverrideType
 from ironlog.models.library import Movement
 from ironlog.models.program import (
     MesoRotation, Program, ProgramDay, SlotMovementOverride, Tier, TierExercise, TierKind,
@@ -124,6 +125,69 @@ def test_adaptive_slot_meso_rotation_fires_through_skeleton(gen_db):
     slot1 = next(s for s in m1.adaptive_slots if s.slot_id == "d4_t2a")
     assert slot1.program_movement_id == te.movement_id, \
         "meso-1 adaptive slot emits the base movement — rotation is meso-gated"
+
+
+def test_load_override_is_not_applied_as_a_movement_swap():
+    """Task 1 (note-apply REDESIGN) guard: a LOAD/REPS override lives in the same
+    table as a MOVEMENT swap, and its override_movement_id is a harmless
+    placeholder (never the intended slot movement). lay_skeleton must filter to
+    override_type == MOVEMENT so a LOAD row is NOT mistaken for a swap.
+
+    The override_movement_id here is a DIFFERENT movement (incline, NOT the
+    slot's own bench) precisely so that dropping the skeleton's MOVEMENT filter
+    would flip the emitted anchor to incline and fail this test — that's the
+    assertion that actually protects the filter.
+    """
+    db = DBSession(_engine())
+    ctx = _seed(db)
+    note = Note(text="add 10 lb to bench")
+    db.add(note); db.commit(); db.refresh(note)
+
+    load_ov = SlotMovementOverride(
+        tier_exercise_id=ctx["bench_te"].id,
+        override_movement_id=ctx["incline"].id,   # distinct movement — must be ignored
+        source_note_id=note.id,
+        override_type=OverrideType.LOAD,
+        load_delta=10,
+    )
+    db.add(load_ov); db.commit()
+
+    sk = lay_skeleton("D1 Upper Push", db, meso_number=1)
+    assert sk.anchor_movement_ids == [ctx["bench"].id], \
+        "a LOAD override must NOT swap the slot's movement — base movement stands"
+
+
+def test_movement_and_load_overrides_coexist_on_one_slot():
+    """Task 1 (note-apply REDESIGN): a slot may carry BOTH a MOVEMENT swap and a
+    LOAD adjustment simultaneously (the generalized table enforces no uniqueness).
+    lay_skeleton resolves the MOVEMENT row independently of the LOAD row — proving
+    the symmetric override_type filters (skeleton MOVEMENT / assembler LOAD-REPS)
+    keep the two concerns separate. (The +10 load application is covered by
+    test_slot_override_apply.py; here we only assert the swap still fires.)
+    """
+    db = DBSession(_engine())
+    ctx = _seed(db)
+    note = Note(text="switch bench to incline AND add 10 lb")
+    db.add(note); db.commit(); db.refresh(note)
+
+    mv_ov = SlotMovementOverride(
+        tier_exercise_id=ctx["bench_te"].id,
+        override_movement_id=ctx["incline"].id,
+        source_note_id=note.id,
+        override_type=OverrideType.MOVEMENT,
+    )
+    load_ov = SlotMovementOverride(
+        tier_exercise_id=ctx["bench_te"].id,
+        override_movement_id=ctx["overhead_press"].id,  # placeholder — never a swap
+        source_note_id=note.id,
+        override_type=OverrideType.LOAD,
+        load_delta=10,
+    )
+    db.add(mv_ov); db.add(load_ov); db.commit()
+
+    sk = lay_skeleton("D1 Upper Push", db, meso_number=1)
+    assert sk.anchor_movement_ids == [ctx["incline"].id], \
+        "the MOVEMENT override must swap to incline even with a LOAD override present"
 
 
 def test_override_takes_precedence_over_meso_rotation():

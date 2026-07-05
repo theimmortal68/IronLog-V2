@@ -149,8 +149,15 @@ def _apply_slot_override(db: DBSession, tier_exercise_id: Optional[int],
         return load, rep_low, rep_high
     from ..models.enums import OverrideType
     from ..models.program import SlotMovementOverride
+    # Symmetric with skeleton._effective_movement_id's MOVEMENT filter: the
+    # generalized table can hold multiple active rows per tier_exercise_id (no
+    # uniqueness enforced), so a slot may carry BOTH a MOVEMENT swap and a
+    # LOAD/REPS adjustment. Filter to LOAD/REPS here so a bare .first() cannot
+    # return the MOVEMENT row and silently drop the load/rep adjustment —
+    # movement and load/rep overrides are resolved independently.
     ov = db.exec(select(SlotMovementOverride).where(
         SlotMovementOverride.tier_exercise_id == tier_exercise_id,
+        SlotMovementOverride.override_type.in_((OverrideType.LOAD, OverrideType.REPS)),
         SlotMovementOverride.active == True)).first()  # noqa: E712
     if ov is None:
         return load, rep_low, rep_high
