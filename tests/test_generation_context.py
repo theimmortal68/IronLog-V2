@@ -17,8 +17,9 @@ from ironlog.generation.context import (
     should_invoke_llm,
 )
 from ironlog.generation.skeleton import SlotSpec, lay_skeleton
-from ironlog.models.enums import Status
+from ironlog.models.enums import NoteClass, Status
 from ironlog.models.library import Movement, MovementState
+from ironlog.models.session import Note
 from sqlmodel import select
 
 
@@ -187,3 +188,64 @@ def test_menu_less_slot_is_not_deviation_eligible(gen_db):
         "a slot absent from candidate_menus must return False from "
         "slot_has_deviation_signal even when all other signals are present"
     )
+
+
+def test_note_flag_only_unresolved_actionable_notes(gen_db):
+    """note_flagged_movement_ids must fire ONLY for unresolved CONFIG_CHANGE /
+    PROGRAMMING_REQUEST notes — the exact set the /notes/review inbox shows.
+
+    A JOURNAL or TRANSIENT_FLAG note never enters the review inbox and is never
+    touched by a terminal action (apply/confirm/dismiss), so it would stay
+    applied=False forever. If the note-flag query is classification-blind, a
+    stray "felt strong" (JOURNAL) or "shoulder sore" (TRANSIENT_FLAG) note would
+    nudge the proposer to reconsider that movement forever. An applied
+    CONFIG_CHANGE (resolved) must also not flag.
+    """
+    movements = gen_db.exec(select(Movement)).all()
+    assert len(movements) >= 5, "seeded library must have at least 5 movements"
+    mid_config_change = movements[0].id
+    mid_programming_request = movements[1].id
+    mid_journal = movements[2].id
+    mid_transient_flag = movements[3].id
+    mid_applied_config_change = movements[4].id
+
+    gen_db.add_all([
+        Note(
+            movement_id=mid_config_change, text="swap to dumbbells",
+            classification=NoteClass.CONFIG_CHANGE, applied=False,
+        ),
+        Note(
+            movement_id=mid_programming_request, text="want more volume",
+            classification=NoteClass.PROGRAMMING_REQUEST, applied=False,
+        ),
+        Note(
+            movement_id=mid_journal, text="felt strong today",
+            classification=NoteClass.JOURNAL, applied=False,
+        ),
+        Note(
+            movement_id=mid_transient_flag, text="shoulder sore",
+            classification=NoteClass.TRANSIENT_FLAG, applied=False,
+        ),
+        Note(
+            movement_id=mid_applied_config_change, text="already applied swap",
+            classification=NoteClass.CONFIG_CHANGE, applied=True,
+        ),
+    ])
+    gen_db.commit()
+
+    week_keyer = lambda d: (d.year, d.isocalendar()[1])
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, week_keyer)
+
+    assert mid_config_change in ctx.note_flagged_movement_ids
+    assert mid_programming_request in ctx.note_flagged_movement_ids
+    assert mid_journal not in ctx.note_flagged_movement_ids, (
+        "JOURNAL notes must never flag a movement for the proposer"
+    )
+    assert mid_transient_flag not in ctx.note_flagged_movement_ids, (
+        "TRANSIENT_FLAG notes must never flag a movement for the proposer"
+    )
+    assert mid_applied_config_change not in ctx.note_flagged_movement_ids, (
+        "an applied (resolved) CONFIG_CHANGE note must not flag the movement"
+    )
+    assert ctx.note_flagged_movement_ids == {mid_config_change, mid_programming_request}
