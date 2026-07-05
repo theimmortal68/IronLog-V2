@@ -3,6 +3,7 @@ live-state SlotMovementOverride. Deterministic; NO LLM in this path.
 NO from __future__ import annotations."""
 from sqlmodel import Session as DBSession, select
 
+from ..models.library import EngineState
 from ..models.program import ProgramDay, Tier, TierExercise, SlotMovementOverride
 from ..models.session import Note, Session as WorkoutSession
 
@@ -19,7 +20,17 @@ def resolve_slot(note, db: DBSession) -> TierExercise:
     ws = db.get(WorkoutSession, note.session_id) if note.session_id else None
     if ws is None:
         raise SlotResolutionError("note has no session")
-    days = db.exec(select(ProgramDay).where(ProgramDay.day_role == ws.day_role)).all()
+    # Fork 3 scoping (mirrors lay_skeleton): filter ProgramDay to the active
+    # program when one is set; otherwise fall back to all programs (back-compat
+    # for single-program setups so day_role alone still resolves).
+    program_id = None
+    es = db.get(EngineState, 1)
+    if es is not None and es.active_program_id is not None:
+        program_id = es.active_program_id
+    stmt = select(ProgramDay).where(ProgramDay.day_role == ws.day_role)
+    if program_id is not None:
+        stmt = stmt.where(ProgramDay.program_id == program_id)
+    days = db.exec(stmt).all()
     tier_ids = []
     for d in days:
         tier_ids += [t.id for t in db.exec(select(Tier).where(Tier.program_day_id == d.id)).all()]
