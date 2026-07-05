@@ -239,6 +239,7 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
             ps.target_plates = new_plates
             ps.band_config = list(new_config)
             ps.target_felt_peak = peak
+            ps.target_load = None
         if prospective_ht is not None:
             prospective_ht[movement.id] = (new_plates, list(new_config))
 
