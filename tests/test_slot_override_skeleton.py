@@ -5,7 +5,7 @@ Precedence under test: active SlotMovementOverride > MesoRotation(meso_number)
 only live-state rows (SlotMovementOverride, MesoRotation) change resolution.
 NO from __future__ import annotations (project-wide constraint).
 """
-from sqlmodel import SQLModel, Session as DBSession, create_engine
+from sqlmodel import SQLModel, Session as DBSession, create_engine, select
 
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.models.library import Movement
@@ -91,6 +91,39 @@ def test_active_override_swaps_only_its_slot():
     sk_reverted = lay_skeleton("D1 Upper Push", db, meso_number=1)
     assert sk_reverted.anchor_movement_ids == [ctx["bench"].id]
     assert sk_reverted.adaptive_slots[0].program_movement_id == ctx["close_grip"].id
+
+
+def test_adaptive_slot_meso_rotation_fires_through_skeleton(gen_db):
+    """Regression lock: lay_skeleton now resolves MesoRotation for NON-anchor
+    (adaptive) slots too, via _effective_movement_id. The seed attaches a meso-2
+    rotation to D4's d4_t2a (Meadows Row [semi] -> Pendlay Row); prove it fires
+    at meso_number=2 and does NOT fire at meso_number=1 (rotation is meso-gated,
+    not always-on). Without this, a refactor could silently revert the adaptive
+    branch to raw te.movement_id and stay green.
+    """
+    from ironlog.models.program import MesoRotation, TierExercise
+
+    te = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d4_t2a")
+    ).one()
+    mr = gen_db.exec(
+        select(MesoRotation).where(
+            MesoRotation.tier_exercise_id == te.id,
+            MesoRotation.meso_number == 2,
+        )
+    ).one()
+    assert mr.movement_id != te.movement_id, \
+        "the seeded d4_t2a meso-2 rotation must be a real movement swap"
+
+    m2 = lay_skeleton("D4 Upper Pull", gen_db, meso_number=2)
+    slot2 = next(s for s in m2.adaptive_slots if s.slot_id == "d4_t2a")
+    assert slot2.program_movement_id == mr.movement_id, \
+        "meso-2 adaptive slot resolves to the seeded MesoRotation target (Pendlay Row)"
+
+    m1 = lay_skeleton("D4 Upper Pull", gen_db, meso_number=1)
+    slot1 = next(s for s in m1.adaptive_slots if s.slot_id == "d4_t2a")
+    assert slot1.program_movement_id == te.movement_id, \
+        "meso-1 adaptive slot emits the base movement — rotation is meso-gated"
 
 
 def test_override_takes_precedence_over_meso_rotation():

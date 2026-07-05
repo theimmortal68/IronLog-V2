@@ -30,7 +30,7 @@ Branch: `feat/note-apply`
   `n.classification = NoteClass.JOURNAL` set, fixing the bug where a dismissed note kept
   `applied=False` and could still flag the movement as deviation-eligible.
 
-- `tests/test_slot_override_skeleton.py` (new): 3 tests —
+- `tests/test_slot_override_skeleton.py` (new): 4 tests —
   1. `test_skeleton_emits_base_movement_with_no_override` — no-override/no-meso path returns
      `te.movement_id` unchanged (regression guard for the no-override case).
   2. `test_active_override_swaps_only_its_slot` — active override swaps only the overridden
@@ -41,6 +41,14 @@ Branch: `feat/note-apply`
      slot (bench→incline) wins over the meso rotation; dismissing the override falls back to
      the meso rotation (not straight to base) at `meso_number=2`; `meso_number=1` (no rotation
      row) falls all the way back to the base movement.
+  4. `test_adaptive_slot_meso_rotation_fires_through_skeleton` (added post-review) — regression
+     lock for the intentional adaptive-branch behavior change: uses the `gen_db` seed fixture,
+     reads the real seeded meso-2 `MesoRotation` on D4's `d4_t2a` (Meadows Row [semi] → Pendlay
+     Row) and asserts `lay_skeleton("D4 Upper Pull", ..., meso_number=2)` emits that seeded
+     target's `movement_id` for the adaptive slot, while `meso_number=1` emits the base
+     `te.movement_id`. Proves adaptive-slot meso rotation now fires through `lay_skeleton` AND
+     is meso-gated (not always-on) — without this, a refactor could silently revert the
+     adaptive branch to raw `te.movement_id` and stay green.
 
 - `tests/test_notes_endpoints.py`: added `test_dismiss_sets_applied_true` — after
   `/notes/{id}/dismiss`, asserts `note.applied is True` and `note.classification == JOURNAL`.
@@ -55,14 +63,21 @@ Branch: `feat/note-apply`
    ```
    ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_slot_override_skeleton.py tests/test_notes_endpoints.py'
    ```
-   Result: **8 passed** (4 dismiss/review tests including the new one + 4 new skeleton tests... actually 3 new skeleton tests + 1 dismiss addition against the existing 4-test file = 8 total). 0 failed.
+   Result (initial): **8 passed** (existing 4 dismiss/review + new dismiss-applied + 3 new
+   skeleton tests). 0 failed.
 
-2. Full suite:
+2. Post-review coverage add (`test_adaptive_slot_meso_rotation_fires_through_skeleton`):
+   ```
+   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_slot_override_skeleton.py'
+   ```
+   Result: **4 passed** (3 original skeleton tests + 1 new adaptive-meso coverage test).
+
+3. Full suite (final):
    ```
    ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
    ```
-   Result: **391 passed** (baseline 387 + 4 new tests: 3 skeleton + 1 dismiss-applied), 0 failed,
-   0 regressions.
+   Result: **392 passed** (baseline 387 + 5 new tests: 3 override skeleton + 1 adaptive-meso
+   coverage + 1 dismiss-applied), 0 failed, 0 regressions.
 
 ## Concerns
 
