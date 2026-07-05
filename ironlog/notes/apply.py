@@ -1,0 +1,71 @@
+"""apply.py — note-apply: resolve a note to its program slot + create a
+live-state SlotMovementOverride. Deterministic; NO LLM in this path.
+NO from __future__ import annotations."""
+from sqlmodel import Session as DBSession, select
+
+from ..models.library import EngineState
+from ..models.program import ProgramDay, Tier, TierExercise, SlotMovementOverride
+from ..models.session import Note, Session as WorkoutSession
+
+
+class SlotResolutionError(Exception):
+    """No program slot matches the note's (day_role, movement_id)."""
+
+
+class AmbiguousSlotError(Exception):
+    """More than one slot matches — apply is rejected rather than guessing."""
+
+
+def resolve_slot(note, db: DBSession) -> TierExercise:
+    ws = db.get(WorkoutSession, note.session_id) if note.session_id else None
+    if ws is None:
+        raise SlotResolutionError("note has no session")
+    # Fork 3 scoping (mirrors lay_skeleton): filter ProgramDay to the active
+    # program when one is set; otherwise fall back to all programs (back-compat
+    # for single-program setups so day_role alone still resolves).
+    program_id = None
+    es = db.get(EngineState, 1)
+    if es is not None and es.active_program_id is not None:
+        program_id = es.active_program_id
+    stmt = select(ProgramDay).where(ProgramDay.day_role == ws.day_role)
+    if program_id is not None:
+        stmt = stmt.where(ProgramDay.program_id == program_id)
+    days = db.exec(stmt).all()
+    tier_ids = []
+    for d in days:
+        tier_ids += [t.id for t in db.exec(select(Tier).where(Tier.program_day_id == d.id)).all()]
+    matches = []
+    for tid in tier_ids:
+        matches += db.exec(select(TierExercise).where(
+            TierExercise.tier_id == tid,
+            TierExercise.movement_id == note.movement_id)).all()
+    if not matches:
+        raise SlotResolutionError(f"no slot for movement {note.movement_id} in day {ws.day_role!r}")
+    if len(matches) > 1:
+        raise AmbiguousSlotError(f"{len(matches)} slots match; cannot auto-apply")
+    return matches[0]
+
+
+def apply_override(note, target_movement_id, db: DBSession) -> SlotMovementOverride:
+    """Resolve the note's program slot and create a live-state override that
+    swaps it to target_movement_id. Deterministic; NO LLM in this path.
+
+    Raises SlotResolutionError (-> 404) if the target movement doesn't exist
+    or resolve_slot finds no matching slot; AmbiguousSlotError (-> 409) if
+    more than one slot matches. On success, stamps note.confirmed/applied.
+    """
+    from ..models.library import Movement
+
+    if db.get(Movement, target_movement_id) is None:
+        raise SlotResolutionError(f"target movement {target_movement_id} not found")
+    te = resolve_slot(note, db)  # raises SlotResolutionError / AmbiguousSlotError
+    ov = SlotMovementOverride(
+        tier_exercise_id=te.id, override_movement_id=target_movement_id,
+        source_note_id=note.id, active=True)
+    db.add(ov)
+    note.confirmed = True
+    note.applied = True
+    db.add(note)
+    db.commit()
+    db.refresh(ov)
+    return ov

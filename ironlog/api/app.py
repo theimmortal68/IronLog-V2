@@ -374,6 +374,11 @@ def confirm_note(note_id: int, db: Session = Depends(get_session)):
     if n is None:
         raise HTTPException(404, "note not found")
     n.confirmed = True
+    # applied=True too: confirm is a terminal action (like apply/dismiss). Without
+    # it the note leaves the /notes/review inbox (filtered on confirmed==False) but
+    # stays applied==False, which context.py keys on to flag the movement to the
+    # proposer forever. All three terminal actions resolve the note → stop flagging.
+    n.applied = True
     db.add(n); db.commit()
     return {"id": note_id, "confirmed": True}
 
@@ -385,8 +390,66 @@ def dismiss_note(note_id: int, db: Session = Depends(get_session)):
     if n is None:
         raise HTTPException(404, "note not found")
     n.classification = NoteClass.JOURNAL
+    n.applied = True
     db.add(n); db.commit()
     return {"id": note_id, "dismissed": True}
+
+
+# ---------------------------------------------------------------------------
+# Note-apply path (live-state slot override — Task 3)
+# ---------------------------------------------------------------------------
+
+class ApplyNoteRequest(BaseModel):
+    target_movement_id: int
+
+
+@app.post("/notes/{note_id}/apply")
+def apply_note(note_id: int, req: ApplyNoteRequest, db: Session = Depends(get_session)):
+    from ..models.session import Note
+    from ..notes.apply import apply_override, SlotResolutionError, AmbiguousSlotError
+    n = db.get(Note, note_id)
+    if n is None:
+        raise HTTPException(404, "note not found")
+    try:
+        ov = apply_override(n, req.target_movement_id, db)
+    except AmbiguousSlotError as e:
+        raise HTTPException(409, str(e))
+    except SlotResolutionError as e:
+        raise HTTPException(404, str(e))
+    return {"id": ov.id, "tier_exercise_id": ov.tier_exercise_id,
+            "override_movement_id": ov.override_movement_id, "note_id": note_id}
+
+
+@app.get("/overrides")
+def list_overrides(db: Session = Depends(get_session)):
+    from ..models.program import SlotMovementOverride, TierExercise, Tier, ProgramDay
+    rows = db.exec(select(SlotMovementOverride).where(
+        SlotMovementOverride.active == True).order_by(SlotMovementOverride.id.desc())).all()  # noqa: E712
+    out = []
+    for ov in rows:
+        te = db.get(TierExercise, ov.tier_exercise_id)
+        tier = db.get(Tier, te.tier_id) if te else None
+        day = db.get(ProgramDay, tier.program_day_id) if tier else None
+        frm = db.get(Movement, te.movement_id) if te else None
+        to = db.get(Movement, ov.override_movement_id)
+        out.append({"id": ov.id, "day_role": (day.day_role if day else None),
+                    "tier_label": (tier.tier_label if tier else None),
+                    "slot_id": (te.slot_id if te else None),
+                    "from_movement_name": (frm.name if frm else None),
+                    "to_movement_name": (to.name if to else None),
+                    "source_note_id": ov.source_note_id})
+    return out
+
+
+@app.post("/overrides/{override_id}/revert")
+def revert_override(override_id: int, db: Session = Depends(get_session)):
+    from ..models.program import SlotMovementOverride
+    ov = db.get(SlotMovementOverride, override_id)
+    if ov is None:
+        raise HTTPException(404, "override not found")
+    ov.active = False
+    db.add(ov); db.commit()
+    return {"id": override_id, "active": False}
 
 
 # ---------------------------------------------------------------------------

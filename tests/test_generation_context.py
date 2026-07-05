@@ -80,6 +80,43 @@ def test_should_invoke_llm_quiet_db_returns_false(gen_db):
     )
 
 
+def test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation(gen_db):
+    """The per-slot rep_scheme lookup must key on slot identity, NOT the effective
+    movement. Once adaptive-slot meso rotations went live (lay_skeleton now resolves
+    them via _effective_movement_id), an adaptive slot's program_movement_id can differ
+    from its base TierExercise.movement_id. A movement-keyed lookup would miss (None) or
+    return the wrong TE's scheme. D4's d4_t2a has a seeded meso-2 rotation (Meadows Row
+    -> Pendlay Row), so at meso 2 its rep_scheme must still resolve to d4_t2a's own
+    TierExercise rep_low/rep_high/scheme.
+    """
+    from ironlog.models.program import MesoRotation, TierExercise
+    week_keyer = lambda d: (d.year, d.isocalendar()[1])
+
+    te = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d4_t2a")
+    ).one()
+    mr = gen_db.exec(
+        select(MesoRotation).where(
+            MesoRotation.tier_exercise_id == te.id,
+            MesoRotation.meso_number == 2,
+        )
+    ).one()
+    assert mr.movement_id != te.movement_id, "the meso-2 rotation must be a real swap"
+
+    sk = lay_skeleton("D4 Upper Pull", gen_db, meso_number=2)
+    slot = next(s for s in sk.adaptive_slots if s.slot_id == "d4_t2a")
+    assert slot.program_movement_id == mr.movement_id, \
+        "effective movement at meso 2 is the rotated one (differs from base)"
+
+    ctx = resolve_context("D4 Upper Pull", sk, gen_db, week_keyer)
+    rs = ctx.slot_rep_schemes.get("d4_t2a")
+    assert rs is not None, \
+        "rep_scheme must resolve even when the slot's effective movement != its base"
+    assert rs["rep_low"] == te.rep_low
+    assert rs["rep_high"] == te.rep_high
+    assert rs["scheme"] == te.scheme
+
+
 def test_should_invoke_llm_stall_signal_returns_true(gen_db):
     """Plant a failed-progression stall on a semi/free slot → LLM must be invoked."""
     sk = lay_skeleton("D1 Upper Push", gen_db)

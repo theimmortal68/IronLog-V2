@@ -9,4 +9,5 @@ from .session import (          # noqa: F401
 )
 from .program import (          # noqa: F401
     TierKind, Program, ProgramDay, Tier, TierExercise, MesoRotation,
+    SlotMovementOverride,
 )

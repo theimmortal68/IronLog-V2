@@ -1,52 +1,129 @@
-# Task 2 Report — Persist classification + background hook
+# Task 2 Report: `_effective_movement_id` in lay_skeleton + dismiss sets applied
 
-Status: **completed**
+Status: **DONE**
+Branch: `feat/note-apply`
 
 ## Changes
 
-- `ironlog/models/session.py` — added `Note.classification_meta: Optional[dict] = Field(default=None, sa_column=Column(JSON))`, mirroring the `MovementState.ht_band_config` / `PlannedSet.band_config` JSON-column pattern. `Column`/`JSON` were already imported.
-- `deploy/migrations/020_note_classification_meta.sql` — new, single-statement, purely-additive: `ALTER TABLE note ADD COLUMN classification_meta JSON;` (not applied to the live DB — build-and-test-only per task scope).
-- `ironlog/notes/classify.py` — added `classify_session_notes(session_id: int, classifier=None) -> None`. Opens its own `Session(engine)` (imports `engine` from `..db` lazily inside the function so tests can `monkeypatch.setattr(dbmod, "engine", eng)` before the call takes effect). Degrades to no-op on missing `GEMINI_API_KEY` (`NoteClassifier()` raises `ValueError` → caught → return), and to per-note `continue` on any classify exception. Never raises.
-- `ironlog/api/app.py` — imported `BackgroundTasks` from `fastapi` and `classify_session_notes` from `..notes.classify`; added `background_tasks: BackgroundTasks` param to `submit_session` (before the `db` default param, per FastAPI convention); added `background_tasks.add_task(classify_session_notes, session_id)` immediately after the `run_analysis(...)` call and before the final `return SubmitResponse(...)` — i.e. only on the fresh-submit path. The idempotent `already_completed` short-circuit (early return when `ws.status == SessionStatus.COMPLETED`) is untouched and does NOT schedule the task.
-- `tests/test_note_classify_persist.py` — new: persistence test (fake classifier returns a `NoteClassification`, asserts `classification` + `classification_meta["proposed_change"]["movement"]` + `classification_meta["confidence"]` persisted); per-note-failure degradation test (fake classifier raises → `continue`, note left JOURNAL/None); and no-key degradation test `test_classify_no_key_is_noop_not_error` (review-requested coverage: `delenv("GEMINI_API_KEY")` + `classifier=None` → `NoteClassifier()` raises `ValueError` → guard returns; asserts no raise, `classification` unchanged, `classification_meta is None`).
+- `ironlog/generation/skeleton.py`:
+  - Imported `SlotMovementOverride`.
+  - Added `_effective_movement_id(db, te, meso_number) -> int`: precedence
+    active `SlotMovementOverride` > `MesoRotation(meso_number)` > `te.movement_id`.
+  - Anchor branch now calls `_effective_movement_id` instead of the inline
+    `mr.movement_id if mr else te.movement_id` check.
+  - Adaptive branch now sets `program_movement_id = _effective_movement_id(db, te, meso_number)`
+    instead of the raw `te.movement_id`. This is an intentional behavior change per the
+    brief: previously the adaptive branch never consulted `MesoRotation` at all. Investigation
+    confirmed the seeded program (`program_seed.py`) already has meso-2 `MesoRotation` rows on
+    non-anchor slots (`d4_t2a` semi, `d4_t3b` free), and an existing guard test
+    (`test_program_seed_rotation_guard.py::test_new_meso_rotations_exist_and_resolve`) already
+    asserts those rows should resolve — so this aligns `lay_skeleton` with pre-existing
+    seed/test intent rather than introducing a regression. No existing test asserted the old
+    "meso ignored for non-anchors" behavior via `lay_skeleton` directly, and the full suite
+    stayed green.
+  - Updated the `lay_skeleton` docstring to describe the new precedence instead of the stale
+    "no meso override applied to non-anchors" note.
+  - Base program (`TierExercise.movement_id`) is never mutated — confirmed by an explicit
+    assertion in the new test.
+
+- `ironlog/api/app.py` (`dismiss_note`): added `n.applied = True` alongside the existing
+  `n.classification = NoteClass.JOURNAL` set, fixing the bug where a dismissed note kept
+  `applied=False` and could still flag the movement as deviation-eligible.
+
+- `tests/test_slot_override_skeleton.py` (new): 4 tests —
+  1. `test_skeleton_emits_base_movement_with_no_override` — no-override/no-meso path returns
+     `te.movement_id` unchanged (regression guard for the no-override case).
+  2. `test_active_override_swaps_only_its_slot` — active override swaps only the overridden
+     anchor slot (bench→incline); the unrelated adaptive slot (`close_grip`) is untouched;
+     the base `TierExercise.movement_id` row is unmutated; `active=False` reverts to bench.
+  3. `test_override_takes_precedence_over_meso_rotation` — full precedence chain: meso-2
+     rotation (bench→overhead press) applies with no override; an active override on the same
+     slot (bench→incline) wins over the meso rotation; dismissing the override falls back to
+     the meso rotation (not straight to base) at `meso_number=2`; `meso_number=1` (no rotation
+     row) falls all the way back to the base movement.
+  4. `test_adaptive_slot_meso_rotation_fires_through_skeleton` (added post-review) — regression
+     lock for the intentional adaptive-branch behavior change: uses the `gen_db` seed fixture,
+     reads the real seeded meso-2 `MesoRotation` on D4's `d4_t2a` (Meadows Row [semi] → Pendlay
+     Row) and asserts `lay_skeleton("D4 Upper Pull", ..., meso_number=2)` emits that seeded
+     target's `movement_id` for the adaptive slot, while `meso_number=1` emits the base
+     `te.movement_id`. Proves adaptive-slot meso rotation now fires through `lay_skeleton` AND
+     is meso-gated (not always-on) — without this, a refactor could silently revert the
+     adaptive branch to raw `te.movement_id` and stay green.
+
+- `tests/test_notes_endpoints.py`: added `test_dismiss_sets_applied_true` — after
+  `/notes/{id}/dismiss`, asserts `note.applied is True` and `note.classification == JOURNAL`.
+  (Note: the brief named the file `test_notes_review_endpoints.py`; the real file covering
+  `/notes/review` + confirm/dismiss is `tests/test_notes_endpoints.py` — extended that file
+  instead of creating a duplicate, matching the fix already applied by the Task 1 implementer
+  for other model/import discrepancies in the brief.)
 
 ## Test commands + results
 
-1. Verify-fails (Step 2), before any code changes:
+1. Targeted:
    ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classify_persist.py'
+   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_slot_override_skeleton.py tests/test_notes_endpoints.py'
    ```
-   Result: collection error — `ImportError: cannot import name 'classify_session_notes' from 'ironlog.notes.classify'` (expected fail, confirmed before implementing).
+   Result (initial): **8 passed** (existing 4 dismiss/review + new dismiss-applied + 3 new
+   skeleton tests). 0 failed.
 
-2. Targeted + migration parity (Step 6a):
+2. Post-review coverage add (`test_adaptive_slot_meso_rotation_fires_through_skeleton`):
    ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classify_persist.py tests/test_migrations.py'
+   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_slot_override_skeleton.py'
    ```
-   Result: **14 passed** (2 new persistence/degradation tests + 12 migration tests, including `test_chain_matches_create_all` parity keystone). 0 failed.
+   Result: **4 passed** (3 original skeleton tests + 1 new adaptive-meso coverage test).
 
-3. Full suite (Step 6b):
+3. Full suite (final):
    ```
    ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
    ```
-   Result: **378 passed**, 575 warnings (all pre-existing `datetime.utcnow()` deprecation warnings, unrelated to this change). Baseline after Task 1 was 376 → +2 matches the 2 new tests added here. No existing test broke; the `BackgroundTasks` param addition to `submit_session` did not alter the request/response contract (FastAPI injects it by type, not from the request body).
-
-### Follow-up (review-requested no-key coverage)
-
-Added `test_classify_no_key_is_noop_not_error` to close the untested degradation branch (b): no `GEMINI_API_KEY` → `classify_session_notes` no-ops entirely (the `try: NoteClassifier() except ValueError: return` guard).
-
-```
-ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classify_persist.py'
-```
-Result: **3 passed**, 6 warnings.
-```
-ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
-```
-Result: **379 passed**, 577 warnings (378 + this 1 test). No regressions.
-
-Also sanity-checked `ironlog.api.app` still imports cleanly after adding the `..notes.classify` import (no circular-import issue): `ssh myflix '.venv/bin/python -c "import ironlog.api.app"'` → OK.
+   Result: **392 passed** (baseline 387 + 5 new tests: 3 override skeleton + 1 adaptive-meso
+   coverage + 1 dismiss-applied), 0 failed, 0 regressions.
 
 ## Concerns
 
-None. The migration is purely additive and the parity test confirms the model (`create_all`) and the 000–020 migration chain agree. The background task path was exercised directly via the two new tests (not via a live `/submit` HTTP round-trip with a real BackgroundTasks execution), but FastAPI's `BackgroundTasks.add_task` is a thin, well-tested mechanism and the wiring change itself is a one-line addition with no altered control flow on the request path — verified structurally by reading the diff and confirming the `already_completed` early-return is untouched.
+None. The adaptive-branch behavior change (now honoring `MesoRotation` for non-anchor slots)
+is a deliberate widening of `_effective_movement_id`'s use per the brief, and cross-checked
+against the seed data + an existing guard test that already implies this rotation should be
+honored — flagged above for visibility, not as an open risk.
 
-Migration 020 is created but **not applied to the live DB** (build-and-test-only per task scope) — applying it is the go-live's responsibility.
+## Fix pass (whole-branch review, 2026-07-05)
+
+The whole-branch review found one Important latent bug that Task 2 *exposed* (did not
+introduce), plus requested an end-to-end integration test.
+
+**Bug — rep-scheme lookup keyed on movement, not slot identity** (`ironlog/generation/context.py`
+~line 345). `resolve_context` built `te_by_mid = {te.movement_id: te}` and looked up
+`te_by_mid.get(slot.program_movement_id)`. Pre–Task 2 the adaptive branch always emitted the
+base `te.movement_id`, so base == effective and the lookup always hit. Once adaptive-slot meso
+rotations and `SlotMovementOverride`s went live, a slot's `program_movement_id` can differ from
+its base movement → the movement-keyed lookup **misses** (`rep_scheme` becomes `None`) or, if the
+swapped movement coincides with a different slot's base, returns the **wrong** TE's rep scheme.
+Durable (survives reconcile), bites at meso 2.
+
+- **Fix:** re-keyed the lookup on the slot's stable identity —
+  `te_by_slot = {te.slot_id: te}`, looked up via `te_by_slot.get(slot.slot_id)`. `slot_id`
+  (e.g. `"d4_t2a"`) is globally unique across the program (day+tier+position) and carried on
+  both `SlotSpec` and `TierExercise`, so it is unaffected by movement swaps. No production
+  behavior change for the no-swap path; correct resolution for the swapped path.
+- **Regression test:** `tests/test_generation_context.py::test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation`
+  — at `meso_number=2`, D4's `d4_t2a` (Meadows Row → Pendlay Row rotation) resolves its
+  `rep_scheme` to that slot's own TE (`rep_low`/`rep_high`/`scheme`), not `None`/wrong.
+  **Verified the test catches the bug**: temporarily reverting `context.py` to the movement-keyed
+  lookup made this test fail (`rep_scheme is None`); restoring the slot-keyed fix makes it pass.
+
+**Integration test (Minor)** — `tests/test_note_apply_endpoints.py::test_apply_then_generate_slot_emits_target_movement`
+exercises the feature's central seam end to end: seeds a program day with a bench anchor slot
++ an unrelated accessory slot + a `CONFIG_CHANGE` note on bench; `POST /notes/{id}/apply` with
+an incline target via `TestClient`; then `lay_skeleton("D1 Upper Push", db, meso_number=1)` and
+asserts the bench slot emits incline, the accessory slot is unchanged, and the base
+`TierExercise.movement_id` row is unmutated.
+
+### Fix-pass test results
+```
+ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_generation_context.py tests/test_note_apply_endpoints.py'
+```
+→ **16 passed**.
+```
+ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
+```
+→ **403 passed** (baseline 401 + 2 new tests), 0 failed, 0 regressions.

@@ -14,7 +14,7 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from ironlog.models.program import (
-    MesoRotation, ProgramDay, Tier, TierExercise, TierKind,
+    MesoRotation, ProgramDay, SlotMovementOverride, Tier, TierExercise, TierKind,
 )
 
 
@@ -81,13 +81,15 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
 
     anchor_movement_ids:
         Movement ids for all TierExercises with tier_role=="anchor".
-        Overridden by the matching MesoRotation row if one exists for meso_number.
+        Resolved via _effective_movement_id: an active SlotMovementOverride
+        takes precedence, then the matching MesoRotation row for meso_number,
+        then te.movement_id.
 
     adaptive_slots:
         SlotSpec for every non-anchor TierExercise, with
-        program_movement_id = te.movement_id (the meso-1 prior; no meso override
-        applied to non-anchors — meso rotation for semi/free slots is handled
-        by the Task 3 proposer layer, not the skeleton).
+        program_movement_id resolved via the same _effective_movement_id
+        precedence (SlotMovementOverride > MesoRotation(meso_number) >
+        te.movement_id).
         kind = "knee" if knee_modality set,
                "giant" if tier is GIANT_SET,
                "accessory" otherwise.
@@ -124,14 +126,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
 
         for te in exercises:
             if te.tier_role == "anchor":
-                # Check for a meso-specific rotation override
-                mr = db.exec(
-                    select(MesoRotation).where(
-                        MesoRotation.tier_exercise_id == te.id,
-                        MesoRotation.meso_number == meso_number,
-                    )
-                ).first()
-                movement_id = mr.movement_id if mr is not None else te.movement_id
+                movement_id = _effective_movement_id(db, te, meso_number)
                 anchor_movement_ids.append(movement_id)
                 anchor_meta.append(AnchorSpec(
                     rep_low=te.rep_low, rep_high=te.rep_high,
@@ -145,7 +140,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     pattern=te.pattern,
                     tier_role=te.tier_role,
                     knee_modality=te.knee_modality,
-                    program_movement_id=te.movement_id,
+                    program_movement_id=_effective_movement_id(db, te, meso_number),
                     group_key=tier.tier_label,
                     rep_low=te.rep_low, rep_high=te.rep_high, rpe_cap=te.rpe_cap,
                     rest_seconds=tier.rest_seconds, shoe=tier.shoe,
@@ -157,6 +152,23 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         anchor_meta=anchor_meta,
         adaptive_slots=adaptive_slots,
     )
+
+
+def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:
+    """Resolve the movement id for a TierExercise slot.
+
+    Precedence: active SlotMovementOverride > MesoRotation(meso_number) > te.movement_id.
+    Base program (te.movement_id) is never mutated by this resolution.
+    """
+    ov = db.exec(select(SlotMovementOverride).where(
+        SlotMovementOverride.tier_exercise_id == te.id,
+        SlotMovementOverride.active == True)).first()  # noqa: E712
+    if ov is not None:
+        return ov.override_movement_id
+    mr = db.exec(select(MesoRotation).where(
+        MesoRotation.tier_exercise_id == te.id,
+        MesoRotation.meso_number == meso_number)).first()
+    return mr.movement_id if mr is not None else te.movement_id
 
 
 def _slot_kind(te: TierExercise, tier: Tier) -> str:
