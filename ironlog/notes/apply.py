@@ -44,3 +44,28 @@ def resolve_slot(note, db: DBSession) -> TierExercise:
     if len(matches) > 1:
         raise AmbiguousSlotError(f"{len(matches)} slots match; cannot auto-apply")
     return matches[0]
+
+
+def apply_override(note, target_movement_id, db: DBSession) -> SlotMovementOverride:
+    """Resolve the note's program slot and create a live-state override that
+    swaps it to target_movement_id. Deterministic; NO LLM in this path.
+
+    Raises SlotResolutionError (-> 404) if the target movement doesn't exist
+    or resolve_slot finds no matching slot; AmbiguousSlotError (-> 409) if
+    more than one slot matches. On success, stamps note.confirmed/applied.
+    """
+    from ..models.library import Movement
+
+    if db.get(Movement, target_movement_id) is None:
+        raise SlotResolutionError(f"target movement {target_movement_id} not found")
+    te = resolve_slot(note, db)  # raises SlotResolutionError / AmbiguousSlotError
+    ov = SlotMovementOverride(
+        tier_exercise_id=te.id, override_movement_id=target_movement_id,
+        source_note_id=note.id, active=True)
+    db.add(ov)
+    note.confirmed = True
+    note.applied = True
+    db.add(note)
+    db.commit()
+    db.refresh(ov)
+    return ov
