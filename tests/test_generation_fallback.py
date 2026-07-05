@@ -340,12 +340,28 @@ def test_gate_c_all_five_day_roles(gen_db_calibrated, day_role):
         for ps in e.planned_sets
     ]
     assert sets, f"{day_role} fallback must prescribe sets (trainable)"
+    from ironlog.models.enums import LiftCategory, ProgressionMode
+
     for g in fb.session.groups:
         for e in g.exercises:
             m = movements[e.movement_id]
             needs_load = load_field_for_mode(m.progression_mode) is not None
+            # HT (band-composite) movements are loaded via plates+bands, not the
+            # scalar target_load (mirrors assembler._is_ht_movement) — clearing
+            # target_load for these sets is the fix under test, not a regression.
+            is_ht = (m.lift_category == LiftCategory.HIP_THRUST
+                     or m.progression_mode == ProgressionMode.COMPOSITE)
             for ps in e.planned_sets:
-                if needs_load:
+                if is_ht:
+                    assert ps.target_load is None, (
+                        f"{day_role}: HT movement {m.name!r} must carry load via "
+                        f"target_plates/band_config, not scalar target_load"
+                    )
+                    assert ps.target_plates is not None, (
+                        f"{day_role}: HT movement {m.name!r} must carry a real "
+                        f"target_plates value"
+                    )
+                elif needs_load:
                     assert ps.target_load is not None, (
                         f"{day_role}: loaded movement {m.name!r} must carry a load"
                     )

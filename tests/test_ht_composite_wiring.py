@@ -69,6 +69,11 @@ def test_assembled_ht_carries_plates_and_config(gen_db_calibrated):
     assert ht_set.target_plates is not None
     assert ht_set.band_config is not None
     assert ht_set.target_felt_peak is not None
+    assert ht_set.target_load is None, (
+        "HT sets are loaded via plates+bands, not a scalar target_load; "
+        "the scalar must be cleared so the UI doesn't show a confusing "
+        "'Target: Nlb' alongside the real plates/peak"
+    )
 
     peak_by_id = {b.id: b.peak_lb for b in gen_db.exec(select(BandPair)).all()}
     assert ht_set.target_felt_peak == ht_set.target_plates + sum(
