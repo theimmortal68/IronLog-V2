@@ -344,6 +344,7 @@ class NoteReviewOut(BaseModel):
     classification: str
     proposed_change: Optional[dict] = None
     confidence: Optional[float] = None
+    action_type: Optional[str] = None
 
 
 @app.get("/notes/review", response_model=List[NoteReviewOut])
@@ -363,7 +364,8 @@ def get_notes_review(db: Session = Depends(get_session)):
             id=n.id, session_id=n.session_id, movement_id=n.movement_id,
             created_at=n.created_at.isoformat(), text=n.text,
             classification=n.classification.value,
-            proposed_change=meta.get("proposed_change"), confidence=meta.get("confidence")))
+            proposed_change=meta.get("proposed_change"), confidence=meta.get("confidence"),
+            action_type=meta.get("action_type")))
     return out
 
 
