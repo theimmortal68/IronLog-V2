@@ -374,6 +374,11 @@ def confirm_note(note_id: int, db: Session = Depends(get_session)):
     if n is None:
         raise HTTPException(404, "note not found")
     n.confirmed = True
+    # applied=True too: confirm is a terminal action (like apply/dismiss). Without
+    # it the note leaves the /notes/review inbox (filtered on confirmed==False) but
+    # stays applied==False, which context.py keys on to flag the movement to the
+    # proposer forever. All three terminal actions resolve the note → stop flagging.
+    n.applied = True
     db.add(n); db.commit()
     return {"id": note_id, "confirmed": True}
 

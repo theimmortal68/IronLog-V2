@@ -56,6 +56,21 @@ def test_confirm_removes_from_review():
     app.dependency_overrides.clear()
 
 
+def test_confirm_sets_applied_true():
+    # Confirm is a terminal action: it must set BOTH confirmed and applied True.
+    # applied==False is what context.py keys on to flag a movement-scoped note to
+    # the proposer forever — a confirmed note must stop flagging (like dismiss/apply).
+    client, engine = _client()
+    _seed_notes(engine)
+    cc_id = client.get("/notes/review").json()[0]["id"]
+    assert client.post(f"/notes/{cc_id}/confirm").status_code == 200
+    with DbSession(engine) as s:
+        n = s.get(Note, cc_id)
+        assert n.confirmed is True
+        assert n.applied is True
+    app.dependency_overrides.clear()
+
+
 def test_dismiss_reclassifies_journal():
     client, engine = _client()
     _seed_notes(engine)
