@@ -13,9 +13,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
+from sqlalchemy import text
 from sqlmodel import Field, SQLModel
 
-from .enums import KneeModality  # noqa: F401 — used in TierExercise column type
+from .enums import KneeModality, OverrideType  # noqa: F401 — used in TierExercise/SlotMovementOverride column types
 
 
 class TierKind(str, Enum):
@@ -86,12 +87,29 @@ class MesoRotation(SQLModel, table=True):
 
 
 class SlotMovementOverride(SQLModel, table=True):
-    """Live-state per-slot movement swap (note-driven). lay_skeleton honors an
-    active override for a TierExercise, taking precedence over MesoRotation and
-    the base movement. Base program is never mutated; revert = active=False."""
+    """General per-slot override — movement swap / load adjust / rep-target
+    change (note-driven). lay_skeleton honors an active MOVEMENT override for a
+    TierExercise, taking precedence over MesoRotation and the base movement
+    (unchanged behavior). The assembler honors an active LOAD/REPS override at
+    prescription time (Option-C: it adjusts only the prescribed values, never
+    MovementState/current_load). Base program is never mutated; revert = active=False.
+
+    override_movement_id is required (kept NOT NULL to match the existing
+    021 schema — additive-only migrations, no column-nullability change): a
+    LOAD/REPS row still sets it (harmlessly unused for those types) rather than
+    forcing a table rebuild to relax the constraint.
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
     tier_exercise_id: int = Field(foreign_key="tierexercise.id", index=True)
     override_movement_id: int = Field(foreign_key="movement.id")
     source_note_id: int = Field(foreign_key="note.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     active: bool = True
+    override_type: OverrideType = Field(
+        default=OverrideType.MOVEMENT,
+        sa_column_kwargs={"server_default": text("'MOVEMENT'")},
+    )
+    load_delta: Optional[float] = None
+    load_absolute: Optional[float] = None
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None

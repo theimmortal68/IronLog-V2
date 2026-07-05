@@ -134,6 +134,39 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
     ]
 
 
+def _apply_slot_override(db: DBSession, tier_exercise_id: Optional[int],
+                         load: Optional[float], rep_low: Optional[int],
+                         rep_high: Optional[int]) -> Tuple[Optional[float], Optional[int], Optional[int]]:
+    """Apply an active LOAD/REPS SlotMovementOverride for this slot's
+    TierExercise at prescription time (Task 1, note-apply REDESIGN, Option-C).
+
+    Adjusts only the PRESCRIBED load/rep values fed into _sets_for_scheme —
+    it NEVER writes current_load or MovementState. MOVEMENT-type overrides are
+    handled by lay_skeleton (already, via _effective_movement_id) and are
+    ignored here.
+    """
+    if tier_exercise_id is None:
+        return load, rep_low, rep_high
+    from ..models.enums import OverrideType
+    from ..models.program import SlotMovementOverride
+    ov = db.exec(select(SlotMovementOverride).where(
+        SlotMovementOverride.tier_exercise_id == tier_exercise_id,
+        SlotMovementOverride.active == True)).first()  # noqa: E712
+    if ov is None:
+        return load, rep_low, rep_high
+    if ov.override_type == OverrideType.LOAD:
+        if ov.load_absolute is not None:
+            load = ov.load_absolute
+        elif ov.load_delta is not None and load is not None:
+            load = load + ov.load_delta
+    elif ov.override_type == OverrideType.REPS:
+        if ov.rep_low is not None:
+            rep_low = ov.rep_low
+        if ov.rep_high is not None:
+            rep_high = ov.rep_high
+    return load, rep_low, rep_high
+
+
 def _is_ht_movement(movement: Movement) -> bool:
     """HT (band-composite) detection — mirrors validator._check_ht_safety."""
     return (movement.lift_category == LiftCategory.HIP_THRUST
@@ -163,7 +196,8 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                     rep_low: Optional[int] = None, rep_high: Optional[int] = None,
                     rpe_cap: Optional[float] = None,
                     band_inventory: Optional[List[Band]] = None,
-                    prospective_ht: Optional[Dict[int, Tuple[float, list]]] = None) -> PlannedExercise:
+                    prospective_ht: Optional[Dict[int, Tuple[float, list]]] = None,
+                    tier_exercise_id: Optional[int] = None) -> PlannedExercise:
     """Resolve load, compute sets, collect prospective load. Does NOT write DB."""
     state = ctx.movement_states.get(movement.id)
     objective = resolve_objective(movement.objective_override,
@@ -176,8 +210,15 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
         load = None
     else:
         load = clamp_to_cap(round_to_achievable(base, floor, step), movement.cap)
-        # Collect prospective load — caller must NOT write this to MovementState
+        # Collect prospective load — caller must NOT write this to MovementState.
+        # Captured BEFORE the slot-override adjustment below: a LOAD override is
+        # a prescription-only tweak (Option-C) and must never leak into the
+        # value that commit_session eventually writes to MovementState.current_load.
         prospective[movement.id] = load
+    # Task 1 (note-apply REDESIGN): apply an active LOAD/REPS override for this
+    # slot's TierExercise at prescription time — after the prospective load is
+    # captured, before it feeds _sets_for_scheme.
+    load, rep_low, rep_high = _apply_slot_override(db, tier_exercise_id, load, rep_low, rep_high)
     sets = _sets_for_scheme(movement.scheme, load, ctx,
                             rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap)
 
@@ -249,7 +290,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
         ex = _build_exercise(m, 0, ctx, db, prospective, is_anchor=True,
                              rep_low=meta.rep_low, rep_high=meta.rep_high,
                              rpe_cap=meta.rpe_cap,
-                             band_inventory=band_inventory, prospective_ht=prospective_ht)
+                             band_inventory=band_inventory, prospective_ht=prospective_ht,
+                             tier_exercise_id=meta.tier_exercise_id)
         group.exercises.append(ex)
         session.groups.append(group)
         order += 1
@@ -292,7 +334,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
             ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
-                                 band_inventory=band_inventory, prospective_ht=prospective_ht)
+                                 band_inventory=band_inventory, prospective_ht=prospective_ht,
+                                 tier_exercise_id=slot.tier_exercise_id)
             gg.exercises.append(ex)
         else:
             # knee / conditioning / accessory → own STRAIGHT group
@@ -307,7 +350,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
             ex = _build_exercise(m, 0, ctx, db, prospective,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
-                                 band_inventory=band_inventory, prospective_ht=prospective_ht)
+                                 band_inventory=band_inventory, prospective_ht=prospective_ht,
+                                 tier_exercise_id=slot.tier_exercise_id)
             group.exercises.append(ex)
             straight_groups.append(group)
 

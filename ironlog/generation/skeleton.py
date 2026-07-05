@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from sqlmodel import Session, select
 
+from ironlog.models.enums import OverrideType
 from ironlog.models.program import (
     MesoRotation, ProgramDay, SlotMovementOverride, Tier, TierExercise, TierKind,
 )
@@ -42,6 +43,9 @@ class SlotSpec:
     # AnchorSpec.shoe below) — carried alongside rest_seconds/group_key so the
     # assembler can set ExerciseGroup.shoe for the client's shoe-swap cue.
     shoe: Optional[str] = None
+    # Task 1 (note-apply REDESIGN): this slot's TierExercise.id, so the assembler
+    # can look up an active LOAD/REPS SlotMovementOverride at prescription time.
+    tier_exercise_id: Optional[int] = None
 
 
 @dataclass
@@ -58,6 +62,9 @@ class AnchorSpec:
     tier_label: Optional[str] = None
     # The source Tier's shoe label (display-only; the client's shoe-swap cue).
     shoe: Optional[str] = None
+    # Task 1 (note-apply REDESIGN): this anchor's TierExercise.id, so the assembler
+    # can look up an active LOAD/REPS SlotMovementOverride at prescription time.
+    tier_exercise_id: Optional[int] = None
 
 
 @dataclass
@@ -132,6 +139,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     rep_low=te.rep_low, rep_high=te.rep_high,
                     rpe_cap=te.rpe_cap, rest_seconds=tier.rest_seconds,
                     tier_label=tier.tier_label, shoe=tier.shoe,
+                    tier_exercise_id=te.id,
                 ))
             else:
                 adaptive_slots.append(SlotSpec(
@@ -144,6 +152,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     group_key=tier.tier_label,
                     rep_low=te.rep_low, rep_high=te.rep_high, rpe_cap=te.rpe_cap,
                     rest_seconds=tier.rest_seconds, shoe=tier.shoe,
+                    tier_exercise_id=te.id,
                 ))
 
     return Skeleton(
@@ -159,9 +168,17 @@ def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> i
 
     Precedence: active SlotMovementOverride > MesoRotation(meso_number) > te.movement_id.
     Base program (te.movement_id) is never mutated by this resolution.
+
+    Filters to override_type == MOVEMENT: SlotMovementOverride is now a general
+    slot override (Task 1, note-apply REDESIGN) that also carries LOAD/REPS
+    adjustments applied by the assembler at prescription time, NOT here. An
+    active LOAD/REPS row on the same tier_exercise_id must not be mistaken for
+    a movement swap (its override_movement_id is a harmless placeholder, not
+    the intended slot movement).
     """
     ov = db.exec(select(SlotMovementOverride).where(
         SlotMovementOverride.tier_exercise_id == te.id,
+        SlotMovementOverride.override_type == OverrideType.MOVEMENT,
         SlotMovementOverride.active == True)).first()  # noqa: E712
     if ov is not None:
         return ov.override_movement_id

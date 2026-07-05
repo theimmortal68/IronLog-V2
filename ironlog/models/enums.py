@@ -210,3 +210,15 @@ class BodyPosition(str, Enum):
     SINGLE_LEG_EXTENDED = "single_leg_extended"
     STRADDLE = "straddle"
     FULL = "full"
+
+
+class OverrideType(str, Enum):
+    """Kind of live-state slot override (note-apply REDESIGN task 1).
+
+    MOVEMENT: swap the slot's movement (the original, still-supported behavior).
+    LOAD: adjust the prescribed load at prescription time (delta or absolute).
+    REPS: adjust the prescribed rep target (rep_low/rep_high) at prescription time.
+    """
+    MOVEMENT = "MOVEMENT"
+    LOAD = "LOAD"
+    REPS = "REPS"
