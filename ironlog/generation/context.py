@@ -25,12 +25,12 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Callable, Dict, List, Set
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from ..engine.ledger import compute_tallies
 from ..engine.stall import detect_stall
 from ..engine.validator import WeeklyTallies
-from ..models.enums import Objective, Status
+from ..models.enums import NoteClass, Objective, Status
 from ..models.library import (
     E1rmHistory, EngineState, Movement, MovementState, PhasePolicy,
 )
@@ -329,11 +329,18 @@ def resolve_context(
     # Weak-point hints (stall detection, L1 soft)
     weak_hints = build_weak_point_hints(db)
 
-    # Open Notes: movement_id is set and note has not been applied
+    # Open Notes: movement_id is set, note has not been applied, AND the note is
+    # actionable (CONFIG_CHANGE / PROGRAMMING_REQUEST) — the same set the
+    # /notes/review inbox shows. JOURNAL and TRANSIENT_FLAG notes never enter the
+    # review inbox and are never touched by a terminal action, so they must not
+    # flag a movement for the proposer (see fix/note-flag-actionable-only).
     note_rows = db.exec(
         select(Note).where(
             Note.movement_id.is_not(None),
             Note.applied == False,  # noqa: E712 — SQLAlchemy == False is correct here
+            col(Note.classification).in_(
+                [NoteClass.CONFIG_CHANGE, NoteClass.PROGRAMMING_REQUEST]
+            ),
         )
     ).all()
     note_flagged: Set[int] = {
