@@ -46,22 +46,65 @@ def resolve_slot(note, db: DBSession) -> TierExercise:
     return matches[0]
 
 
-def apply_override(note, target_movement_id, db: DBSession) -> SlotMovementOverride:
-    """Resolve the note's program slot and create a live-state override that
-    swaps it to target_movement_id. Deterministic; NO LLM in this path.
+def apply_override(note, tier_exercise_id, override_type, db: DBSession, *,
+                    override_movement_id=None, load_delta=None, load_absolute=None,
+                    rep_low=None, rep_high=None) -> SlotMovementOverride:
+    """Create a live-state SlotMovementOverride for an EXPLICIT slot + override
+    the client has already confirmed. Deterministic; NO LLM in this path.
 
-    Raises SlotResolutionError (-> 404) if the target movement doesn't exist
-    or resolve_slot finds no matching slot; AmbiguousSlotError (-> 409) if
-    more than one slot matches. On success, stamps note.confirmed/applied.
+    Unlike the old note-based apply, this does NOT infer the slot from the
+    note (see resolve_slot, still used elsewhere) — the caller sends
+    tier_exercise_id directly, so there is no ambiguity to reject.
+
+    Raises SlotResolutionError (-> 404) if the TierExercise or (for MOVEMENT)
+    the target movement doesn't exist. Raises ValueError (-> 400) for a
+    malformed per-type payload (LOAD needs exactly one of load_delta /
+    load_absolute; REPS needs rep_low and/or rep_high). On success, stamps
+    note.confirmed/applied and returns the created override.
     """
     from ..models.library import Movement
+    from ..models.enums import OverrideType
 
-    if db.get(Movement, target_movement_id) is None:
-        raise SlotResolutionError(f"target movement {target_movement_id} not found")
-    te = resolve_slot(note, db)  # raises SlotResolutionError / AmbiguousSlotError
-    ov = SlotMovementOverride(
-        tier_exercise_id=te.id, override_movement_id=target_movement_id,
-        source_note_id=note.id, active=True)
+    te = db.get(TierExercise, tier_exercise_id)
+    if te is None:
+        raise SlotResolutionError(f"slot {tier_exercise_id} not found")
+
+    ot = OverrideType(override_type)  # raises ValueError -> caller maps 400
+
+    kw = dict(tier_exercise_id=tier_exercise_id, source_note_id=note.id,
+              active=True, override_type=ot)
+    if ot == OverrideType.MOVEMENT:
+        if override_movement_id is None or db.get(Movement, override_movement_id) is None:
+            raise SlotResolutionError("target movement not found")
+        kw["override_movement_id"] = override_movement_id
+    elif ot == OverrideType.LOAD:
+        if (load_delta is None) == (load_absolute is None):
+            raise ValueError("exactly one of load_delta / load_absolute required")
+        # override_movement_id is NOT NULL on the table (Task 1 convention): set
+        # it to the slot's own movement_id as a harmless placeholder, never read
+        # for a LOAD override.
+        kw["override_movement_id"] = te.movement_id
+        kw["load_delta"], kw["load_absolute"] = load_delta, load_absolute
+    elif ot == OverrideType.REPS:
+        if rep_low is None and rep_high is None:
+            raise ValueError("rep_low and/or rep_high required")
+        kw["override_movement_id"] = te.movement_id
+        kw["rep_low"], kw["rep_high"] = rep_low, rep_high
+
+    # Latest apply wins: supersede any prior ACTIVE override on the SAME slot of
+    # the SAME type before creating the new one. Without this, same-type rows
+    # stack silently — the assembler/skeleton lookups use an unordered .first(),
+    # so a later LOAD +15 would be dropped in favor of an earlier active LOAD +10,
+    # and both would list in /overrides. Same-type only: a MOVEMENT and a LOAD
+    # override on one slot still coexist (they're resolved independently).
+    for prior in db.exec(select(SlotMovementOverride).where(
+            SlotMovementOverride.tier_exercise_id == tier_exercise_id,
+            SlotMovementOverride.override_type == ot,
+            SlotMovementOverride.active == True)).all():  # noqa: E712
+        prior.active = False
+        db.add(prior)
+
+    ov = SlotMovementOverride(**kw)
     db.add(ov)
     note.confirmed = True
     note.applied = True

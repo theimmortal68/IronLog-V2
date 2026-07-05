@@ -40,13 +40,15 @@ def test_classify_session_notes_persists_classification_and_meta(monkeypatch):
     eng = _engine(monkeypatch)
     sid = _seed_session_with_note(eng, "switch flat bench to incline")
     result = NoteClassification(NoteClass.CONFIG_CHANGE,
-                                {"movement": "Bench", "action": "switch", "params": "incline"}, 0.9, "r")
+                                {"movement": "Bench", "action": "switch", "params": "incline"}, 0.9, "r",
+                                "SWAP")
     classify_session_notes(sid, classifier=_FakeClassifier(result))
     with DBSession(eng) as db:
         n = db.exec(select(Note)).one()
         assert n.classification == NoteClass.CONFIG_CHANGE
         assert n.classification_meta["proposed_change"]["movement"] == "Bench"
         assert n.classification_meta["confidence"] == 0.9
+        assert n.classification_meta["action_type"] == "SWAP"
 
 
 def test_classify_degrades_to_journal_on_failure(monkeypatch):

@@ -1,4 +1,9 @@
-"""tests/test_note_apply_endpoints.py — /notes/{id}/apply + /overrides list + revert."""
+"""tests/test_note_apply_endpoints.py — /notes/{id}/apply (explicit slot +
+MOVEMENT override) + /overrides list + revert. Updated for the note-apply
+redesign (Task 3): apply now takes an explicit tier_exercise_id + override_type
+from the client instead of resolving the slot from the note, so there is no
+more ambiguous-slot 409 case — see tests/test_note_apply_redesign_endpoints.py
+for the LOAD/REPS/validation coverage of the new contract."""
 from datetime import date
 
 from fastapi.testclient import TestClient
@@ -57,14 +62,22 @@ def _seed_bench_slot(engine):
                 "te_id": te.id, "tier_id": tier.id}
 
 
+def _apply_movement(client, note_id, te_id, target_movement_id):
+    return client.post(f"/notes/{note_id}/apply", json={
+        "tier_exercise_id": te_id, "override_type": "MOVEMENT",
+        "override_movement_id": target_movement_id,
+    })
+
+
 def test_apply_creates_active_override_and_marks_note():
     client, engine = _client()
     ctx = _seed_bench_slot(engine)
-    resp = client.post(f"/notes/{ctx['note_id']}/apply", json={"target_movement_id": ctx["incline_id"]})
+    resp = _apply_movement(client, ctx["note_id"], ctx["te_id"], ctx["incline_id"])
     assert resp.status_code == 200
     body = resp.json()
     assert body["tier_exercise_id"] == ctx["te_id"]
     assert body["override_movement_id"] == ctx["incline_id"]
+    assert body["override_type"] == "MOVEMENT"
 
     with DBSession(engine) as s:
         ov = s.exec(select(SlotMovementOverride)).one()
@@ -80,14 +93,14 @@ def test_apply_creates_active_override_and_marks_note():
 def test_overrides_list_shows_from_to_names():
     client, engine = _client()
     ctx = _seed_bench_slot(engine)
-    client.post(f"/notes/{ctx['note_id']}/apply", json={"target_movement_id": ctx["incline_id"]})
+    _apply_movement(client, ctx["note_id"], ctx["te_id"], ctx["incline_id"])
     body = client.get("/overrides").json()
     assert len(body) == 1
     row = body[0]
     assert row["day_role"] == "D1 Upper Push"
     assert row["tier_label"] == "T1"
     assert row["slot_id"] == "d1_t1"
-    assert row["from_movement_name"] == "Bench Press [PB]"
+    assert row["movement_name"] == "Bench Press [PB]"
     assert row["to_movement_name"] == "Incline Bench [PB]"
     app.dependency_overrides.clear()
 
@@ -95,7 +108,7 @@ def test_overrides_list_shows_from_to_names():
 def test_revert_deactivates_and_removes_from_list():
     client, engine = _client()
     ctx = _seed_bench_slot(engine)
-    apply_resp = client.post(f"/notes/{ctx['note_id']}/apply", json={"target_movement_id": ctx["incline_id"]})
+    apply_resp = _apply_movement(client, ctx["note_id"], ctx["te_id"], ctx["incline_id"])
     ov_id = apply_resp.json()["id"]
 
     revert_resp = client.post(f"/overrides/{ov_id}/revert")
@@ -113,7 +126,7 @@ def test_revert_deactivates_and_removes_from_list():
 def test_revert_is_idempotent():
     client, engine = _client()
     ctx = _seed_bench_slot(engine)
-    apply_resp = client.post(f"/notes/{ctx['note_id']}/apply", json={"target_movement_id": ctx["incline_id"]})
+    apply_resp = _apply_movement(client, ctx["note_id"], ctx["te_id"], ctx["incline_id"])
     ov_id = apply_resp.json()["id"]
     assert client.post(f"/overrides/{ov_id}/revert").status_code == 200
     assert client.post(f"/overrides/{ov_id}/revert").status_code == 200
@@ -123,7 +136,7 @@ def test_revert_is_idempotent():
 def test_apply_missing_note_404():
     client, engine = _client()
     ctx = _seed_bench_slot(engine)
-    resp = client.post("/notes/999999/apply", json={"target_movement_id": ctx["incline_id"]})
+    resp = _apply_movement(client, 999999, ctx["te_id"], ctx["incline_id"])
     assert resp.status_code == 404
     app.dependency_overrides.clear()
 
@@ -131,20 +144,19 @@ def test_apply_missing_note_404():
 def test_apply_unknown_target_movement_404():
     client, engine = _client()
     ctx = _seed_bench_slot(engine)
-    resp = client.post(f"/notes/{ctx['note_id']}/apply", json={"target_movement_id": 999999})
+    resp = _apply_movement(client, ctx["note_id"], ctx["te_id"], 999999)
     assert resp.status_code == 404
     app.dependency_overrides.clear()
 
 
-def test_apply_ambiguous_slot_409():
+def test_apply_unknown_tier_exercise_404():
+    """Superseded case for the old ambiguous-slot 409: apply now takes an
+    explicit tier_exercise_id from the client, so there is no slot inference
+    to be ambiguous about — an unresolvable slot is simply "not found"."""
     client, engine = _client()
     ctx = _seed_bench_slot(engine)
-    with DBSession(engine) as s:
-        s.add(TierExercise(tier_id=ctx["tier_id"], slot_id="d1_t1b", movement_id=ctx["bench_id"],
-                            exercise_order=2, tier_role="semi"))
-        s.commit()
-    resp = client.post(f"/notes/{ctx['note_id']}/apply", json={"target_movement_id": ctx["incline_id"]})
-    assert resp.status_code == 409
+    resp = _apply_movement(client, ctx["note_id"], 999999, ctx["incline_id"])
+    assert resp.status_code == 404
     app.dependency_overrides.clear()
 
 
@@ -156,10 +168,11 @@ def test_revert_missing_override_404():
 
 def test_apply_then_generate_slot_emits_target_movement():
     """End-to-end apply -> generate seam: applying a CONFIG_CHANGE note via the
-    HTTP endpoint creates a live override, and a subsequent lay_skeleton emits the
-    applied target movement for that slot (and only that slot), with base program
-    rows unmutated. This is the feature's central seam — previously covered only in
-    halves (apply endpoint OR skeleton override, never end to end)."""
+    HTTP endpoint (explicit slot + MOVEMENT override) creates a live override,
+    and a subsequent lay_skeleton emits the applied target movement for that
+    slot (and only that slot), with base program rows unmutated. This is the
+    feature's central seam — previously covered only in halves (apply endpoint
+    OR skeleton override, never end to end)."""
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     SQLModel.metadata.create_all(engine)
 
@@ -197,10 +210,11 @@ def test_apply_then_generate_slot_emits_target_movement():
         note = Note(session_id=ws.id, movement_id=bench.id, text="switch bench to incline",
                     classification=NoteClass.CONFIG_CHANGE)
         s.add(note); s.commit(); s.refresh(note)
-        ids = {"note": note.id, "bench": bench.id, "incline": incline.id, "curl": curl.id}
+        ids = {"note": note.id, "bench": bench.id, "incline": incline.id, "curl": curl.id,
+               "bench_te": bench_te.id}
 
-    # Apply via the HTTP endpoint.
-    resp = client.post(f"/notes/{ids['note']}/apply", json={"target_movement_id": ids["incline"]})
+    # Apply via the HTTP endpoint (explicit slot + MOVEMENT override).
+    resp = _apply_movement(client, ids["note"], ids["bench_te"], ids["incline"])
     assert resp.status_code == 200
 
     # Generate: the bench anchor slot now emits incline; the curl slot is unchanged.

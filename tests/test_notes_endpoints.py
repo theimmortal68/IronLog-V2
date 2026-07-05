@@ -24,7 +24,8 @@ def _client():
 def _seed_notes(engine):
     with DbSession(engine) as s:
         s.add(Note(text="switch bench to incline", classification=NoteClass.CONFIG_CHANGE,
-                   classification_meta={"proposed_change": {"movement": "Bench"}, "confidence": 0.9}))
+                   classification_meta={"proposed_change": {"movement": "Bench"}, "confidence": 0.9,
+                                        "action_type": "LOAD_INCREASE"}))
         s.add(Note(text="add more back work", classification=NoteClass.PROGRAMMING_REQUEST,
                    classification_meta={"proposed_change": None, "confidence": 0.6}))
         s.add(Note(text="felt strong", classification=NoteClass.JOURNAL))            # not in review
@@ -43,6 +44,21 @@ def test_review_lists_only_actionable_unconfirmed():
     cc = next(r for r in body if r["classification"] == "CONFIG_CHANGE")
     assert cc["proposed_change"]["movement"] == "Bench"
     assert cc["confidence"] == 0.9
+    app.dependency_overrides.clear()
+
+
+def test_review_surfaces_action_type_for_deterministic_apply_routing():
+    """/notes/review must surface classification_meta.action_type so the client
+    routes Apply deterministically (LOAD/MOVEMENT/REPS) instead of degrading to
+    keyword-matching. A note whose meta lacks action_type returns null (no crash)."""
+    client, engine = _client()
+    _seed_notes(engine)
+    body = client.get("/notes/review").json()
+    cc = next(r for r in body if r["classification"] == "CONFIG_CHANGE")
+    assert cc["action_type"] == "LOAD_INCREASE"
+    # PROGRAMMING_REQUEST seed has no action_type in its meta → null, not a crash.
+    pr = next(r for r in body if r["classification"] == "PROGRAMMING_REQUEST")
+    assert pr["action_type"] is None
     app.dependency_overrides.clear()
 
 
