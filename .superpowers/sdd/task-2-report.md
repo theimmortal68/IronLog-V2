@@ -8,7 +8,7 @@ Status: **completed**
 - `deploy/migrations/020_note_classification_meta.sql` — new, single-statement, purely-additive: `ALTER TABLE note ADD COLUMN classification_meta JSON;` (not applied to the live DB — build-and-test-only per task scope).
 - `ironlog/notes/classify.py` — added `classify_session_notes(session_id: int, classifier=None) -> None`. Opens its own `Session(engine)` (imports `engine` from `..db` lazily inside the function so tests can `monkeypatch.setattr(dbmod, "engine", eng)` before the call takes effect). Degrades to no-op on missing `GEMINI_API_KEY` (`NoteClassifier()` raises `ValueError` → caught → return), and to per-note `continue` on any classify exception. Never raises.
 - `ironlog/api/app.py` — imported `BackgroundTasks` from `fastapi` and `classify_session_notes` from `..notes.classify`; added `background_tasks: BackgroundTasks` param to `submit_session` (before the `db` default param, per FastAPI convention); added `background_tasks.add_task(classify_session_notes, session_id)` immediately after the `run_analysis(...)` call and before the final `return SubmitResponse(...)` — i.e. only on the fresh-submit path. The idempotent `already_completed` short-circuit (early return when `ws.status == SessionStatus.COMPLETED`) is untouched and does NOT schedule the task.
-- `tests/test_note_classify_persist.py` — new, per brief verbatim: persistence test (fake classifier returns a `NoteClassification`, asserts `classification` + `classification_meta["proposed_change"]["movement"]` + `classification_meta["confidence"]` persisted) and degradation test (fake classifier raises, asserts no exception propagates and the note is left as JOURNAL/None).
+- `tests/test_note_classify_persist.py` — new: persistence test (fake classifier returns a `NoteClassification`, asserts `classification` + `classification_meta["proposed_change"]["movement"]` + `classification_meta["confidence"]` persisted); per-note-failure degradation test (fake classifier raises → `continue`, note left JOURNAL/None); and no-key degradation test `test_classify_no_key_is_noop_not_error` (review-requested coverage: `delenv("GEMINI_API_KEY")` + `classifier=None` → `NoteClassifier()` raises `ValueError` → guard returns; asserts no raise, `classification` unchanged, `classification_meta is None`).
 
 ## Test commands + results
 
@@ -29,6 +29,19 @@ Status: **completed**
    ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
    ```
    Result: **378 passed**, 575 warnings (all pre-existing `datetime.utcnow()` deprecation warnings, unrelated to this change). Baseline after Task 1 was 376 → +2 matches the 2 new tests added here. No existing test broke; the `BackgroundTasks` param addition to `submit_session` did not alter the request/response contract (FastAPI injects it by type, not from the request body).
+
+### Follow-up (review-requested no-key coverage)
+
+Added `test_classify_no_key_is_noop_not_error` to close the untested degradation branch (b): no `GEMINI_API_KEY` → `classify_session_notes` no-ops entirely (the `try: NoteClassifier() except ValueError: return` guard).
+
+```
+ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classify_persist.py'
+```
+Result: **3 passed**, 6 warnings.
+```
+ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
+```
+Result: **379 passed**, 577 warnings (378 + this 1 test). No regressions.
 
 Also sanity-checked `ironlog.api.app` still imports cleanly after adding the `..notes.classify` import (no circular-import issue): `ssh myflix '.venv/bin/python -c "import ironlog.api.app"'` → OK.
 

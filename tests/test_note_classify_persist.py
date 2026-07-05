@@ -56,3 +56,14 @@ def test_classify_degrades_to_journal_on_failure(monkeypatch):
     with DBSession(eng) as db:
         n = db.exec(select(Note)).one()
         assert n.classification is None or n.classification == NoteClass.JOURNAL   # unchanged default
+
+
+def test_classify_no_key_is_noop_not_error(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    eng = _engine(monkeypatch)
+    sid = _seed_session_with_note(eng, "switch flat bench to incline")
+    classify_session_notes(sid)   # classifier=None -> NoteClassifier() raises ValueError; must not raise
+    with DBSession(eng) as db:
+        n = db.exec(select(Note)).one()
+        assert n.classification is None or n.classification == NoteClass.JOURNAL   # unchanged default
+        assert n.classification_meta is None
