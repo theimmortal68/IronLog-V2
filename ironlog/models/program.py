@@ -83,3 +83,15 @@ class MesoRotation(SQLModel, table=True):
     tier_exercise_id: int = Field(foreign_key="tierexercise.id")
     meso_number: int
     movement_id: int = Field(foreign_key="movement.id")
+
+
+class SlotMovementOverride(SQLModel, table=True):
+    """Live-state per-slot movement swap (note-driven). lay_skeleton honors an
+    active override for a TierExercise, taking precedence over MesoRotation and
+    the base movement. Base program is never mutated; revert = active=False."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tier_exercise_id: int = Field(foreign_key="tierexercise.id", index=True)
+    override_movement_id: int = Field(foreign_key="movement.id")
+    source_note_id: int = Field(foreign_key="note.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    active: bool = True
