@@ -7,6 +7,7 @@ from sqlmodel.pool import StaticPool
 
 import ironlog.models  # register tables
 from ironlog.api.app import app, get_session
+from ironlog.generation.skeleton import lay_skeleton
 from ironlog.models.enums import NoteClass
 from ironlog.models.library import Movement
 from ironlog.models.program import Program, ProgramDay, Tier, TierExercise, TierKind, SlotMovementOverride
@@ -150,4 +151,66 @@ def test_apply_ambiguous_slot_409():
 def test_revert_missing_override_404():
     client, _ = _client()
     assert client.post("/overrides/999999/revert").status_code == 404
+    app.dependency_overrides.clear()
+
+
+def test_apply_then_generate_slot_emits_target_movement():
+    """End-to-end apply -> generate seam: applying a CONFIG_CHANGE note via the
+    HTTP endpoint creates a live override, and a subsequent lay_skeleton emits the
+    applied target movement for that slot (and only that slot), with base program
+    rows unmutated. This is the feature's central seam — previously covered only in
+    halves (apply endpoint OR skeleton override, never end to end)."""
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+
+    def _override():
+        with DBSession(engine) as s:
+            yield s
+    app.dependency_overrides[get_session] = _override
+    client = TestClient(app)
+
+    # Seed a program day with a bench anchor slot + a second (unrelated) accessory
+    # slot, plus the apply-target movement and a CONFIG_CHANGE note on bench.
+    with DBSession(engine) as s:
+        prog = Program(name="Phase 1", phase="P1", duration_weeks=4)
+        s.add(prog); s.commit(); s.refresh(prog)
+        day = ProgramDay(program_id=prog.id, day_index=0, day_role="D1 Upper Push")
+        s.add(day); s.commit(); s.refresh(day)
+        t1 = Tier(program_day_id=day.id, tier_label="T1", tier_order=1, tier_kind=TierKind.T1_STRAIGHT)
+        t2 = Tier(program_day_id=day.id, tier_label="T2", tier_order=2, tier_kind=TierKind.ACCESSORY)
+        s.add(t1); s.add(t2); s.commit(); s.refresh(t1); s.refresh(t2)
+
+        bench = Movement(name="Bench Press [PB]", base_name="Bench Press")
+        incline = Movement(name="Incline Bench [PB]", base_name="Incline Bench")
+        curl = Movement(name="DB Curl [PB]", base_name="DB Curl")
+        s.add(bench); s.add(incline); s.add(curl); s.commit()
+        s.refresh(bench); s.refresh(incline); s.refresh(curl)
+
+        bench_te = TierExercise(tier_id=t1.id, slot_id="d1_t1", movement_id=bench.id,
+                                 exercise_order=1, tier_role="anchor")
+        curl_te = TierExercise(tier_id=t2.id, slot_id="d1_t2a", movement_id=curl.id,
+                                exercise_order=1, tier_role="semi")
+        s.add(bench_te); s.add(curl_te); s.commit(); s.refresh(bench_te); s.refresh(curl_te)
+
+        ws = WorkoutSession(date=date(2026, 7, 1), day_role="D1 Upper Push", phase="P1")
+        s.add(ws); s.commit(); s.refresh(ws)
+        note = Note(session_id=ws.id, movement_id=bench.id, text="switch bench to incline",
+                    classification=NoteClass.CONFIG_CHANGE)
+        s.add(note); s.commit(); s.refresh(note)
+        ids = {"note": note.id, "bench": bench.id, "incline": incline.id, "curl": curl.id}
+
+    # Apply via the HTTP endpoint.
+    resp = client.post(f"/notes/{ids['note']}/apply", json={"target_movement_id": ids["incline"]})
+    assert resp.status_code == 200
+
+    # Generate: the bench anchor slot now emits incline; the curl slot is unchanged.
+    with DBSession(engine) as s:
+        sk = lay_skeleton("D1 Upper Push", s, meso_number=1)
+        assert sk.anchor_movement_ids == [ids["incline"]], "applied slot emits the target movement"
+        curl_slot = next(x for x in sk.adaptive_slots if x.slot_id == "d1_t2a")
+        assert curl_slot.program_movement_id == ids["curl"], "unrelated slot is unaffected"
+        # Base program row is never mutated by an apply.
+        bench_te = s.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
+        assert bench_te.movement_id == ids["bench"]
+
     app.dependency_overrides.clear()

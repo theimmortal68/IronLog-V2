@@ -342,15 +342,19 @@ def resolve_context(
 
     owed = compute_owed_requirements(tallies)
 
-    # Task 5: build per-slot rep schemes from TierExercise records (informational)
+    # Task 5: build per-slot rep schemes from TierExercise records (informational).
+    # Key on the slot's stable identity (slot_id), NOT the movement_id: an active
+    # SlotMovementOverride or a meso-2 MesoRotation makes a slot's effective
+    # program_movement_id differ from its base TierExercise.movement_id, so a
+    # movement-keyed lookup would miss (rep_scheme None) or hit the wrong TE.
     from ..models.program import TierExercise
-    te_by_mid: Dict[int, TierExercise] = {
-        te.movement_id: te
+    te_by_slot: Dict[str, TierExercise] = {
+        te.slot_id: te
         for te in db.exec(select(TierExercise)).all()
     }
     slot_rep_schemes: Dict[str, dict] = {}
     for slot in skeleton.adaptive_slots:
-        te = te_by_mid.get(slot.program_movement_id)
+        te = te_by_slot.get(slot.slot_id)
         if te is not None:
             slot_rep_schemes[slot.slot_id] = {
                 "rep_low": te.rep_low,

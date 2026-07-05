@@ -85,3 +85,45 @@ None. The adaptive-branch behavior change (now honoring `MesoRotation` for non-a
 is a deliberate widening of `_effective_movement_id`'s use per the brief, and cross-checked
 against the seed data + an existing guard test that already implies this rotation should be
 honored — flagged above for visibility, not as an open risk.
+
+## Fix pass (whole-branch review, 2026-07-05)
+
+The whole-branch review found one Important latent bug that Task 2 *exposed* (did not
+introduce), plus requested an end-to-end integration test.
+
+**Bug — rep-scheme lookup keyed on movement, not slot identity** (`ironlog/generation/context.py`
+~line 345). `resolve_context` built `te_by_mid = {te.movement_id: te}` and looked up
+`te_by_mid.get(slot.program_movement_id)`. Pre–Task 2 the adaptive branch always emitted the
+base `te.movement_id`, so base == effective and the lookup always hit. Once adaptive-slot meso
+rotations and `SlotMovementOverride`s went live, a slot's `program_movement_id` can differ from
+its base movement → the movement-keyed lookup **misses** (`rep_scheme` becomes `None`) or, if the
+swapped movement coincides with a different slot's base, returns the **wrong** TE's rep scheme.
+Durable (survives reconcile), bites at meso 2.
+
+- **Fix:** re-keyed the lookup on the slot's stable identity —
+  `te_by_slot = {te.slot_id: te}`, looked up via `te_by_slot.get(slot.slot_id)`. `slot_id`
+  (e.g. `"d4_t2a"`) is globally unique across the program (day+tier+position) and carried on
+  both `SlotSpec` and `TierExercise`, so it is unaffected by movement swaps. No production
+  behavior change for the no-swap path; correct resolution for the swapped path.
+- **Regression test:** `tests/test_generation_context.py::test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation`
+  — at `meso_number=2`, D4's `d4_t2a` (Meadows Row → Pendlay Row rotation) resolves its
+  `rep_scheme` to that slot's own TE (`rep_low`/`rep_high`/`scheme`), not `None`/wrong.
+  **Verified the test catches the bug**: temporarily reverting `context.py` to the movement-keyed
+  lookup made this test fail (`rep_scheme is None`); restoring the slot-keyed fix makes it pass.
+
+**Integration test (Minor)** — `tests/test_note_apply_endpoints.py::test_apply_then_generate_slot_emits_target_movement`
+exercises the feature's central seam end to end: seeds a program day with a bench anchor slot
++ an unrelated accessory slot + a `CONFIG_CHANGE` note on bench; `POST /notes/{id}/apply` with
+an incline target via `TestClient`; then `lay_skeleton("D1 Upper Push", db, meso_number=1)` and
+asserts the bench slot emits incline, the accessory slot is unchanged, and the base
+`TierExercise.movement_id` row is unmutated.
+
+### Fix-pass test results
+```
+ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_generation_context.py tests/test_note_apply_endpoints.py'
+```
+→ **16 passed**.
+```
+ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
+```
+→ **403 passed** (baseline 401 + 2 new tests), 0 failed, 0 regressions.
