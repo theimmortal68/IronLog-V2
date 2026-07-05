@@ -36,6 +36,33 @@ def _default_http_client():
     return httpx.Client(timeout=60.0)
 
 
+def gemini_generate_json(api_key, model, system_instruction, user_text, response_schema, http) -> dict:
+    """POST a structured-output request to Gemini and return the parsed JSON object.
+    Raises ProposerError on unexpected response structure or non-JSON text."""
+    url = f"{_GEMINI_V1BETA}/{model}:generateContent"
+    body = {
+        "systemInstruction": {"parts": [{"text": system_instruction}]},
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseJsonSchema": response_schema,
+            "thinkingConfig": {"thinkingBudget": -1},
+        },
+    }
+    headers = {"x-goog-api-key": api_key}
+    resp = http.post(url, json=body, headers=headers)
+    resp.raise_for_status()
+    raw = resp.json()
+    try:
+        text = raw["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise ProposerError(f"Unexpected Gemini response structure: {exc!r}") from exc
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ProposerError(f"Gemini returned non-JSON text: {exc!r}") from exc
+
+
 class GeminiProposer:
     """Live Gemini proposer adapter.
 
@@ -67,50 +94,10 @@ class GeminiProposer:
         # httpx.Client (the lazy import keeps mocked/injected-client tests httpx-free).
         if self._http is None:
             self._http = _default_http_client()
-        http = self._http
-
-        url = f"{_GEMINI_V1BETA}/{self._model}:generateContent"
-        body = {
-            "systemInstruction": {"parts": [{"text": PROPOSER_SYSTEM_INSTRUCTION}]},
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": json.dumps(payload)}],
-                }
-            ],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "responseJsonSchema": SELECTIONS_JSON_SCHEMA,
-                "thinkingConfig": {"thinkingBudget": -1},
-            },
-        }
-        headers = {"x-goog-api-key": self._api_key}
-
-        resp = http.post(url, json=body, headers=headers)
-        resp.raise_for_status()
-        raw = resp.json()
-
-        return self._parse(raw)
-
-    def _parse(self, raw: dict) -> Selections:
-        try:
-            text = raw["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError, TypeError) as exc:
-            raise ProposerError(
-                f"Unexpected Gemini response structure: {exc!r}"
-            ) from exc
-
-        try:
-            obj = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ProposerError(
-                f"Gemini returned non-JSON text: {exc!r}"
-            ) from exc
-
+        obj = gemini_generate_json(
+            self._api_key, self._model, PROPOSER_SYSTEM_INSTRUCTION,
+            json.dumps(payload), SELECTIONS_JSON_SCHEMA, self._http)
         missing = _REQUIRED_KEYS - obj.keys()
         if missing:
-            raise ProposerError(
-                f"Gemini response missing required keys: {missing!r}"
-            )
-
+            raise ProposerError(f"Gemini response missing required keys: {missing!r}")
         return selections_from_dict(obj)

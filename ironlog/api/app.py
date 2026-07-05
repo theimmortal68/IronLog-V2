@@ -23,9 +23,9 @@ import uuid as _uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from ..db import engine
 from ..engine import next_set_load
@@ -33,6 +33,7 @@ from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
     SessionStatus, SetLog, ExerciseSurvey, Note, SetRole,
 )
+from ..notes.classify import classify_session_notes
 from .schemas_capture import (SubmitRequest, SubmitResponse,
                                SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut)
 from .schemas_wizard import (
@@ -261,7 +262,8 @@ _TAP_REQUIRED_ROLES = {SetRole.WORKING, SetRole.TOP, SetRole.BACKOFF}
 
 
 @app.post("/sessions/{session_id}/submit", response_model=SubmitResponse)
-def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(get_session)):
+def submit_session(session_id: int, req: SubmitRequest, background_tasks: BackgroundTasks,
+                   db: Session = Depends(get_session)):
     """Atomic offline-batch completion: validate taps -> write SetLogs/surveys/
     notes -> PLANNED->COMPLETED -> run_analysis. Idempotent on session_id."""
     from ..models.session import Session as WorkoutSession
@@ -322,9 +324,69 @@ def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(ge
     # genuinely fails here that should surface as a real error, not a silent 200.
     run_analysis(session_id, db, _week_keyer)
 
+    background_tasks.add_task(classify_session_notes, session_id)
+
     written = len(db.exec(select(SetLog).where(SetLog.session_id == session_id)).all())
     return SubmitResponse(session_id=session_id, status=SessionStatus.COMPLETED.value,
                           set_logs_written=written, already_completed=False)
+
+
+# ---------------------------------------------------------------------------
+# Notes review path (note-confirm, Task 3)
+# ---------------------------------------------------------------------------
+
+class NoteReviewOut(BaseModel):
+    id: int
+    session_id: Optional[int] = None
+    movement_id: Optional[int] = None
+    created_at: str
+    text: str
+    classification: str
+    proposed_change: Optional[dict] = None
+    confidence: Optional[float] = None
+
+
+@app.get("/notes/review", response_model=List[NoteReviewOut])
+def get_notes_review(db: Session = Depends(get_session)):
+    """Unconfirmed change-proposals (CONFIG_CHANGE / PROGRAMMING_REQUEST), newest first."""
+    from ..models.session import Note
+    rows = db.exec(
+        select(Note).where(
+            Note.confirmed == False,  # noqa: E712
+            col(Note.classification).in_([NoteClass.CONFIG_CHANGE, NoteClass.PROGRAMMING_REQUEST]),
+        ).order_by(col(Note.id).desc())
+    ).all()
+    out = []
+    for n in rows:
+        meta = n.classification_meta or {}
+        out.append(NoteReviewOut(
+            id=n.id, session_id=n.session_id, movement_id=n.movement_id,
+            created_at=n.created_at.isoformat(), text=n.text,
+            classification=n.classification.value,
+            proposed_change=meta.get("proposed_change"), confidence=meta.get("confidence")))
+    return out
+
+
+@app.post("/notes/{note_id}/confirm")
+def confirm_note(note_id: int, db: Session = Depends(get_session)):
+    from ..models.session import Note
+    n = db.get(Note, note_id)
+    if n is None:
+        raise HTTPException(404, "note not found")
+    n.confirmed = True
+    db.add(n); db.commit()
+    return {"id": note_id, "confirmed": True}
+
+
+@app.post("/notes/{note_id}/dismiss")
+def dismiss_note(note_id: int, db: Session = Depends(get_session)):
+    from ..models.session import Note
+    n = db.get(Note, note_id)
+    if n is None:
+        raise HTTPException(404, "note not found")
+    n.classification = NoteClass.JOURNAL
+    db.add(n); db.commit()
+    return {"id": note_id, "dismissed": True}
 
 
 # ---------------------------------------------------------------------------
