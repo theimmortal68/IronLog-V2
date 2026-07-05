@@ -385,6 +385,7 @@ def dismiss_note(note_id: int, db: Session = Depends(get_session)):
     if n is None:
         raise HTTPException(404, "note not found")
     n.classification = NoteClass.JOURNAL
+    n.applied = True
     db.add(n); db.commit()
     return {"id": note_id, "dismissed": True}
 

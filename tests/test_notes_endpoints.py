@@ -67,6 +67,21 @@ def test_dismiss_reclassifies_journal():
     app.dependency_overrides.clear()
 
 
+def test_dismiss_sets_applied_true():
+    # A dismissed note must be marked applied=True so it stops flagging the
+    # movement as deviation-eligible (Task 2 fix — dismiss previously only
+    # reclassified to JOURNAL without setting applied).
+    client, engine = _client()
+    _seed_notes(engine)
+    cc_id = client.get("/notes/review").json()[0]["id"]
+    assert client.post(f"/notes/{cc_id}/dismiss").status_code == 200
+    with DbSession(engine) as s:
+        n = s.get(Note, cc_id)
+        assert n.applied is True
+        assert n.classification == NoteClass.JOURNAL
+    app.dependency_overrides.clear()
+
+
 def test_confirm_dismiss_404():
     client, _ = _client()
     assert client.post("/notes/999999/confirm").status_code == 404
