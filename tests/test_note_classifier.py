@@ -35,12 +35,40 @@ def _envelope(obj):
 def test_config_change_extracts_proposed_change():
     obj = {"classification": "CONFIG_CHANGE",
            "proposed_change": {"movement": "Bench Press", "action": "switch", "params": "to incline"},
-           "confidence": 0.9, "rationale": "asks to switch bench to incline"}
+           "confidence": 0.9, "rationale": "asks to switch bench to incline",
+           "action_type": "SWAP"}
     clf = NoteClassifier("k", http=_FakeHTTP(_envelope(obj)))
     r = clf.classify("switch flat bench to incline")
     assert r.classification == NoteClass.CONFIG_CHANGE
     assert r.proposed_change["movement"] == "Bench Press"
     assert r.confidence == 0.9
+    assert r.action_type == "SWAP"
+
+
+@pytest.mark.parametrize("action_type", ["SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "OTHER"])
+def test_action_type_round_trips_for_each_enum_value(action_type):
+    obj = {"classification": "CONFIG_CHANGE",
+           "proposed_change": {"movement": "Belt Squat", "action": "bump", "params": "+10"},
+           "confidence": 0.8, "rationale": "r", "action_type": action_type}
+    clf = NoteClassifier("k", http=_FakeHTTP(_envelope(obj)))
+    r = clf.classify("some note")
+    assert r.action_type == action_type
+
+
+def test_unknown_action_type_defaults_to_other():
+    obj = {"classification": "CONFIG_CHANGE",
+           "proposed_change": {"movement": "Bench Press", "action": "switch", "params": None},
+           "confidence": 0.9, "rationale": "r", "action_type": "NONSENSE"}
+    clf = NoteClassifier("k", http=_FakeHTTP(_envelope(obj)))
+    r = clf.classify("switch flat bench to incline")
+    assert r.action_type == "OTHER"
+
+
+def test_missing_action_type_defaults_to_other():
+    obj = {"classification": "JOURNAL", "confidence": 0.5, "rationale": "log"}
+    clf = NoteClassifier("k", http=_FakeHTTP(_envelope(obj)))
+    r = clf.classify("felt good")
+    assert r.action_type == "OTHER"
 
 
 @pytest.mark.parametrize("cls", ["TRANSIENT_FLAG", "PROGRAMMING_REQUEST", "JOURNAL"])

@@ -127,3 +127,78 @@ ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_generatio
 ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
 ```
 → **403 passed** (baseline 401 + 2 new tests), 0 failed, 0 regressions.
+
+---
+
+## Note-apply REDESIGN plan — Task 2: Classifier `action_type` (2026-07-05)
+
+**This is a distinct task, unrelated to the slot-override work above.** The redesign plan
+(`.superpowers/plans/2026-07-05-note-apply-redesign.md`) restarted task numbering; its own
+Task 2 landed here because the brief (`task-2-brief.md`) pointed at this report path. Appended
+per this repo's established pattern of appending fix-wave sections to the same `task-N-report.md`
+rather than creating a new file per micro-task.
+
+Status: **DONE**
+Branch: `feat/note-apply-redesign`
+
+### Objective
+The apply UI needs to route by action (swap vs load vs reps) deterministically. The Gemini note
+classifier (`ironlog/notes/classify.py`) previously returned only free-text `action` inside
+`proposed_change`; it now also emits a structured `action_type` enum so the UI can route
+without parsing free text.
+
+### Changes
+- `ironlog/notes/classify.py`:
+  - `NOTE_CLASSIFICATION_SCHEMA`: added `action_type` (`enum`: `SWAP`, `LOAD_INCREASE`,
+    `LOAD_DECREASE`, `REP_CHANGE`, `OTHER`), added to `required`.
+  - `NOTE_SYSTEM_INSTRUCTION`: instructs the model to classify the action into that enum
+    (SWAP = replace movement; LOAD_INCREASE/DECREASE = load too light/heavy;
+    REP_CHANGE = different rep target; OTHER = anything else, incl. non-CONFIG_CHANGE).
+    `proposed_change.movement` stays the extracted subject movement regardless of `action_type`.
+  - `NoteClassification` dataclass: added `action_type: str = "OTHER"` (new field, default
+    keeps old 4-positional-arg call sites — e.g. `tests/test_note_classify_persist.py` prior to
+    this change — working unchanged... except that test was itself extended, see below).
+  - `NoteClassifier.classify()`: parses `obj.get("action_type")`, maps any value not in
+    `{SWAP, LOAD_INCREASE, LOAD_DECREASE, REP_CHANGE, OTHER}` (including absent/`None`) to
+    `"OTHER"` — mirrors the existing unknown-`classification`→error / missing-field defaulting
+    pattern used elsewhere in this function.
+  - `classify_session_notes()`: `classification_meta` now includes an `"action_type"` key
+    alongside `proposed_change`/`confidence`/`rationale`.
+- `tests/test_note_classifier.py`: extended —
+  - `test_config_change_extracts_proposed_change` now also asserts `action_type == "SWAP"`.
+  - `test_action_type_round_trips_for_each_enum_value` (parametrized SWAP/LOAD_INCREASE/
+    LOAD_DECREASE/REP_CHANGE/OTHER) — each canned Gemini response round-trips through `classify()`.
+  - `test_unknown_action_type_defaults_to_other` — a bogus `action_type` string from Gemini
+    degrades to `"OTHER"` rather than raising.
+  - `test_missing_action_type_defaults_to_other` — an absent `action_type` key (e.g. an older
+    prompt/response shape) defaults to `"OTHER"`.
+- `tests/test_note_classify_persist.py`: `test_classify_session_notes_persists_classification_and_meta`
+  extended to pass `action_type="SWAP"` into the `NoteClassification(...)` call and assert
+  `note.classification_meta["action_type"] == "SWAP"` is persisted.
+
+`GeminiProposer` (the generation path, `ironlog/generation/gemini.py`) was not touched.
+
+### TDD sequence
+1. Wrote the failing tests first (7 new/extended assertions across the two test files).
+2. Confirmed failure:
+   ```
+   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classifier.py tests/test_note_classify_persist.py'
+   ```
+   → 9 failed, 9 passed (all failures were `AttributeError: no attribute 'action_type'` or the
+   `NoteClassification.__init__()` positional-arg-count `TypeError`, as expected pre-implementation).
+3. Implemented the schema/instruction/dataclass/parse/persist changes above.
+4. Re-ran targeted + regression:
+   ```
+   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classifier.py tests/test_note_classify_persist.py tests/test_generation_gemini.py'
+   ```
+   → **24 passed**, 0 failed.
+5. Full suite:
+   ```
+   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
+   ```
+   → **415 passed** (baseline 408 + 7 new tests), 0 failed, 0 regressions.
+
+### Concerns
+None. `action_type` is additive to the schema/dataclass/persisted JSON — no existing consumer
+of `classification_meta` asserts an exact key set, and the `NoteClassification` field has a
+default so no other call site needed updating besides the one deliberately extended above.

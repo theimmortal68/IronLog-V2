@@ -21,6 +21,13 @@ NOTE_SYSTEM_INSTRUCTION = (
     "- TRANSIENT_FLAG: a passing physical/readiness state (e.g. 'shoulder tweaked today').\n"
     "- JOURNAL: a log/observation with no request (e.g. 'felt strong').\n"
     "For CONFIG_CHANGE, extract the proposed change (movement, action, params). "
+    "Also classify the action itself into EXACTLY ONE action_type:\n"
+    "- SWAP: replace the movement with a different one (e.g. 'switch flat bench to incline').\n"
+    "- LOAD_INCREASE: the current load is too light and should go up (e.g. 'bump belt squat +10').\n"
+    "- LOAD_DECREASE: the current load is too heavy and should come down (e.g. 'drop OHP weight').\n"
+    "- REP_CHANGE: a different rep target/scheme is requested (e.g. 'drop OHP to 3x8').\n"
+    "- OTHER: anything else, including any note that is not a CONFIG_CHANGE.\n"
+    "proposed_change.movement stays the extracted subject movement regardless of action_type. "
     "Return confidence 0..1 and a one-line rationale."
 )
 
@@ -39,11 +46,17 @@ NOTE_CLASSIFICATION_SCHEMA = {
                 "params": {"type": ["string", "null"]},
             },
         },
+        "action_type": {
+            "type": "string",
+            "enum": ["SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "OTHER"],
+        },
         "confidence": {"type": "number"},
         "rationale": {"type": "string"},
     },
-    "required": ["classification", "confidence", "rationale"],
+    "required": ["classification", "action_type", "confidence", "rationale"],
 }
+
+_ACTION_TYPES = {"SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "OTHER"}
 
 
 @dataclass
@@ -52,6 +65,7 @@ class NoteClassification:
     proposed_change: Optional[dict]
     confidence: float
     rationale: str
+    action_type: str = "OTHER"
 
 
 class NoteClassifier:
@@ -74,11 +88,15 @@ class NoteClassifier:
             cls = NoteClass(obj["classification"])
         except (KeyError, ValueError) as exc:
             raise ProposerError(f"bad classification value: {exc!r}") from exc
+        action_type = obj.get("action_type")
+        if action_type not in _ACTION_TYPES:
+            action_type = "OTHER"
         return NoteClassification(
             classification=cls,
             proposed_change=obj.get("proposed_change"),
             confidence=float(obj.get("confidence", 0.0)),
             rationale=obj.get("rationale", ""),
+            action_type=action_type,
         )
 
 
@@ -108,6 +126,7 @@ def classify_session_notes(session_id: int, classifier=None) -> None:
                 "proposed_change": result.proposed_change,
                 "confidence": result.confidence,
                 "rationale": result.rationale,
+                "action_type": result.action_type,
             }
             db.add(note)
         db.commit()
