@@ -400,29 +400,77 @@ def dismiss_note(note_id: int, db: Session = Depends(get_session)):
 # ---------------------------------------------------------------------------
 
 class ApplyNoteRequest(BaseModel):
-    target_movement_id: int
+    tier_exercise_id: int
+    override_type: str
+    override_movement_id: Optional[int] = None
+    load_delta: Optional[float] = None
+    load_absolute: Optional[float] = None
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None
 
 
 @app.post("/notes/{note_id}/apply")
 def apply_note(note_id: int, req: ApplyNoteRequest, db: Session = Depends(get_session)):
     from ..models.session import Note
-    from ..notes.apply import apply_override, SlotResolutionError, AmbiguousSlotError
+    from ..notes.apply import apply_override, SlotResolutionError
     n = db.get(Note, note_id)
     if n is None:
         raise HTTPException(404, "note not found")
     try:
-        ov = apply_override(n, req.target_movement_id, db)
-    except AmbiguousSlotError as e:
-        raise HTTPException(409, str(e))
+        ov = apply_override(
+            n, req.tier_exercise_id, req.override_type, db,
+            override_movement_id=req.override_movement_id,
+            load_delta=req.load_delta, load_absolute=req.load_absolute,
+            rep_low=req.rep_low, rep_high=req.rep_high)
     except SlotResolutionError as e:
         raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return {"id": ov.id, "tier_exercise_id": ov.tier_exercise_id,
-            "override_movement_id": ov.override_movement_id, "note_id": note_id}
+            "override_type": ov.override_type.value,
+            "override_movement_id": ov.override_movement_id,
+            "load_delta": ov.load_delta, "load_absolute": ov.load_absolute,
+            "rep_low": ov.rep_low, "rep_high": ov.rep_high, "note_id": note_id}
+
+
+@app.get("/programs/{program_id}/slots")
+def get_program_slots(program_id: int, db: Session = Depends(get_session)):
+    """List the program's exercise slots (day/tier/movement/current rep target)
+    — the read surface the client uses to send an explicit apply target instead
+    of relying on the server to infer a slot from a note."""
+    from ..models.program import ProgramDay, Tier, TierExercise
+
+    day_ids = db.exec(
+        select(ProgramDay.id).where(ProgramDay.program_id == program_id)
+    ).all()
+    out = []
+    for day_id in day_ids:
+        day = db.get(ProgramDay, day_id)
+        tiers = db.exec(select(Tier).where(Tier.program_day_id == day_id)).all()
+        for tier in tiers:
+            tes = db.exec(
+                select(TierExercise).where(TierExercise.tier_id == tier.id)
+                .order_by(TierExercise.exercise_order)
+            ).all()
+            for te in tes:
+                mv = db.get(Movement, te.movement_id)
+                out.append({
+                    "tier_exercise_id": te.id,
+                    "slot_id": te.slot_id,
+                    "day_role": day.day_role,
+                    "tier_label": tier.tier_label,
+                    "movement_id": te.movement_id,
+                    "movement_name": (mv.name if mv else None),
+                    "current_rep_low": te.rep_low,
+                    "current_rep_high": te.rep_high,
+                })
+    return out
 
 
 @app.get("/overrides")
 def list_overrides(db: Session = Depends(get_session)):
     from ..models.program import SlotMovementOverride, TierExercise, Tier, ProgramDay
+    from ..models.enums import OverrideType
     rows = db.exec(select(SlotMovementOverride).where(
         SlotMovementOverride.active == True).order_by(SlotMovementOverride.id.desc())).all()  # noqa: E712
     out = []
@@ -431,13 +479,24 @@ def list_overrides(db: Session = Depends(get_session)):
         tier = db.get(Tier, te.tier_id) if te else None
         day = db.get(ProgramDay, tier.program_day_id) if tier else None
         frm = db.get(Movement, te.movement_id) if te else None
-        to = db.get(Movement, ov.override_movement_id)
-        out.append({"id": ov.id, "day_role": (day.day_role if day else None),
-                    "tier_label": (tier.tier_label if tier else None),
-                    "slot_id": (te.slot_id if te else None),
-                    "from_movement_name": (frm.name if frm else None),
-                    "to_movement_name": (to.name if to else None),
-                    "source_note_id": ov.source_note_id})
+        note = db.get(Note, ov.source_note_id)
+        row = {"id": ov.id, "day_role": (day.day_role if day else None),
+               "tier_label": (tier.tier_label if tier else None),
+               "slot_id": (te.slot_id if te else None),
+               "override_type": ov.override_type.value,
+               "movement_name": (frm.name if frm else None),
+               "source_note_id": ov.source_note_id,
+               "source_note_text": (note.text if note else None)}
+        if ov.override_type == OverrideType.MOVEMENT:
+            to = db.get(Movement, ov.override_movement_id)
+            row["to_movement_name"] = (to.name if to else None)
+        elif ov.override_type == OverrideType.LOAD:
+            row["load_delta"] = ov.load_delta
+            row["load_absolute"] = ov.load_absolute
+        elif ov.override_type == OverrideType.REPS:
+            row["rep_low"] = ov.rep_low
+            row["rep_high"] = ov.rep_high
+        out.append(row)
     return out
 
 
