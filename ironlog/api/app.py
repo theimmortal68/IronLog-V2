@@ -23,7 +23,7 @@ import uuid as _uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -33,6 +33,7 @@ from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
     SessionStatus, SetLog, ExerciseSurvey, Note, SetRole,
 )
+from ..notes.classify import classify_session_notes
 from .schemas_capture import (SubmitRequest, SubmitResponse,
                                SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut)
 from .schemas_wizard import (
@@ -261,7 +262,8 @@ _TAP_REQUIRED_ROLES = {SetRole.WORKING, SetRole.TOP, SetRole.BACKOFF}
 
 
 @app.post("/sessions/{session_id}/submit", response_model=SubmitResponse)
-def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(get_session)):
+def submit_session(session_id: int, req: SubmitRequest, background_tasks: BackgroundTasks,
+                   db: Session = Depends(get_session)):
     """Atomic offline-batch completion: validate taps -> write SetLogs/surveys/
     notes -> PLANNED->COMPLETED -> run_analysis. Idempotent on session_id."""
     from ..models.session import Session as WorkoutSession
@@ -321,6 +323,8 @@ def submit_session(session_id: int, req: SubmitRequest, db: Session = Depends(ge
     # In production EngineState + MovementState always exist; if run_analysis
     # genuinely fails here that should surface as a real error, not a silent 200.
     run_analysis(session_id, db, _week_keyer)
+
+    background_tasks.add_task(classify_session_notes, session_id)
 
     written = len(db.exec(select(SetLog).where(SetLog.session_id == session_id)).all())
     return SubmitResponse(session_id=session_id, status=SessionStatus.COMPLETED.value,

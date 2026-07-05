@@ -127,6 +127,7 @@ class Note(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     text: str
     classification: Optional[NoteClass] = None
+    classification_meta: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     confirmed: bool = False
     applied: bool = False
 

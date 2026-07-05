@@ -80,3 +80,34 @@ class NoteClassifier:
             confidence=float(obj.get("confidence", 0.0)),
             rationale=obj.get("rationale", ""),
         )
+
+
+def classify_session_notes(session_id: int, classifier=None) -> None:
+    """Background: classify every Note in a session via Gemini and persist the result.
+    Opens its OWN DB session (the request session is closed post-response). Degrades to
+    leaving a note as JOURNAL on any per-note failure or a missing key; never raises."""
+    from sqlmodel import Session, select  # noqa: PLC0415
+    from ..db import engine  # noqa: PLC0415
+    from ..models.session import Note  # noqa: PLC0415
+
+    if classifier is None:
+        try:
+            classifier = NoteClassifier()
+        except ValueError:
+            return  # no GEMINI_API_KEY -> leave notes JOURNAL
+
+    with Session(engine) as db:
+        notes = db.exec(select(Note).where(Note.session_id == session_id)).all()
+        for note in notes:
+            try:
+                result = classifier.classify(note.text)
+            except Exception:
+                continue  # degrade: leave this note as-is (JOURNAL default)
+            note.classification = result.classification
+            note.classification_meta = {
+                "proposed_change": result.proposed_change,
+                "confidence": result.confidence,
+                "rationale": result.rationale,
+            }
+            db.add(note)
+        db.commit()
