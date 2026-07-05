@@ -91,6 +91,19 @@ def apply_override(note, tier_exercise_id, override_type, db: DBSession, *,
         kw["override_movement_id"] = te.movement_id
         kw["rep_low"], kw["rep_high"] = rep_low, rep_high
 
+    # Latest apply wins: supersede any prior ACTIVE override on the SAME slot of
+    # the SAME type before creating the new one. Without this, same-type rows
+    # stack silently — the assembler/skeleton lookups use an unordered .first(),
+    # so a later LOAD +15 would be dropped in favor of an earlier active LOAD +10,
+    # and both would list in /overrides. Same-type only: a MOVEMENT and a LOAD
+    # override on one slot still coexist (they're resolved independently).
+    for prior in db.exec(select(SlotMovementOverride).where(
+            SlotMovementOverride.tier_exercise_id == tier_exercise_id,
+            SlotMovementOverride.override_type == ot,
+            SlotMovementOverride.active == True)).all():  # noqa: E712
+        prior.active = False
+        db.add(prior)
+
     ov = SlotMovementOverride(**kw)
     db.add(ov)
     note.confirmed = True

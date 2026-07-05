@@ -9,7 +9,11 @@ axis (LOAD / REPS) and the assembler application point.
 NO from __future__ import annotations (project-wide constraint).
 gen_db / gen_db_calibrated fixtures auto-discovered from conftest.py.
 """
-from sqlmodel import select
+import importlib
+
+from fastapi.testclient import TestClient
+from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel.pool import StaticPool
 
 from ironlog.generation.assembler import assemble
 from ironlog.generation.context import resolve_context
@@ -50,6 +54,146 @@ def _other_slot_loads(res):
         for g in res.session.groups if g.label != "T1"
         for e in g.exercises for ps in e.planned_sets
     ]
+
+
+def _calibrated_staticpool_engine():
+    """A fully seeded (103-movement library + Phase 1 program) + calibrated DB on
+    a StaticPool engine so an in-memory SQLite DB is shared across threads — the
+    TestClient runs the ASGI app in a worker thread, which a default-pool
+    in-memory engine would not share. Mirrors the conftest gen_db + calibration
+    setup, but thread-safe for HTTP tests."""
+    from datetime import datetime
+
+    from ironlog.generation.load_trust import load_field_for_mode
+    from ironlog.generation.program_seed import seed_phase1_program
+
+    eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    import ironlog.db as db
+    db.engine = eng
+    import ironlog.seed as seed
+    importlib.reload(seed)
+    seed.engine = eng
+    seed.seed()
+    now = datetime.utcnow()
+    with Session(eng) as s:
+        seed_phase1_program(s)
+        states = {st.movement_id: st for st in s.exec(select(MovementState)).all()}
+        for m in s.exec(select(Movement)).all():
+            field = load_field_for_mode(m.progression_mode)
+            if field is None:
+                continue
+            st = states.get(m.id) or MovementState(movement_id=m.id)
+            if getattr(st, field) is None:
+                setattr(st, field, 100.0 if field == "current_load" else 0.0)
+            st.confirmed_at = now
+            s.add(st)
+        s.commit()
+    return eng
+
+
+def _http_client(eng):
+    from ironlog.api.app import app, get_session
+
+    def _override():
+        with Session(eng) as s:
+            yield s
+    app.dependency_overrides[get_session] = _override
+    return TestClient(app), app
+
+
+def test_same_slot_same_type_apply_supersedes_prior_override(gen_db_calibrated):
+    """Latest apply wins: applying LOAD +10 then LOAD +15 on the SAME slot must
+    leave exactly ONE active override (the +15); the +10 is deactivated. Without
+    the deactivate-prior fix both rows stay active and the assembler's unordered
+    .first() silently prescribes the older +10. Covers apply_override directly +
+    the /overrides list (one row) + the assembler outcome (engine_load + 15)."""
+    from ironlog.notes.apply import apply_override
+
+    gen_db = gen_db_calibrated
+    te = gen_db.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
+    note = Note(text="bump bench")
+    gen_db.add(note); gen_db.commit(); gen_db.refresh(note)
+
+    engine_load = _t1_planned_set(_assemble(gen_db)).target_load
+    assert engine_load is not None
+
+    first = apply_override(note, te.id, "LOAD", gen_db, load_delta=10)
+    second = apply_override(note, te.id, "LOAD", gen_db, load_delta=15)
+
+    # Exactly one active override on the slot — the +15 — and the +10 is off.
+    active = gen_db.exec(select(SlotMovementOverride).where(
+        SlotMovementOverride.tier_exercise_id == te.id,
+        SlotMovementOverride.override_type == OverrideType.LOAD,
+        SlotMovementOverride.active == True)).all()  # noqa: E712
+    assert len(active) == 1
+    assert active[0].id == second.id
+    assert active[0].load_delta == 15
+    gen_db.refresh(first)
+    assert first.active is False
+
+    # The assembler prescribes the LATEST override (+15), not the superseded +10.
+    assert _t1_planned_set(_assemble(gen_db)).target_load == engine_load + 15
+
+
+def test_supersede_reflected_in_overrides_list_http():
+    """The /overrides HTTP list shows just the one active (latest) override after
+    a same-slot same-type re-apply — the superseded row is filtered out."""
+    eng = _calibrated_staticpool_engine()
+    client, app = _http_client(eng)
+    try:
+        with Session(eng) as s:
+            te = s.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
+            note = Note(text="bump bench")
+            s.add(note); s.commit(); s.refresh(note)
+            te_id, note_id = te.id, note.id
+
+        assert client.post(f"/notes/{note_id}/apply", json={
+            "tier_exercise_id": te_id, "override_type": "LOAD", "load_delta": 10}).status_code == 200
+        assert client.post(f"/notes/{note_id}/apply", json={
+            "tier_exercise_id": te_id, "override_type": "LOAD", "load_delta": 15}).status_code == 200
+
+        body = client.get("/overrides").json()
+        assert len(body) == 1
+        assert body[0]["override_type"] == "LOAD"
+        assert body[0]["load_delta"] == 15
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_http_load_apply_then_generate_seam():
+    """Chained HTTP LOAD apply -> generate seam (LOAD equivalent of the MOVEMENT
+    test_apply_then_generate_slot_emits_target_movement): POST a LOAD +10 apply
+    via the endpoint, then run the real lay_skeleton -> resolve_context ->
+    assemble path and assert the applied slot's prescribed target_load ==
+    engine_load + 10, with every other slot unchanged."""
+    eng = _calibrated_staticpool_engine()
+
+    # Baseline engine load for the d1_t1 slot (no override yet).
+    with Session(eng) as s:
+        baseline = _assemble(s)
+        engine_load = _t1_planned_set(baseline).target_load
+        baseline_others = _other_slot_loads(baseline)
+        assert engine_load is not None
+
+        te = s.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
+        note = Note(text="bump bench +10")
+        s.add(note); s.commit(); s.refresh(note)
+        te_id, note_id = te.id, note.id
+
+    client, app = _http_client(eng)
+    try:
+        resp = client.post(f"/notes/{note_id}/apply", json={
+            "tier_exercise_id": te_id, "override_type": "LOAD", "load_delta": 10})
+        assert resp.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+    with Session(eng) as s:
+        after = _assemble(s)
+        assert _t1_planned_set(after).target_load == engine_load + 10, \
+            "the HTTP-applied LOAD override must flow through generate to the prescription"
+        assert _other_slot_loads(after) == baseline_others, \
+            "a LOAD override on d1_t1 must not affect any other slot"
 
 
 def test_load_and_reps_override_apply_at_prescription(gen_db_calibrated):
