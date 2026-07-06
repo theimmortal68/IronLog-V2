@@ -14,7 +14,8 @@ from ironlog.models.library import (
 )
 from ironlog.models.program import ProgramDay, Tier, TierExercise
 from ironlog.models.session import (
-    ExerciseSurvey, Note, Session as WorkoutSession, SetLog,
+    ExerciseGroup, ExerciseSurvey, Note, PlannedExercise, PlannedSet,
+    Session as WorkoutSession, SetLog,
 )
 
 # slot_id -> ("load"|"assist"|"ht", value, band_label_or_None)
@@ -32,7 +33,7 @@ BASELINES = {
     "d1_t2b": ("load", 55, None), "d1_t2c": ("load", 25, None),
     "d1_t3b": ("load", 12.5, None), "d1_t3c": ("load", 60, None),
     "d1_t4a": ("load", 100, None), "d1_t4c": ("load", 10, None),
-    "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 180, "#0 Orange"),
+    "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 205, "#0 Orange"),
     "d2_t2a": ("assist", 20, None), "d2_t2b": ("load", 180, None),
     "d2_t3a": ("load", 25, None), "d2_t3b": ("load", 25, None),
     "d4_t2a": ("load", 35, None), "d4_t2b": ("load", 40, None),
@@ -98,12 +99,21 @@ def reset_transactional_and_state(db: Session) -> None:
     (current_load / assist_level / ht_plates / ht_band_config / calibration_status).
 
     Deletes all rows of: SetLog, ExerciseSurvey, Note, GenerationLog,
+    PlannedSet, PlannedExercise, ExerciseGroup (session scaffolding),
     WorkoutSession (the `Session` table model — not sqlmodel.Session, the
     db connection), E1rmHistory. Clears MovementState's derived-state fields.
     Resets EngineState.current_phase to CUT (keeps bodyweight).
     """
-    # children referencing session_id first, WorkoutSession (the parent) last
-    for model in (SetLog, ExerciseSurvey, Note, GenerationLog, E1rmHistory, WorkoutSession):
+    # children referencing session_id (or chained via it) first, WorkoutSession
+    # (the parent) last: SetLog/ExerciseSurvey/Note/GenerationLog/E1rmHistory
+    # reference session_id directly; PlannedSet -> PlannedExercise ->
+    # ExerciseGroup -> session_id is the scaffolding chain (must delete
+    # leaf-to-root or a non-fresh DB is left with orphaned rows pointing at a
+    # deleted session).
+    for model in (
+        SetLog, ExerciseSurvey, Note, GenerationLog, E1rmHistory,
+        PlannedSet, PlannedExercise, ExerciseGroup, WorkoutSession,
+    ):
         db.exec(delete(model))
 
     for st in db.exec(select(MovementState)).all():

@@ -11,13 +11,15 @@ produces a valid, non-fallback session for all three banded HT days.
 Expected plates are the assembler's PROGRESSED values (assemble() always
 prescribes the next HT setup via ht_next_setup, band_composite.py — same
 progression proven directly in test_generation_day_scoped_state.py), not the
-raw seeded baselines: D2 185 (Orange, bottom 203), D5 165 (swaps Orange ->
-Red since 205+5=210 plates + Orange bottom 18 = 228 exceeds ht_next_setup's
-own 220 write-path clamp, landing on Red bottom 165+36=201), D6 160 (Orange,
-bottom 178). D5's pre-swap Orange bottom (205+18=223) is exactly the case
-that motivates raising ValidationContext.ht_bottom_clamp 220->225 — this test
-proves it no longer HT_BAND_NOT_REGISTERED/HT_BOTTOM_OVER_LIMIT rejects
-anywhere along the path, for any of the three days' band assignments.
+raw seeded baselines: D2 and D5 both seed at 205 (2026-07-06 athlete
+directive: D2 raised 180->205 to match D5), so both swap Orange -> Red
+identically, since 205+5=210 plates + Orange bottom 18 = 228 exceeds
+ht_next_setup's own 220 write-path clamp, landing on Red bottom 165+36=201
+for each. D6 stays at 160 (Orange, bottom 178). D5/D2's pre-swap Orange
+bottom (205+18=223) is exactly the case that motivates raising
+ValidationContext.ht_bottom_clamp 220->225 — this test proves it no longer
+HT_BAND_NOT_REGISTERED/HT_BOTTOM_OVER_LIMIT rejects anywhere along the path,
+for any of the three days' band assignments.
 
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
@@ -44,7 +46,7 @@ WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
 def test_banded_ht_generates_valid_all_days(gen_db):
     seed_movement_baselines(gen_db)
     for role, plates in [
-        ("D2 Lower A", 185),
+        ("D2 Lower A", 165),
         ("D5 Lower B", 165),
         ("D6 Weak Points", 160),
     ]:

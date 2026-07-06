@@ -30,7 +30,7 @@ days:
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
       {m: belt_squat, reps: [6,8], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T1b: {group_key: "T1b", rest: 150, shoe: "Metcon 9", anchor: true, ex: [
-      {m: hip_thrust_d2, reps: [8,8], rule: rule_driven, ht_plates: 180, ht_band_config: [orange]}]}  # peak 225, bottom 198
+      {m: hip_thrust_d2, reps: [8,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223 (<225 clamp)
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: assisted_nordic_curl_d2, reps: [8,8], rule: incline_reduction, assist_level: 20, assist_ladder: [20,15,10,5,0]},
       {m: scout_reverse_hyper_bilateral_d2, reps: [15,15], rule: rep_ladder, load: 180, rep_target: 15, rep_ladder: [15,18,20,22,25], ceiling: true}]}
