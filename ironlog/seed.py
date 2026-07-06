@@ -215,6 +215,12 @@ MOVEMENTS = [
          load_code="REV_HYPER", tags=["REV_HYPER"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.STRAIGHT,
          load_floor=0, cap=90, family="reverse_hyper", primary_muscle="GLUTES", secondary_muscles=["HAMSTRINGS", "SPINAL_ERECTORS"]),
+    dict(name="Reverse Hyper - Single Leg [REV_HYPER]", base_name="Reverse Hyper - Single Leg",
+         region=Region.LOWER, lift_category=LiftCategory.REV_HYPER, status=Status.ACTIVE,
+         load_code="REV_HYPER", tags=["REV_HYPER"], unilateral=True,
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         load_floor=0, family="reverse_hyper",
+         primary_muscle="GLUTES", secondary_muscles=["HAMSTRINGS", "SPINAL_ERECTORS"]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Lower accessories — LADDER / DOUBLE_PROGRESSION  (ACTIVE)
@@ -389,6 +395,11 @@ MOVEMENTS = [
          region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
          progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
          min_step=2.5, load_floor=10, primary_muscle="REAR_DELT", secondary_muscles=["UPPER_TRAPS"]),
+    dict(name="Face Pull [FT]", base_name="Face Pull",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5], min_step=2.5, load_floor=10,
+         primary_muscle="REAR_DELT", secondary_muscles=["UPPER_TRAPS"]),
     dict(name="Heavy Lat Pulldown [FT]", base_name="Heavy Lat Pulldown",
          region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
@@ -581,7 +592,7 @@ MOVEMENTS = [
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, primary_muscle="BICEPS", secondary_muscles=[]),
     # Dips: BW/protocol on the Andreoni dip station → load_code=None
     dict(name="Dips [ANDREONI + FT]", base_name="Dips",
-         region=Region.UPPER, status=Status.INACTIVE,
+         region=Region.UPPER, status=Status.ACTIVE,
          load_code=None, tags=["ANDREONI", "FT"],
          progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT, primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
     # EZ curl family (all INACTIVE; grip variants ride the Medium anchor at 1.0)
@@ -615,7 +626,7 @@ MOVEMENTS = [
          increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="BICEPS", secondary_muscles=[]),
     # Lat Prayer uses single-stack FT (not ANDREONI dual despite bracket)
     dict(name="Lat Prayer [ANDREONI + FT]", base_name="Lat Prayer",
-         region=Region.UPPER, status=Status.INACTIVE,
+         region=Region.UPPER, status=Status.ACTIVE,
          load_code="FT", tags=["ANDREONI", "FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, primary_muscle="LATS", secondary_muscles=[]),

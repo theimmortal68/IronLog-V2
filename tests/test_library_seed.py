@@ -40,14 +40,18 @@ def _all(s):
 
 
 def test_total_count_103(seeded):
-    assert len(_all(seeded)) == 108
+    # go-live Task 1 added 2 movements (Face Pull [FT], Reverse Hyper -
+    # Single Leg [REV_HYPER]): 108 -> 110.
+    assert len(_all(seeded)) == 110
 
 
 def test_status_counts(seeded):
     from collections import Counter
     c = Counter(m.status for m in _all(seeded))
-    assert c[Status.ACTIVE] == 99
-    assert c[Status.INACTIVE] == 8
+    # go-live Task 1: +2 new ACTIVE movements, +2 ACTIVE-flips (Lat Prayer,
+    # Dips) pulled out of INACTIVE: 99 -> 103, 8 -> 6.
+    assert c[Status.ACTIVE] == 103
+    assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 
 
@@ -110,6 +114,25 @@ def test_load_progression_has_increment_source(seeded):
         has_step = (m.min_step is not None) or (eq is not None and eq.min_step is not None)
         assert has_step, f"{m.name} progresses load but has no increment source"
         assert m.load_floor is not None, f"{m.name} progresses load but has no load_floor"
+
+
+def test_golive_library_additions(gen_db):
+    from ironlog.models.library import Movement
+    from ironlog.models.enums import Status
+    from sqlmodel import select
+    by_name = {m.name: m for m in gen_db.exec(select(Movement)).all()}
+    # new movements
+    assert "Face Pull [FT]" in by_name
+    assert "Reverse Hyper - Single Leg [REV_HYPER]" in by_name
+    slscout = by_name["Reverse Hyper - Single Leg [REV_HYPER]"]
+    assert slscout.unilateral is True
+    # Movement has no `load_code` attribute (that's a seed.py-only dict key
+    # consumed into load_equipment_id/equipment_tags at seed time) — assert
+    # the persisted equivalent instead.
+    assert "REV_HYPER" in slscout.equipment_tags
+    # ACTIVE flips (live-programmed movements)
+    assert by_name["Lat Prayer [ANDREONI + FT]"].status == Status.ACTIVE
+    assert by_name["Dips [ANDREONI + FT]"].status == Status.ACTIVE
 
 
 def test_sissy_squat_single_continuous_track(seeded):
