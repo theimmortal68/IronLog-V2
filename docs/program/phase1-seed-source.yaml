@@ -1,6 +1,6 @@
 # IronLog Phase-1 Program — authoritative seed source (Wk-1 baselines locked from test-week execution)
 # Source of truth for the config-seed reconciliation (docs/superpowers/specs/2026-07-04-config-seed-reconciliation-design.md).
-# D1/D2/D4/D5 executed + locked; D6 = PLACEHOLDER (fill from Saturday's session).
+# D1/D2/D4/D5/D6 executed + locked (D6 = Sat 2026-07-05 session).
 # Conventions: T1 primaries rep_low=6/rep_high=8. HT = plates + band_config (band-composite live). rpe_cap default 8.
 # Shoes: Metcon 9 (flat), Adipower II (heeled), Cloud X4 (Z2, not engine).
 
@@ -66,16 +66,16 @@ days:
       {m: cable_tib_raise_d5, reps: [12,15], rule: rpe_8_standard, load: 30},  # INDEPENDENT from d2 (25); d5=30
       {m: hyper_pro_calf_raise, reps: [10,15], rule: rpe_8_standard, load: 245}]}
 
-  d6:  # Weak Points — PLACEHOLDER: fill loads from Saturday's session. Structure/rules known:
+  d6:  # Weak Points — EXECUTED Sat 2026-07-05, loads locked. Z2 (backward 3min@5°@1.5 / forward 12min@5°@3.0) deferred (not engine-managed).
     GS1: {group_key: "GS1", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: pull_up_d6, reps: [5,8], rule: pull_up_rolling_max},
-      {m: dips, reps: [8,12], rule: rep_ladder},  # BW rep-ladder until 3x12, then weighted
-      {m: hip_thrust_d6, reps: [12,12], rule: rule_driven, ht_plates: 130, ht_band_config: [orange, green_mini]}]}  # D5x0.80 derivative, peak ~192
+      {m: pull_up_d6, reps: [5,8], rule: pull_up_rolling_max},  # Wk1 Set1 max = 7 (PR), 7/6/6 unassisted; red_band assist
+      {m: dips, reps: [8,12], rule: rpe_8_standard, load: 150, load_type: cable},  # CORRECTED: cable-loaded RPE-8 (Andreoni bar + Ares cable), not BW rep-ladder
+      {m: hip_thrust_d6, reps: [12,12], rule: rule_driven_fixed_increment, ht_plates: 155, ht_band_config: [orange]}]}  # D5x0.80 (~192 target); 155 bar + Orange Shorty Monster = peak 200 / bottom 173 (<220 GMWD cap); Wk1 executed 200 plates-only (misload), Wk2+ banded
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: t_bar_row_wide_kleva, reps: [8,10], rule: rpe_8_standard, load: null},   # TEST Wk1
-      {m: db_seal_row, reps: [10,12], rule: rpe_8_standard, load: null},           # TEST Wk1
-      {m: lateral_raise_ares, reps: [12,15], rule: rpe_8_standard, load: null}]}   # TEST Wk1
+      {m: reverse_hyper_recovery, reps: [15,20], rule: fixed_load, load: 90, rpe_cap: 6},  # MOVED from GS3
+      {m: db_seal_row, reps: [10,12], rule: rpe_8_standard, load: 30},   # 30/hand
+      {m: lateral_raise_ares, reps: [10,15], rule: rpe_8_standard, load: 10}]}
     GS3: {group_key: "GS3", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: face_pull, reps: [12,15], rule: rpe_8_standard, load: null},             # TEST Wk1
-      {m: cable_v_bar_pushdown, reps: [8,12], rule: single_session_progression, load: null},  # TEST Wk1
-      {m: reverse_hyper_recovery, reps: [15,20], rule: fixed_load, load: 90, rpe_cap: 6}]}
+      {m: face_pull, reps: [12,15], rule: rpe_8_standard, load: 30},
+      {m: cable_v_bar_pushdown, reps: [8,12], rule: single_session_progression, load: 60},
+      {m: t_bar_row_wide_kleva, reps: [8,10], rule: rpe_8_standard, load: 105}]}  # MOVED from GS2

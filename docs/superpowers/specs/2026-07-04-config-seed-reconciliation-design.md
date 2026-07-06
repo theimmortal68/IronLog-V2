@@ -30,7 +30,9 @@ Transcribe each day's tiers/movements/rules into `_seed_dN`, keyed to the locked
 - **D2:** Belt-Squat 260(rep-ladder cap) / **HT 180 plates + [Orange]** (band-composite; rule_driven) / Nordic 20°(incline-reduction) / Scout-RH 180(rep-ladder) / ATG-Split-Squat 25 / Cable-Tib 25.
 - **D4:** Pull-up(rolling-max, 2-phase) / Meadows 35 / SA-DB-Row 40 (T2/T3 swap applied) / Face-Up-Knee 10°(ladder starts 10°) / DB-Rear-Delt 10 / Andreoni-Pullover 70 / Dragon-Flag tuck(body-position). Shoes Metcon 9.
 - **D5:** RDL 255 (meso: conventional→staggered) / **HT 205 plates + [Orange]** / Bulgarian 30 / Scout-RH-bilateral 180 / **Scout-RH-single-leg (Meso 2) = separate movement id, 70/side banked** / Nordic-light 25° / Poliquin 20 / Reverse-Nordic 20-assist(assistance-reduction) / Cable-Tib **30** (independent from D2's 25) / Calf 245. **Shoe swap: Metcon 9 → Adipower II at T3.**
-- **D6:** *placeholder — fill from Saturday's session* (Pull-up weekly-max / Dips(BW rep-ladder) / **HT 130 plates + [Orange] + green-mini** (D5×0.80 derivative) / Kleva-T-Bar / DB-Seal-Row / Lateral-Raise / Face-Pull / V-Bar-Pushdown(single-session) / Reverse-Hyper-Recovery 90(fixed)).
+- **D6:** *FILLED — Sat 2026-07-05 (authoritative in `docs/program/phase1-seed-source.yaml`).* GS1: Pull-up(rolling-max, red-band assist, Wk1 Set1 max 7 PR) / **Dips 150 CABLE, rpe_8_standard** (CORRECTED — not BW rep-ladder) / **HT 155 plates + [Orange] Shorty Monster = peak 200 / bottom 173** (D5×0.80 ~192 target; Wk1 ran 200 plates-only MISLOAD, Wk2+ banded), rule_driven_fixed_increment, reps 12. GS2: Reverse-Hyper-Recovery 90(fixed, rpe 6) *(moved from GS3)* / DB-Seal-Row 30 / Lateral-Raise 10 (reps 10–15). GS3: **Face-Pull 30 (NEW library movement "Face Pull [FT]")** / V-Bar-Pushdown 60(single-session) / T-Bar-Row-Wide 105 *(moved from GS2)*. **Cross-Body Rear Delt Fly DROPPED from D6** (not in executed session). Z2 (backward 3′@5°@1.5 / forward 12′@5°@3.0) deferred — not engine-managed.
+
+**Go-live decisions (2026-07-06):** (1) Face Pull → seed a new plain **"Face Pull [FT]"** library movement (not the existing ER-Hold variant). (2) Cross-Body Rear Delt Fly dropped from D6. (3) **Seed all D1–D6 `MovementState` baselines directly** (current_load + HT ht_plates/ht_band_config) from the locked YAML values — go-live comes up fully calibrated, no wizard (the wizard has no HT plates/band path anyway).
 
 **HT band-config seeding:** each HT gets `ht_plates` + `ht_band_config = [orange_band_id]` (D2/D5) or `[orange, green-mini]` (D6). Independent per-`(movement,day)` tracks (D2/D5 HT separate).
 
@@ -51,4 +53,4 @@ Per day: `generate_session(day_role)` → assert **clean tier order** (T1, T1b, 
 - Update `program_seed._seed_d1..d6` + a `reconcile_and_reset(db)` routine; a runnable script (like `scripts/reconcile_phase1.py`).
 - Deterministic + idempotent where possible; the reset is a wipe (disposable pre-launch) — **once real Week-1 logging starts, this is NOT re-runnable** (the backup/pull-before-push discipline resumes).
 - NO `from __future__ import annotations`; no schema change (all fields exist from prior chunks).
-- **Blocked on D6 seed data** (Sat) to fill `_seed_d6` + D6 `MovementState`; D1/D2/D4/D5 buildable now.
+- ~~Blocked on D6 seed data~~ **UNBLOCKED 2026-07-06** — D6 filled in the YAML; buildable now.
