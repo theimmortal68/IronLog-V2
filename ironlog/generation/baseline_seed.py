@@ -6,11 +6,16 @@ or HT ht_plates + ht_band_config = [orange band id]. Idempotent upsert on
 """
 from typing import Dict, Optional
 
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
-from ironlog.models.enums import CalibrationStatus
-from ironlog.models.library import BandPair, MovementState
+from ironlog.models.enums import CalibrationStatus, Phase
+from ironlog.models.library import (
+    BandPair, E1rmHistory, EngineState, GenerationLog, MovementState,
+)
 from ironlog.models.program import ProgramDay, Tier, TierExercise
+from ironlog.models.session import (
+    ExerciseSurvey, Note, Session as WorkoutSession, SetLog,
+)
 
 # slot_id -> ("load"|"assist"|"ht", value, band_label_or_None)
 BASELINES = {
@@ -75,4 +80,35 @@ def seed_movement_baselines(db: Session) -> None:
                 raise ValueError(f"band not seeded: {band_label}")
             st.ht_plates = value
             st.ht_band_config = [band_id]
+    db.commit()
+
+
+def reset_transactional_and_state(db: Session) -> None:
+    """Wipe logged/transactional data + derived MovementState fields for a
+    go-live on a non-fresh DB, WITHOUT touching seeded calibrated baselines
+    (current_load / assist_level / ht_plates / ht_band_config / calibration_status).
+
+    Deletes all rows of: SetLog, ExerciseSurvey, Note, GenerationLog,
+    WorkoutSession (the `Session` table model — not sqlmodel.Session, the
+    db connection), E1rmHistory. Clears MovementState's derived-state fields.
+    Resets EngineState.current_phase to CUT (keeps bodyweight).
+    """
+    # children referencing session_id first, WorkoutSession (the parent) last
+    for model in (SetLog, ExerciseSurvey, Note, GenerationLog, E1rmHistory, WorkoutSession):
+        db.exec(delete(model))
+
+    for st in db.exec(select(MovementState)).all():
+        st.e1rm = None
+        st.e1rm_updated_at = None
+        st.consecutive_ceiling_sessions = 0
+        st.consecutive_failed_progressions = 0
+        st.consecutive_advance_count = 0
+        st.stall_signal = None
+        st.active_rule = None
+        st.unassisted_max_rolling = None
+
+    es = db.exec(select(EngineState)).first()
+    if es is not None:
+        es.current_phase = Phase.CUT
+
     db.commit()
