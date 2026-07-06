@@ -40,8 +40,9 @@ def _proposer_for(day_role, db):
 
 
 def test_reps_and_rest_from_bench_anchor(gen_db):
-    """Bench (d1_t1, T1 anchor, STRAIGHT scheme) -> 3 WORKING sets at 8/8, group
-    rest_seconds == 120 (from the Tier), not the old hardcoded 8-12."""
+    """Bench (d1_t1, T1 anchor, STRAIGHT scheme) -> 3 WORKING sets at 6/8 (YAML
+    reconciliation), group rest_seconds == 120 (from the Tier), not the old
+    hardcoded 8-12."""
     out = generate_session("D1 Upper Push", gen_db, _proposer_for("D1 Upper Push", gen_db), _week_keyer)
     assert out.exhausted is False
     sess = out.assembled.session
@@ -51,7 +52,7 @@ def test_reps_and_rest_from_bench_anchor(gen_db):
 
     assert len(ex.planned_sets) == 3
     for ps in ex.planned_sets:
-        assert (ps.target_reps_low, ps.target_reps_high) == (8, 8)
+        assert (ps.target_reps_low, ps.target_reps_high) == (6, 8)
     assert group.group_type == GroupType.STRAIGHT
     assert group.rest_seconds == 120
 
@@ -71,7 +72,7 @@ def test_rest_seconds_propagated_giant_set(gen_db):
 
 
 def test_rpe_from_reverse_hyper_recovery_cap(gen_db):
-    """RevHyper-Recovery (d6_g3c, TierExercise.rpe_cap=6.0) -> every WORKING set's
+    """RevHyper-Recovery (d6_g2a, TierExercise.rpe_cap=6.0) -> every WORKING set's
     target_rpe == 6.0, not the phase-policy band default."""
     out = generate_session("D6 Weak Points", gen_db, _proposer_for("D6 Weak Points", gen_db), _week_keyer)
     assert out.exhausted is False
@@ -84,7 +85,7 @@ def test_rpe_from_reverse_hyper_recovery_cap(gen_db):
     for ps in ex.planned_sets:
         assert ps.target_rpe == 6.0
     assert group.group_type == GroupType.GIANT_SET
-    assert group.rest_seconds == 60
+    assert group.rest_seconds == 90   # Reverse Hyper Recovery moved GS3→GS2 (rest 90)
 
 
 def test_unilateral_surfaces_in_session_detail(gen_db):

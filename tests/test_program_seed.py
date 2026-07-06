@@ -35,7 +35,9 @@ def test_each_training_day_has_a_t1_anchor(gen_db):
 
 
 def test_knee_frequencies_are_satisfiable(gen_db):
-    # tib 2x (D2+D5), nordic 2x, KOT 2x, sissy 1x — count distinct days per modality
+    # tib 2x (D2+D5), nordic 2x, KOT 2x — count distinct days per modality.
+    # (SISSY dropped from the program in the YAML reconciliation: D5 T3 slot-2
+    # is now Reverse Nordic (assisted), a KOT modality, not Sissy Squat.)
     rows = gen_db.exec(
         select(ProgramDay.day_role, TierExercise.knee_modality)
         .join(Tier, Tier.program_day_id == ProgramDay.id)
@@ -48,7 +50,6 @@ def test_knee_frequencies_are_satisfiable(gen_db):
     assert len(days_per[KneeModality.TIB]) >= 2, "tib must appear on >=2 days"
     assert len(days_per[KneeModality.NORDIC]) >= 2
     assert len(days_per[KneeModality.KOT]) >= 2
-    assert len(days_per[KneeModality.SISSY]) >= 1
 
 
 def test_every_tier_exercise_resolves_to_a_library_movement(gen_db):

@@ -28,7 +28,7 @@ days:
 
   d2:  # Lower A — shoe: Metcon 9 (no swap)
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      {m: belt_squat, reps: [6,8], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true}]}
+      {m: belt_squat, reps: [6,8], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T1b: {group_key: "T1b", rest: 150, shoe: "Metcon 9", anchor: true, ex: [
       {m: hip_thrust_d2, reps: [8,8], rule: rule_driven, ht_plates: 180, ht_band_config: [orange]}]}  # peak 225, bottom 198
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
@@ -42,7 +42,7 @@ days:
     T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
       {m: pull_up_d4, reps: [6,8], rule: pull_up_rolling_max}]}  # 2-phase; milestone (6->all-unassisted Wk2) MANUAL
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: meadows_row_bruno_bar, reps: [10,10], rule: rpe_8_standard, load: 35, unilateral: true},
+      {m: meadows_row_bruno_bar, reps: [10,10], rule: rpe_8_standard, load: 35, unilateral: true, meso: {2: pendlay_row}},
       {m: single_arm_db_row, reps: [12,12], rule: rpe_8_standard, load: 40, unilateral: true},
       {m: face_up_incline_knee_raise_d4, reps: [12,12], rule: incline_reduction, assist_level: 10, assist_ladder: [10,5,0]}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
