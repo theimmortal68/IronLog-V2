@@ -18,16 +18,25 @@ from ironlog.models.session import (
 )
 
 # slot_id -> ("load"|"assist"|"ht", value, band_label_or_None)
+#
+# d1_t2c / d4_t2c (Face-Up Incline Knee Raise) are seeded "load" not "assist":
+# the movement's progression_mode is LADDER (ironlog/seed.py), so resolve_start_load
+# reads current_load, not assist_level. The design doc's "Face-Up-Knee 25°"/"10°"
+# values (docs/superpowers/specs/2026-07-04-config-seed-reconciliation-design.md)
+# are the movement's own LADDER progression value (incline setting, tracked like
+# any other current_load scalar) — seeding them as assist_level left the field
+# resolver blind to them (Task 7 go-live verify caught this: both slots came back
+# needs-calibration despite having a seeded value in the wrong field).
 BASELINES = {
     "d1_t1": ("load", 165, None), "d1_t2a": ("load", 170, None),
-    "d1_t2b": ("load", 55, None), "d1_t2c": ("assist", 25, None),
+    "d1_t2b": ("load", 55, None), "d1_t2c": ("load", 25, None),
     "d1_t3b": ("load", 12.5, None), "d1_t3c": ("load", 60, None),
     "d1_t4a": ("load", 100, None), "d1_t4c": ("load", 10, None),
     "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 180, "#0 Orange"),
     "d2_t2a": ("assist", 20, None), "d2_t2b": ("load", 180, None),
     "d2_t3a": ("load", 25, None), "d2_t3b": ("load", 25, None),
     "d4_t2a": ("load", 35, None), "d4_t2b": ("load", 40, None),
-    "d4_t2c": ("assist", 10, None), "d4_t3a": ("load", 10, None),
+    "d4_t2c": ("load", 10, None), "d4_t3a": ("load", 10, None),
     "d4_t3b": ("load", 70, None),
     "d5_t1": ("load", 255, None), "d5_t1b": ("ht", 205, "#0 Orange"),
     "d5_t2a": ("load", 30, None), "d5_t2b": ("load", 180, None),
