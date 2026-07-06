@@ -118,3 +118,9 @@ def test_d5_lower_b_meso2_anchor_is_staggered_rdl(gen_db):
     ).one()
     assert staggered.id in sk.anchor_movement_ids, \
         "D5 Lower B meso-2 anchor must be Staggered RDL (meso rotation fired)"
+
+
+def test_mesorotation_has_rep_override_fields(gen_db):
+    from ironlog.models.program import MesoRotation
+    cols = MesoRotation.__table__.columns.keys()
+    assert "rep_low" in cols and "rep_high" in cols
