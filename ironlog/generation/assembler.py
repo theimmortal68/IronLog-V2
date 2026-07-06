@@ -233,15 +233,21 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:
         cur_plates, cur_config = _resolve_ht_current_setup(state, load)
         by_id = {b.id: b for b in band_inventory}
-        new_plates, new_config = ht_next_setup(cur_plates, cur_config, band_inventory)
-        peak = config_peak(new_plates, new_config, by_id)
+        # Prescribe the CURRENT seeded setup on the planned sets — no auto-advance
+        # at prescription time (2026-07-06 athlete directive: Week 1 shows exactly
+        # the seeded setup). Advancement is TIMED at commit, not prescription.
+        cur_peak = config_peak(cur_plates, cur_config, by_id)
         for ps in sets:
-            ps.target_plates = new_plates
-            ps.band_config = list(new_config)
-            ps.target_felt_peak = peak
+            ps.target_plates = cur_plates
+            ps.band_config = list(cur_config)
+            ps.target_felt_peak = cur_peak
             ps.target_load = None
         if prospective_ht is not None:
-            prospective_ht[movement.id] = (new_plates, list(new_config))
+            # Stage the NEXT setup so commit_session advances MovementState AFTER
+            # this session is logged — session N prescribes current, commit moves
+            # the state to next, session N+1 prescribes that next, and so on.
+            next_plates, next_config = ht_next_setup(cur_plates, cur_config, band_inventory)
+            prospective_ht[movement.id] = (next_plates, list(next_config))
 
     ex = PlannedExercise(
         movement_id=movement.id,

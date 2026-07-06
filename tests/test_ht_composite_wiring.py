@@ -2,7 +2,9 @@
 
 Named tests:
   1. test_assembled_ht_carries_plates_and_config — assembler HT slot prescribes
-     plates + band_config via ht_next_setup; target_felt_peak matches config_peak.
+     the CURRENT setup (plates + band_config); target_felt_peak matches
+     config_peak; the NEXT setup (ht_next_setup) is staged as prospective for
+     commit (prescribe-current, advance-at-commit — 2026-07-06 directive).
   2. test_commit_persists_ht_setup — commit_session (approval-time) is the sole
      writer of ht_plates/ht_band_config, mirroring current_load (Fork 7c).
   3. test_rule_driven_composite_ht_at_cap_is_noop — _rule_driven's at-cap branch
@@ -20,6 +22,7 @@ gen_db / gen_db_calibrated fixtures auto-discovered from conftest.py.
 from sqlmodel import select
 
 from ironlog.engine.advance import advance, SessionPerf
+from ironlog.engine.band_composite import Band, ht_next_setup
 from ironlog.generation.assembler import assemble
 from ironlog.generation.context import resolve_context
 from ironlog.generation.fallback import program_selections
@@ -80,13 +83,21 @@ def test_assembled_ht_carries_plates_and_config(gen_db_calibrated):
         peak_by_id[b] for b in ht_set.band_config
     )
 
-    # The prospective HT setup is recorded in-memory, matching the assembled set.
+    # Prescribe-current semantics (2026-07-06 athlete directive): the planned set
+    # carries the CURRENT setup, while the prospective staged for commit is the
+    # NEXT setup (ht_next_setup of the prescribed current) — advancement is timed
+    # at commit, not prescription. So prospective == ht_next_setup(current) and
+    # strictly advances past the prescribed current.
     ht_mv = gen_db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
-    assert assembled.prospective_ht_setups[ht_mv.id] == (
+    inv = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
+           for bp in gen_db.exec(select(BandPair)).all()]
+    expected_next = ht_next_setup(ht_set.target_plates, list(ht_set.band_config), inv)
+    assert assembled.prospective_ht_setups[ht_mv.id] == expected_next
+    assert assembled.prospective_ht_setups[ht_mv.id] != (
         ht_set.target_plates, ht_set.band_config,
-    )
+    ), "prospective must be the NEXT setup, strictly advanced past prescribed current"
 
 
 def test_uncalibrated_ht_does_not_fabricate_plates(gen_db):
@@ -274,4 +285,12 @@ def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
 
     ht_set = _first_ht_working_set(assembled)
     assert ht_set.band_config is not None
-    assert orange.id not in ht_set.band_config          # retired Orange is never prescribed
+    # Prescribe-current (2026-07-06): the planned set shows the athlete's CURRENT
+    # setup for THIS session, which still names Orange (retiring a band mid-cycle
+    # does not rewrite what the athlete is already set up with). The wear-gate
+    # guards ADVANCEMENT — ht_next_setup, which now produces the prospective/next
+    # setup staged for commit — so a retired band must never appear in the NEXT
+    # setup: ungated, the raise-plates shortcut WOULD keep Orange (185+Orange,
+    # bottom 203 <= 225); gated, it reconfigures off the retired band.
+    next_plates, next_config = assembled.prospective_ht_setups[ht_mv.id]
+    assert orange.id not in next_config     # retired Orange is never prescribed for the next setup

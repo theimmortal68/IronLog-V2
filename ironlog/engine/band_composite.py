@@ -6,6 +6,11 @@ raising plates within the current band config (no reconfigure) when that
 stays under the bottom-position clamp; otherwise search all subsets of the
 band inventory for the setup with the smallest peak strictly above the
 current peak (tiebreak: fewest bands). Pure — no DB, no HTTP.
+
+The default bottom-position clamp is 225 lb, matching the validator's
+ValidationContext.ht_bottom_clamp (raised 220 -> 225, user decision
+2026-07-06) so the generator's advancement ceiling matches what validate()
+accepts.
 """
 from collections import namedtuple
 from itertools import combinations
@@ -29,7 +34,7 @@ def _all_configs(inventory):
             yield list(combo)
 
 
-def ht_next_setup(plates, config, inventory: List[Band], plate_step=5, clamp=220) -> Tuple[float, list]:
+def ht_next_setup(plates, config, inventory: List[Band], plate_step=5, clamp=225) -> Tuple[float, list]:
     by_id = {b.id: b for b in inventory}     # ALL bands: prices the current config even if retired
     cur_peak = config_peak(plates, config, by_id)
     # 1) prefer raising plates within the current config — only if it uses no
