@@ -590,11 +590,14 @@ MOVEMENTS = [
          load_code="FT", tags=["FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, primary_muscle="BICEPS", secondary_muscles=[]),
-    # Dips: BW/protocol on the Andreoni dip station → load_code=None
+    # Dips: cable-loaded RPE-8 on the Andreoni dip station + FT (Ares cable)
+    # — docs/program/phase1-seed-source.yaml:72 "CORRECTED: cable-loaded, not
+    # BW rep-ladder" (d6_g1b baseline seeds current_load=150).
     dict(name="Dips [ANDREONI + FT]", base_name="Dips",
          region=Region.UPPER, status=Status.ACTIVE,
-         load_code=None, tags=["ANDREONI", "FT"],
-         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT, primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
+         load_code="FT", tags=["ANDREONI", "FT"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5], min_step=5, load_floor=10, primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
     # EZ curl family (all INACTIVE; grip variants ride the Medium anchor at 1.0)
     dict(name="EZ Bar Curl - Medium Grip [EZ]", base_name="EZ Bar Curl - Medium Grip",
          region=Region.UPPER, status=Status.INACTIVE,
