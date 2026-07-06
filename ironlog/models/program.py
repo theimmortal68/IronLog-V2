@@ -84,6 +84,8 @@ class MesoRotation(SQLModel, table=True):
     tier_exercise_id: int = Field(foreign_key="tierexercise.id")
     meso_number: int
     movement_id: int = Field(foreign_key="movement.id")
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None
 
 
 class SlotMovementOverride(SQLModel, table=True):

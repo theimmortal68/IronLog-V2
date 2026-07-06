@@ -17,11 +17,12 @@ NO from __future__ import annotations (project-wide constraint).
 from datetime import datetime
 from typing import Callable, List
 
-from sqlmodel import Session as DBSession, select
+from sqlmodel import Session as DBSession
 
 from ..models.enums import SessionStatus
-from ..models.library import GenerationLog, MovementState
+from ..models.library import GenerationLog
 from ..models.session import Session
+from ..persistence.run_analysis import _resolve_movement_state
 from .assembler import AssembledSession, assemble
 from .context import GenerationContext, build_context_payload, resolve_context, should_invoke_llm
 from .fallback import fallback_session, program_selections
@@ -86,13 +87,26 @@ def commit_session(
     # movement appearing in both maps (every HT movement does) gets a single
     # MovementState row instead of two independent inserts racing the unique
     # constraint on (movement_id, day_id).
+    #
+    # Day-scoped by the committing session's own day_role (mirrors
+    # run_analysis.py's `day_id = workout.day_role` / the Task 5 read-path
+    # fix): movements shared across days (Hip Thrust D2/D5/D6, Reverse Hyper,
+    # Nordic, Cable Tib) have one MovementState row PER (movement_id, day_id).
+    # A day-blind `.first()` here would silently write this session's
+    # advancement into whichever day's row happened to be created first,
+    # corrupting a sibling day's state the moment the athlete logs.
+    #
+    # _resolve_movement_state (run_analysis.py, Task 5) is reused verbatim
+    # rather than re-implemented: exact (movement_id, day_id) match first;
+    # else adopt a legacy (day_id IS NULL) row for this movement_id by
+    # stamping its day_id — every pre-Task-1 row / test fixture seeded before
+    # the progression engine has exactly one such row per movement_id, and
+    # naively creating a second (day-scoped) row alongside it would leave
+    # movement_id-only `.one()` lookups elsewhere broken; else create fresh.
+    day_id = assembled.session.day_role
     touched_mids = set(assembled.prospective_current_loads) | set(assembled.prospective_ht_setups)
     for mid in touched_mids:
-        st = db.exec(
-            select(MovementState).where(MovementState.movement_id == mid)
-        ).first()
-        if st is None:
-            st = MovementState(movement_id=mid)
+        st = _resolve_movement_state(db, mid, day_id)
         if mid in assembled.prospective_current_loads:
             st.current_load = assembled.prospective_current_loads[mid]   # THE ONLY PLACE generation writes current_load
         if mid in assembled.prospective_ht_setups:

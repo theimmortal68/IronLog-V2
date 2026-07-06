@@ -36,27 +36,28 @@ from sqlmodel import Session, select
 from ironlog.db import engine
 from ironlog.models.enums import Scheme
 from ironlog.models.library import Movement
-from ironlog.models.program import Tier, TierExercise
+from ironlog.models.program import ProgramDay, Tier, TierExercise
 
-# slot_id -> (rep_low, rep_high)
+# slot_id -> (rep_low, rep_high) — post-YAML-reconciliation final values.
 REP_TARGETS = {
-    "d1_t1": (8, 8),
+    "d1_t1": (6, 8),
     "d1_t2a": (8, 8),
     "d1_t2b": (10, 10),
     "d1_t2c": (15, 15),
-    "d1_t3a": (8, 8),
+    "d1_t3a": (6, 10),
     "d1_t3b": (12, 12),
     "d1_t3c": (12, 12),
     "d1_t4a": (12, 12),
     "d1_t4b": (8, 8),
     "d1_t4c": (12, 12),
-    "d4_t1": (5, 8),
-    "d6_g1b": (5, 8),
-    "d5_t3d": (10, 12),
+    "d4_t1": (6, 8),
+    "d6_g1b": (8, 12),
+    "d5_t3d": (10, 15),
 }
 
+# rpe_cap now lives on d6_g2a (Reverse Hyper Recovery moved GS3 -> GS2).
 RPE_CAPS = {
-    "d6_g3c": 6.0,
+    "d6_g2a": 6.0,
 }
 
 SCHEME_FLIPS = {
@@ -75,17 +76,28 @@ UNILATERAL_MOVEMENTS = [
     "Staggered RDL [PB]",
 ]
 
-# tier_label -> rest_seconds
+# (day_role, tier_label) -> rest_seconds. Keyed per-day because rests are no
+# longer uniform per label after the YAML reconciliation (T1: D1/D2=120 vs
+# D4/D5=180; T3 GS: D1/D4=75 vs D5=60).
 TIER_RESTS = {
-    "T1": 120,
-    "T1b": 120,
-    "T2 GS": 90,
-    "GS1": 90,
-    "GS2": 90,
-    "T3": 60,
-    "T3 GS": 60,
-    "T4 GS": 60,
-    "GS3": 60,
+    ("D1 Upper Push", "T1"): 120,
+    ("D1 Upper Push", "T2 GS"): 90,
+    ("D1 Upper Push", "T3 GS"): 75,
+    ("D1 Upper Push", "T4 GS"): 60,
+    ("D2 Lower A", "T1"): 120,
+    ("D2 Lower A", "T1b"): 150,
+    ("D2 Lower A", "T2 GS"): 90,
+    ("D2 Lower A", "T3"): 75,
+    ("D4 Upper Pull", "T1"): 180,
+    ("D4 Upper Pull", "T2 GS"): 90,
+    ("D4 Upper Pull", "T3 GS"): 75,
+    ("D5 Lower B", "T1"): 180,
+    ("D5 Lower B", "T1b"): 150,
+    ("D5 Lower B", "T2 GS"): 90,
+    ("D5 Lower B", "T3 GS"): 60,
+    ("D6 Weak Points", "GS1"): 90,
+    ("D6 Weak Points", "GS2"): 90,
+    ("D6 Weak Points", "GS3"): 60,
 }
 
 MIGRATION_PATH = Path(__file__).resolve().parent.parent / "deploy" / "migrations" / "013_phase1_reconciliation.sql"
@@ -133,11 +145,15 @@ def apply_reconciliation(db: Session) -> dict:
         te.rpe_cap = rpe_cap
         db.add(te)
 
-    # -- Tier.rest_seconds --
+    # -- Tier.rest_seconds (keyed per (day_role, tier_label)) --
+    day_role_by_id = {
+        pd.id: pd.day_role for pd in db.exec(select(ProgramDay)).all()
+    }
     for t in db.exec(select(Tier)).all():
-        target = TIER_RESTS.get(t.tier_label)
+        day_role = day_role_by_id.get(t.program_day_id)
+        target = TIER_RESTS.get((day_role, t.tier_label))
         if target is None:
-            continue  # not in scope (shouldn't happen — all 9 labels covered)
+            continue  # rest day / out of scope (all 18 training tiers covered)
         if t.rest_seconds != target:
             counts["rest_seconds"] += 1
         t.rest_seconds = target
@@ -190,7 +206,7 @@ def write_migration_sql() -> None:
         )
 
     lines.append("")
-    lines.append("-- TierExercise.rpe_cap: Reverse Hyper Recovery (D6 GS3).")
+    lines.append("-- TierExercise.rpe_cap: Reverse Hyper Recovery (D6 GS2, moved from GS3).")
     for slot_id, rpe_cap in RPE_CAPS.items():
         esc = slot_id.replace("'", "''")
         lines.append(
@@ -199,12 +215,16 @@ def write_migration_sql() -> None:
         )
 
     lines.append("")
-    lines.append("-- Tier.rest_seconds: all 18 seeded tiers, keyed by tier_label (9 buckets).")
-    for label, rest_seconds in TIER_RESTS.items():
-        esc = label.replace("'", "''")
+    lines.append("-- Tier.rest_seconds: all 18 seeded tiers, keyed per (day_role, tier_label)")
+    lines.append("-- (rests are non-uniform per label after the YAML reconciliation).")
+    for (day_role, label), rest_seconds in TIER_RESTS.items():
+        esc_day = day_role.replace("'", "''")
+        esc_label = label.replace("'", "''")
         lines.append(
             f"UPDATE tier SET rest_seconds = {rest_seconds} "
-            f"WHERE tier_label = '{esc}' "
+            f"WHERE tier_label = '{esc_label}' "
+            f"AND program_day_id IN "
+            f"(SELECT id FROM programday WHERE day_role = '{esc_day}') "
             f"AND (rest_seconds IS NULL OR rest_seconds != {rest_seconds});"
         )
 

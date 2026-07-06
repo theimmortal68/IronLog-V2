@@ -62,8 +62,13 @@ def test_unresolved_meso_rotation_raises(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_new_meso_rotations_exist_and_resolve(gen_db):
-    """d5_t1 meso-2 → Staggered RDL; d4_t3b meso-2 → Single-Arm DB Row.
-    Both rows must exist and reference the correct library movement.
+    """d5_t1 meso-2 → Staggered RDL; d5_t2b meso-2 → Reverse Hyper - Single Leg
+    (with a 12–15 rep override). Both rows must exist and reference the correct
+    library movement.
+
+    (Post-YAML-reconciliation: the old d4_t3b → Single-Arm DB Row meso rotation
+    was removed — Single-Arm DB Row is now a standalone T2 slot (d4_t2b), and the
+    single-leg Reverse Hyper became a real distinct-movement meso-2 rotation.)
     """
     from ironlog.models.library import Movement
     from ironlog.models.program import MesoRotation, TierExercise
@@ -71,15 +76,15 @@ def test_new_meso_rotations_exist_and_resolve(gen_db):
     d5_t1 = gen_db.exec(
         select(TierExercise).where(TierExercise.slot_id == "d5_t1")
     ).one()
-    d4_t3b = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d4_t3b")
+    d5_t2b = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2b")
     ).one()
 
     staggered = gen_db.exec(
         select(Movement).where(Movement.base_name == "Staggered RDL")
     ).one()
-    sa_row = gen_db.exec(
-        select(Movement).where(Movement.base_name == "Single-Arm DB Row")
+    single_leg = gen_db.exec(
+        select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
     ).one()
 
     def _meso2(te_id):
@@ -95,10 +100,12 @@ def test_new_meso_rotations_exist_and_resolve(gen_db):
     assert d5_mrs[0].movement_id == staggered.id, \
         "d5_t1 meso-2 must resolve to Staggered RDL"
 
-    d4_mrs = _meso2(d4_t3b.id)
-    assert len(d4_mrs) == 1, "d4_t3b must have exactly one meso-2 rotation row"
-    assert d4_mrs[0].movement_id == sa_row.id, \
-        "d4_t3b meso-2 must resolve to Single-Arm DB Row"
+    d5_t2b_mrs = _meso2(d5_t2b.id)
+    assert len(d5_t2b_mrs) == 1, "d5_t2b must have exactly one meso-2 rotation row"
+    assert d5_t2b_mrs[0].movement_id == single_leg.id, \
+        "d5_t2b meso-2 must resolve to Reverse Hyper - Single Leg"
+    assert (d5_t2b_mrs[0].rep_low, d5_t2b_mrs[0].rep_high) == (12, 15), \
+        "d5_t2b meso-2 must carry the 12–15 rep override"
 
 
 # ---------------------------------------------------------------------------
@@ -118,3 +125,9 @@ def test_d5_lower_b_meso2_anchor_is_staggered_rdl(gen_db):
     ).one()
     assert staggered.id in sk.anchor_movement_ids, \
         "D5 Lower B meso-2 anchor must be Staggered RDL (meso rotation fired)"
+
+
+def test_mesorotation_has_rep_override_fields(gen_db):
+    from ironlog.models.program import MesoRotation
+    cols = MesoRotation.__table__.columns.keys()
+    assert "rep_low" in cols and "rep_high" in cols

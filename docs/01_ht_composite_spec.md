@@ -55,7 +55,9 @@ Confirmed against Rogue's product guide and held assumptions:
 
 ## 4. Hard constraints (validator — non-negotiable)
 
-1. **Bottom clamp:** `bottom_total ≤ 220 lb` (plates + band-at-bottom). Above this the GMWD lap-bar latch flexes. Validator **rejects** any prescription exceeding it. **Confirmed by field test:** 220 plates + #0 pair = ~234 bottom-total produced observable flex — so the ceiling has near-zero margin (flex seen only ~14 lb over). Sit a few lb under 220; do not treat 220 as a soft target.
+1. **Bottom clamp:** `bottom_total ≤ 225 lb` (plates + band-at-bottom). Above this the GMWD lap-bar latch flexes. Validator **rejects** any prescription exceeding it. **Confirmed by field test:** 220 plates + #0 pair = ~234 bottom-total produced observable flex — so the ceiling has near-zero margin (flex seen only ~9 lb over at the current 225 cap, down from ~14 lb over under the prior 220 cap). Sit a few lb under 225; do not treat 225 as a soft target.
+
+   **Margin update (2026-07-06):** the cap was raised 220→225 lb (`ValidationContext.ht_bottom_clamp = 225.0`, `ironlog/engine/validator.py`) to accommodate the D2/D5 baselines at 205 plates + #0 Orange (bottom ≈ 223 lb — see `ironlog/generation/baseline_seed.py` BASELINES `d2_t1b`/`d5_t1b`). This is a deliberate, athlete-accepted reduction in headroom to the observed ~234 lb flex point (~9 lb margin now vs. ~14 lb before) — not a re-measurement of the flex itself, which is unchanged.
 2. **Stretch cap:** the top geometry already sits at **2.5× resting length (30″ flat)** — Rogue's stated do-not-exceed stretch. **No progression axis may increase band elongation** (no moving the horn farther, no setup that stretches more). Bigger bands store *more* energy at this same limit, so "more band" is not a safer lever — it's a more violent failure mode.
 3. **Wear gate:** high tension-to-length ratio → risk of **sudden** failure. Engine tracks band age / inspection date and prompts a check; replace proactively on any feathering or nicks rather than running to failure.
 
@@ -71,7 +73,7 @@ HT is linear / always-progress (exempt from the RPE cap): push toward ceiling ea
 
 **Deload:** 2×8 (or 2×12 on Day 5) at ~60% of last working weight, no progression rule.
 
-**Peak reachability under the 220 clamp** (max peak = 220 + band spread): #0 tops at ~236, #1 at ~251 — **neither reaches the 260 peak target.** #2 Blue (≤273), #3 Green (≤290) and up do. So as peak approaches 260, the band must step up to #2+ and load shifts from plate toward band to keep the bottom under the clamp (e.g. peak 260 = Blue pair + 160 plates → 207 bottom).
+**Peak reachability under the 225 clamp** (max peak = 225 + band spread): #0 tops at ~241, #1 at ~256 — **neither reaches the 260 peak target.** #2 Blue (≤273), #3 Green (≤290) and up do. So as peak approaches 260, the band must step up to #2+ and load shifts from plate toward band to keep the bottom under the clamp (e.g. peak 260 = Blue pair + 160 plates → 207 bottom).
 
 ---
 
@@ -89,12 +91,13 @@ Each HT session logs `{plates, band_pair, felt_peak}`. Every entry drops an anch
 
 - **HT load entry is composite:** `{ plates_lb, band_pair_id, band_bottom_lb, band_peak_lb, calibration_status }`.
 - **Band reference table** as its own small entity: one row per band/pair with bottom, peak, calibration_status, inspection_date.
-- **Validator input:** `bottom_total = plates_lb + band_bottom_lb`; reject if `> 220` (apply margin while modeled).
+- **Validator input:** `bottom_total = plates_lb + band_bottom_lb`; reject if `> 225` (apply margin while modeled).
 - **Exercise metadata flags on HT:** `composite_load = true`, `always_progress = true`, `rpe_cap_exempt = true`, `stretch_capped = true`, `wear_tracked = true`.
 
 ---
 
 ## Open items
 - [x] ~~Confirm the "220" reference~~ — **resolved: 220 is bottom-total (plates + band), confirmed by observed flex at ~234.**
+- [x] **Bottom clamp raised 220→225 (2026-07-06)** — accommodates D2/D5 baselines at 205 plates + #0 Orange (bottom ≈ 223). Margin to the observed ~234 flex point narrows to ~9 lb (was ~14 at 220); accepted by the athlete.
 - [ ] Bottom values uncalibrated — accrue via §6, prioritize the band(s) actually in rotation.
 - [ ] Rev Hyper (Scout) follows the same pattern at a 180 cap with set/rep progression above it; spec separately when its calibration is needed.

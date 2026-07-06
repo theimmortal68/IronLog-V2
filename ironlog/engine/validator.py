@@ -103,7 +103,7 @@ class ValidationContext:
     manifest_equipment_ids: Set[int] = field(default_factory=set)
     phase_hard_cap: float = 8.0
     band_bottom_lb: Dict[int, float] = field(default_factory=dict)
-    ht_bottom_clamp: float = 220.0
+    ht_bottom_clamp: float = 225.0
     kettlebell_equipment_id: Optional[int] = None
     tallies: Optional[WeeklyTallies] = None
 

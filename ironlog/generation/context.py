@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Callable, Dict, List, Set
 
+from sqlalchemy import or_
 from sqlmodel import Session, col, select
 
 from ..engine.ledger import compute_tallies
@@ -304,9 +305,25 @@ def resolve_context(
         for m in movements.values()
         if m.load_equipment_id is not None
     }
-    states: Dict[int, MovementState] = {
-        s.movement_id: s for s in db.exec(select(MovementState)).all()
-    }
+    # Task 5: day-scope the state read. Movements shared across days (Hip
+    # Thrust D2/D5/D6, Reverse Hyper, Nordic, Cable Tib) now have per-day
+    # (movement_id, day_id=day_role) rows (Task 4's seed_movement_baselines).
+    # A plain movement_id-keyed read across ALL rows collapses those to
+    # whichever row the dict comprehension iterates last (undefined vs. the
+    # day being generated) — e.g. D2 Lower A picking up D6 Weak Points' HT
+    # plates. Scope to (day_id == day_role) OR legacy day_id IS NULL rows,
+    # and order NULL rows first so a day-scoped row always overwrites a
+    # legacy NULL row for the same movement_id (day-scoped wins last-write).
+    states: Dict[int, MovementState] = {}
+    for s in db.exec(
+        select(MovementState)
+        .where(
+            or_(MovementState.day_id == day_role,
+                col(MovementState.day_id).is_(None))
+        )
+        .order_by(col(MovementState.day_id).is_(None).desc())
+    ).all():
+        states[s.movement_id] = s
 
     # Weekly tallies (ledger)
     set_logs = db.exec(select(SetLog)).all()
