@@ -25,7 +25,7 @@ from ..engine.validator import (
     MovementInfo, RuleCode, ValidationContext, ValidationResult,
     validate,
 )
-from ..models.library import Movement
+from ..models.library import BandPair, Movement
 from .assembler import AssembledSession, assemble
 from .context import GenerationContext
 from .gemini import ProposerError
@@ -41,8 +41,13 @@ def build_validation_context(ctx: GenerationContext, db: DBSession) -> Validatio
     """Project every Movement in the DB into a MovementInfo and build the
     ValidationContext for this generation call.
 
-    band_bottom_lb, ht_bottom_clamp, and kettlebell_equipment_id are left at
-    their dataclass defaults (HT-safety evaluation is handled separately).
+    band_bottom_lb is populated from every BandPair in the DB (keyed by
+    BandPair.id, matching the ids stored in ht_band_config / band_config) so
+    _check_ht_safety can evaluate bottom-clamp safety for banded HT sets
+    instead of rejecting them as unregistered. ht_bottom_clamp is set to 225.0
+    (raised from the 220.0 dataclass default — user decision 2026-07-06, to
+    allow D5's accepted 223 lb bottom). kettlebell_equipment_id is left at its
+    dataclass default.
     """
     infos: Dict[int, MovementInfo] = {}
     for m in db.exec(select(Movement)).all():
@@ -56,6 +61,9 @@ def build_validation_context(ctx: GenerationContext, db: DBSession) -> Validatio
             lift_category=m.lift_category,
             progression_mode=m.progression_mode,
         )
+    band_bottom_lb: Dict[int, float] = {
+        bp.id: bp.bottom_lb for bp in db.exec(select(BandPair)).all()
+    }
     # tallies=None: per-session generation validate is STRUCTURAL-ONLY.
     # Cross-session frequency rules (KNEE_FREQUENCY, PULL_PUSH_RATIO) must not
     # hard-reject a single generated session — no one session can retroactively
@@ -66,6 +74,8 @@ def build_validation_context(ctx: GenerationContext, db: DBSession) -> Validatio
         movements=infos,
         manifest_equipment_ids=set(ctx.manifest_equipment_ids),
         phase_hard_cap=ctx.phase_policy.hard_cap,
+        band_bottom_lb=band_bottom_lb,
+        ht_bottom_clamp=225.0,
         tallies=None,
     )
 
