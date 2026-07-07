@@ -37,7 +37,10 @@ def test_added_movements_fields(seeded):
     by = {m.name: m for m in _all(seeded)}
     assert by["Dragon Flag"].progression_mode == ProgressionMode.PROTOCOL
     assert by["Dragon Flag"].region == Region.CORE
-    assert by["Face-Up Incline Knee Raise"].progression_mode == ProgressionMode.LADDER
+    # Fix C: bodyweight/incline, not a lb load — ASSISTED (assist_level degrees),
+    # mirroring Nordic Curl [GHR]. Was mis-typed LADDER (read current_load in lb).
+    assert by["Face-Up Incline Knee Raise"].progression_mode == ProgressionMode.ASSISTED
+    assert by["Face-Up Incline Knee Raise"].assist_ladder == [25, 20, 15, 10, 5, 0]
     assert by["Face-Up Incline Knee Raise"].region == Region.CORE
     assert by["Andreoni Cable Pullover"].scheme == Scheme.DOUBLE_PROGRESSION
     assert by["Andreoni Cable Pullover"].progression_mode == ProgressionMode.LADDER
