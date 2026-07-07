@@ -145,6 +145,7 @@ class MovementState(SQLModel, table=True):
     e1rm_updated_at: Optional[datetime] = None
     current_load: Optional[float] = None
     current_increment_tier: int = 0                    # index into increment_ladder
+    pending_load_delta: Optional[float] = None         # earned load step (advance->load bridge, K2); staged by run_analysis, applied+cleared by commit_session
     current_rep_scheme: Optional[str] = None
     rep_scheme_locked_until: Optional[date] = None
     consecutive_ceiling_sessions: int = 0

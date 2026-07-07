@@ -7,7 +7,9 @@ def test_hip_thrust_advances_at_rpe9_rule_driven():
     st = MovementState(movement_id=1, day_id="d2", current_increment_tier=0, current_load=180)
     r = advance(ProgressionRule.RULE_DRIVEN, st,
                 SessionPerf(hit_target=True, max_rpe=9.0, all_sides_cleared=True, session_performed=True), mv, 1)
-    assert r.advanced is True and r.new_tier == 1   # RPE-exempt: RPE 9 still advances
+    # RPE-exempt: RPE 9 still advances. Re-pointed (K2): a clean advance earns a
+    # load step (increment_ladder[0]=5) and leaves the step-size tier untouched.
+    assert r.advanced is True and r.new_tier is None and r.earned_load_step == 5
 
 def test_rule_driven_advances_every_session_regardless_of_passed_window():
     # Below cap: RULE_DRIVEN must advance every session (spec §1.3), even for
@@ -20,7 +22,8 @@ def test_rule_driven_advances_every_session_regardless_of_passed_window():
     r = advance(ProgressionRule.RULE_DRIVEN, st,
                 SessionPerf(hit_target=True, max_rpe=7.0, all_sides_cleared=True, session_performed=True),
                 mv, 2)
-    assert r.advanced is True and r.new_tier == 1
+    # Re-pointed (K2): earns the load step, does not bump the step-size tier.
+    assert r.advanced is True and r.new_tier is None and r.earned_load_step == 5
 
 def test_hip_thrust_transitions_to_rep_ladder_at_cap():
     mv = Movement(name="Hip Thrust", pattern="hinge", increment_ladder=[5], cap=220, rep_ladder=[8,10,12])
@@ -41,7 +44,9 @@ def test_vbar_single_session_advances_on_clean_last_set():
     st = MovementState(movement_id=1, day_id="d4", current_increment_tier=0)
     r = advance(ProgressionRule.SINGLE_SESSION, st,
                 SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True, last_set_hit_target=True), mv, 1)
-    assert r.advanced is True and r.new_tier == 1   # one clean last set at RPE 8 -> advance
+    # one clean last set at RPE 8 -> advance. Re-pointed (K2): earns the load step
+    # (increment_ladder[0]=5), step-size tier untouched.
+    assert r.advanced is True and r.new_tier is None and r.earned_load_step == 5
 
 def test_vbar_single_session_no_advance_when_last_set_missed():
     mv = Movement(name="V-Bar Pushdown", pattern="press", increment_ladder=[5,5,5], cap=200)

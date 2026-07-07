@@ -91,6 +91,12 @@ def test_run_analysis_never_writes_current_load(seeded_clean_session):
     after = {ms.id: ms.current_load for ms in db.exec(select(MovementState)).all()}
     assert after == before, "run_analysis wrote current_load — Fork 7c / Option-C violation"
 
+    # The engine DID earn an advance (so the never-wrote-current_load check above
+    # is meaningful) — but a clean advance now manifests as an earned load STEP
+    # (pending_load_delta), NOT a tier bump. Re-pointed (K2): current_increment_tier
+    # is the step-SIZE index and a clean advance must never touch it; the earned
+    # advance is staged in pending_load_delta for commit_session to apply.
     states = db.exec(select(MovementState)).all()
-    assert any(ms.consecutive_advance_count > 0 or ms.current_increment_tier > 0
-               for ms in states), "engine did not earn any advance on a clean T1 session"
+    assert any(ms.pending_load_delta is not None for ms in states), (
+        "engine did not earn any advance (pending_load_delta) on a clean T1 session"
+    )

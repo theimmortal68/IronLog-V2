@@ -216,6 +216,12 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
         # NO target_load — never fabricate a floor.  No prospective load to collect.
         load = None
     else:
+        # K2 advance->load bridge: a clean advance last session staged an earned
+        # load step on the state (pending_load_delta). Fold it into the base BEFORE
+        # rounding/clamping so THIS session prescribes the earned load. commit_session
+        # writes the result to current_load and clears the marker (apply-once).
+        if state is not None and state.pending_load_delta is not None:
+            base = base + state.pending_load_delta
         load = clamp_to_cap(round_to_achievable(base, floor, step), movement.cap)
         # Collect prospective load — caller must NOT write this to MovementState.
         # Captured BEFORE the slot-override adjustment below: a LOAD override is

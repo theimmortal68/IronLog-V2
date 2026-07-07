@@ -101,6 +101,11 @@ def apply_analysis(
             state.consecutive_advance_count = d.new_consecutive_advance_count
         if d.new_unassisted_max_rolling is not None:
             state.unassisted_max_rolling = d.new_unassisted_max_rolling
+        if d.pending_load_delta is not None:
+            # K2 advance->load bridge: stage the earned load step. This is NOT
+            # current_load (commit_session remains its sole writer) — it is the
+            # additive marker commit_session reads, applies once, and clears.
+            state.pending_load_delta = d.pending_load_delta
         if d.stall_signal_computed:
             # None is a valid WRITE here (clears the signal on advance) —
             # distinct from every other new_* field's "None = don't touch".

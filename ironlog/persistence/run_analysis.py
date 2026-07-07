@@ -367,6 +367,10 @@ def run_analysis(
                 d.new_rep_target = adv.new_rep_target
             if adv.new_body_position is not None:
                 d.new_body_position = adv.new_body_position
+            if adv.earned_load_step is not None:
+                # K2: stage the earned load step (never current_load). commit_session
+                # applies it to current_load and clears the marker (apply-once).
+                d.pending_load_delta = adv.earned_load_step
             if new_unassisted_max_rolling is not None:
                 d.new_unassisted_max_rolling = new_unassisted_max_rolling
             d.stall_signal_computed = True

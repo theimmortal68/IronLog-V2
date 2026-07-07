@@ -164,6 +164,13 @@ def seed_phase1_program(db: Session) -> None:
 
     db.commit()
 
+    # Wire Movement.progression_rule from the authoritative YAML so a from-scratch
+    # DB comes up with the progression engine LIVE (no schema change — the column
+    # already exists). Without this, every movement has progression_rule=None and
+    # advance() no-ops on every session (the engine is dormant). Idempotent.
+    from ironlog.generation.rule_wiring import wire_progression_rules
+    wire_progression_rules(db)
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers

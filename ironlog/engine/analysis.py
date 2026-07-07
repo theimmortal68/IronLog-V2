@@ -94,6 +94,10 @@ class MovementStateDelta:
     active_rule: Optional[str] = None
     new_consecutive_advance_count: Optional[int] = None
     new_unassisted_max_rolling: Optional[int] = None
+    # K2 advance->load bridge: the earned scalar load step (increment_ladder[tier])
+    # from a clean advance. Carried to apply_analysis, which writes it to
+    # MovementState.pending_load_delta — NEVER current_load (two-writer boundary).
+    pending_load_delta: Optional[float] = None
     stall_signal: Optional[dict] = None
     stall_signal_computed: bool = False
 
