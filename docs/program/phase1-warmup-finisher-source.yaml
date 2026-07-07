@@ -106,3 +106,23 @@ d6:  # Saturday Weak Points (abbreviated warmup ~3-4 min)
     equipment: [crossrope_quarter_lb]
 
 # d7 Sunday REST — no warmup/finisher
+
+# ─── Enrichment (athlete, 2026-07-07): jump-rope warmup detail + D6 finisher progression ───
+
+warmup_jump_rope:            # the jump_rope item in D1 & D4 movement flow (fixed activation)
+  duration_seconds: 90
+  rope_type: standard        # not weighted for warmup
+  intensity: light_bounce
+  purpose: activation
+  hr_target_bpm: [90, 110]   # Z1 to low Z2
+  progression: none          # fixed activation, not progressed
+
+finisher_d6_progression:     # detail for the d6 jump_rope EMOM finisher above
+  progression_rule: duration_first_then_rope_weight
+  current_state: {rope: crossrope_quarter_lb, work_seconds_per_minute: 35}  # Wk 1 baseline
+  duration_ladder: [35, 40, 45, 50]         # seconds; 50s terminal at current rope weight
+  rope_ladder: [quarter_lb, half_lb, one_lb] # one_lb terminal (available inventory)
+  advance_condition: "Sustain current duration for 6 full rounds at RPE <= 8 for 2 consecutive sessions."
+  progression_order:
+    1: advance duration_ladder within current rope
+    2: at terminal duration (50s), swap to next rope_ladder step and reset duration to 35s
