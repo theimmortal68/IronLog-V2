@@ -114,7 +114,10 @@ def test_t1_clean_session_advances_and_sets_active_rule():
         run_analysis(1, db, WEEK_KEYER)
 
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
-        assert st.current_increment_tier == 1
+        # Re-pointed (K2): a clean T1 advance earns a load step (increment_ladder[0]
+        # = 2.5), it does NOT bump the step-size tier (that was the backwards bug).
+        assert st.pending_load_delta == 2.5
+        assert st.current_increment_tier == 0
         assert st.active_rule == ProgressionRule.RPE_8_STANDARD.value
         assert st.day_id == "Upper A"
 
@@ -141,7 +144,10 @@ def test_accessory_needs_two_clean_sessions_to_advance():
         _seed_session(db, 2, 1, label="T2 GS", day_role="Upper A", session_date=date(2026, 1, 14))
         run_analysis(2, db, WEEK_KEYER)
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
-        assert st.current_increment_tier == 1, "second clean session should clear the streak and advance"
+        # Re-pointed (K2): the second clean session clears the streak and advances by
+        # EARNING a load step (increment_ladder[0]=2.5); the step-size tier is untouched.
+        assert st.pending_load_delta == 2.5, "second clean session should clear the streak and earn the load step"
+        assert st.current_increment_tier == 0
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +187,10 @@ def test_stall_signal_fires_and_clears_on_advance():
                       session_date=date(2026, 1, 14))
         run_analysis(2, db, WEEK_KEYER)
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
-        assert st.current_increment_tier == 1
+        # Re-pointed (K2): the clean CEILING hit advances by earning a load step
+        # (increment_ladder[0]=2.5), not by bumping the step-size tier.
+        assert st.pending_load_delta == 2.5
+        assert st.current_increment_tier == 0
         assert st.stall_signal is None, "stall signal must clear when the movement advances"
 
 

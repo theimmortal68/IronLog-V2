@@ -117,13 +117,20 @@ def _log_clean_session(db, *, day_role, movement_name, session_id,
     return mv.id
 
 
-def test_clean_bench_session_advances_tier(gen_db):
-    """THE proof the dormant engine is now live.
+def test_clean_bench_session_earns_load_step(gen_db):
+    """THE proof the dormant engine is now live AND correctly raises the load.
 
     Seed the Phase-1 calibrated baselines (Bench = 165 lb, tier 0), log a clean
     top-of-range RPE-8 Bench session (all working sets at rep_high=8, ON_TARGET),
-    run_analysis. Bench's current_increment_tier must advance 0 -> 1. Before the
-    rule was wired (progression_rule=None), advance() no-oped and the tier stayed 0.
+    run_analysis. A clean advance must EARN a load step (pending_load_delta = the
+    coarse increment 5.0) and leave current_increment_tier UNCHANGED at 0.
+
+    Re-pointed (K2): this test previously asserted current_increment_tier == 1,
+    which encoded a semantics bug — current_increment_tier is the step-SIZE index
+    (docs/04: steps DOWN on stall, up only on breakthrough), NOT an advance
+    counter. A clean session must ADD load (pending_load_delta), not shrink the
+    step. The engine still fires (was dormant with progression_rule=None); it now
+    fires with the correct effect.
     """
     from ironlog.generation.baseline_seed import seed_movement_baselines
     seed_movement_baselines(gen_db)
@@ -139,6 +146,7 @@ def test_clean_bench_session_advances_tier(gen_db):
     ).one()
     assert st0.current_increment_tier == 0
     assert st0.current_load == 165
+    assert st0.pending_load_delta is None
 
     _log_clean_session(gen_db, day_role="D1 Upper Push",
                        movement_name="Bench Press [PB]", session_id=9001,
@@ -152,16 +160,26 @@ def test_clean_bench_session_advances_tier(gen_db):
             MovementState.day_id == "D1 Upper Push",
         )
     ).one()
-    assert st1.current_increment_tier == 1, (
-        "clean RPE-8 T1 Bench session must advance the tier 0->1 "
-        "(engine was dormant because progression_rule was None)"
+    assert st1.pending_load_delta == 5.0, (
+        "clean RPE-8 T1 Bench session must earn the coarse increment (5.0) as a "
+        "pending load step — the engine advances by ADDING load"
     )
+    assert st1.current_increment_tier == 0, (
+        "current_increment_tier is the step-SIZE index — a clean advance must NOT "
+        "bump it (that would shrink the step, the old backwards behavior)"
+    )
+    assert st1.current_load == 165, "run_analysis never writes current_load (two-writer boundary)"
     assert st1.active_rule == ProgressionRule.RPE_8_STANDARD.value
 
 
 def test_second_rule_type_single_session_advances(gen_db):
     """Prove the wiring is not Bench-specific: a single_session movement
-    (Cable V-Bar Pushdown, D6 GS3) advances after ONE qualifying session."""
+    (Cable V-Bar Pushdown, D6 GS3) earns a load step after ONE qualifying session.
+
+    Re-pointed (K2): was asserting current_increment_tier == 1 (the same step-size
+    semantics bug). A single-session clean advance earns pending_load_delta (the
+    coarse increment), tier untouched.
+    """
     from ironlog.generation.baseline_seed import seed_movement_baselines
     seed_movement_baselines(gen_db)
 
@@ -169,6 +187,8 @@ def test_second_rule_type_single_session_advances(gen_db):
         select(Movement).where(Movement.name == "Cable V-Bar Pushdown [FT]")
     ).one()
     assert vbar.progression_rule == ProgressionRule.SINGLE_SESSION.value
+    ladder = vbar.increment_ladder or []
+    expected_step = ladder[0] if ladder else None
 
     _log_clean_session(gen_db, day_role="D6 Weak Points",
                        movement_name="Cable V-Bar Pushdown [FT]", session_id=9002,
@@ -182,5 +202,8 @@ def test_second_rule_type_single_session_advances(gen_db):
             MovementState.day_id == "D6 Weak Points",
         )
     ).one()
-    assert st.current_increment_tier == 1, "single_session must advance after one clean session"
+    assert st.pending_load_delta == expected_step, (
+        "single_session must earn a load step (increment_ladder[0]) after one clean session"
+    )
+    assert st.current_increment_tier == 0, "single_session clean advance must NOT bump the step-size tier"
     assert st.active_rule == ProgressionRule.SINGLE_SESSION.value

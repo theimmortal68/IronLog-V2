@@ -5,8 +5,16 @@ advance.py — pure rule-dispatch core for the progression engine.
 more rules in `_DISPATCH`. It is pure: no DB, no HTTP — plain dataclass
 inputs (`SessionPerf`) plus the `MovementState`/`Movement` objects in, an
 `AdvanceResult` out. `AdvanceResult` carries only earned deltas — it NEVER
-carries `current_load` (Option C: the engine writes the tier index; the
-caller derives `current_load` from the tier at generation time).
+carries `current_load` (Option C: the engine earns the load *step*, the caller
+stages it via `MovementState.pending_load_delta` and `commit_session` derives
+`current_load` at generation time).
+
+Scalar-load semantics (K2, docs/04 §"current_increment_tier"): a clean advance
+RAISES the working load by `increment_ladder[current_increment_tier]` (returned
+as `earned_load_step`). It does NOT touch `current_increment_tier` — that is the
+step-SIZE index, which steps DOWN on stall (`step_down_tier`, in analysis.py) and
+up only on sustained breakthrough. Bumping it on a clean advance shrinks the step
+instead of adding load, which was backwards.
 """
 from dataclasses import dataclass
 from typing import Optional
@@ -33,10 +41,25 @@ class AdvanceResult:
     new_assist_level: Optional[float] = None
     new_rep_target: Optional[int] = None
     new_body_position: Optional[str] = None
+    earned_load_step: Optional[float] = None   # K2: scalar load step earned on a clean advance
 
 
 def _clean(perf: SessionPerf) -> bool:
     return perf.hit_target and perf.max_rpe <= 8.0 and perf.all_sides_cleared
+
+
+def _earned_step(state, movement) -> Optional[float]:
+    """The load step a clean advance earns: `increment_ladder[current_increment_tier]`.
+
+    None when the movement has no increment_ladder (defensive — scalar LADDER
+    movements always carry one). The tier index is clamped into range so a
+    transient out-of-bounds tier can never IndexError the whole analyze step.
+    """
+    ladder = movement.increment_ladder or []
+    if not ladder:
+        return None
+    idx = min(max(state.current_increment_tier, 0), len(ladder) - 1)
+    return ladder[idx]
 
 
 def _rpe8(state, perf, movement, window) -> AdvanceResult:
@@ -45,9 +68,8 @@ def _rpe8(state, perf, movement, window) -> AdvanceResult:
         return AdvanceResult(False, rule, 0)                      # any miss resets the streak
     streak = state.consecutive_advance_count + 1
     if streak >= window:
-        ladder_len = len(movement.increment_ladder or [])
-        new_tier = min(state.current_increment_tier + 1, ladder_len - 1)
-        return AdvanceResult(True, rule, 0, new_tier=new_tier)
+        # Clean advance RAISES the load by the current step; the tier is untouched.
+        return AdvanceResult(True, rule, 0, earned_load_step=_earned_step(state, movement))
     return AdvanceResult(False, rule, streak)
 
 
@@ -87,18 +109,16 @@ def _rule_driven(state, perf, movement, window) -> AdvanceResult:
     # hardcode window=1 here, mirroring _single_session's own hardcoded gate.
     streak = state.consecutive_advance_count + 1
     if streak >= 1:
-        ladder_len = len(movement.increment_ladder or [])
-        new_tier = min(state.current_increment_tier + 1, ladder_len - 1)
-        return AdvanceResult(True, rule, 0, new_tier=new_tier)
+        # Clean advance RAISES the load by the current step; the tier is untouched.
+        return AdvanceResult(True, rule, 0, earned_load_step=_earned_step(state, movement))
     return AdvanceResult(False, rule, streak)
 
 
 def _single_session(state, perf, movement, window) -> AdvanceResult:
     rule = ProgressionRule.SINGLE_SESSION.value
     if perf.last_set_hit_target and perf.max_rpe <= 8.0:   # window is always 1 for this rule
-        ladder_len = len(movement.increment_ladder or [])
-        new_tier = min(state.current_increment_tier + 1, ladder_len - 1)
-        return AdvanceResult(True, rule, 0, new_tier=new_tier)
+        # Clean advance RAISES the load by the current step; the tier is untouched.
+        return AdvanceResult(True, rule, 0, earned_load_step=_earned_step(state, movement))
     return AdvanceResult(False, rule, 0)
 
 

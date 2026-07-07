@@ -66,7 +66,9 @@ def commit_session(
        SQLAlchemy cascade on db.add(session).
     2. Writes current_load from assembled.prospective_current_loads, and
        ht_plates/ht_band_config from assembled.prospective_ht_setups, to each
-       MovementState, creating the row if it doesn't exist yet.
+       MovementState, creating the row if it doesn't exist yet. Also clears
+       pending_load_delta (K2) for every movement whose current_load it writes —
+       the earned step is now baked in, so the bump lands exactly once.
     3. Writes a GenerationLog provenance row (Fork 7d).
     4. Sets approved_at.
 
@@ -109,6 +111,10 @@ def commit_session(
         st = _resolve_movement_state(db, mid, day_id)
         if mid in assembled.prospective_current_loads:
             st.current_load = assembled.prospective_current_loads[mid]   # THE ONLY PLACE generation writes current_load
+            # K2 advance->load bridge: the earned step is now baked into
+            # current_load — clear the marker so the bump applies exactly once
+            # (a regenerate without a new clean session cannot double-bump).
+            st.pending_load_delta = None
         if mid in assembled.prospective_ht_setups:
             plates, config = assembled.prospective_ht_setups[mid]
             st.ht_plates = plates             # THE ONLY PLACE generation writes ht_plates
