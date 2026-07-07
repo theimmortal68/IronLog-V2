@@ -1,0 +1,108 @@
+# IronLog Phase-1 — Warmup + Finisher source (v0.7 session components)
+# Provided by athlete 2026-07-07. Companion to docs/program/phase1-seed-source.yaml (main work).
+# Warmups target ~5 min/day (D6 abbreviated ~3-4). Finishers are 6-min EMOM, per-day, some days none.
+# Ramp sets (heavy barbell lifts only: Bench/Belt Squat/RDL + meso swaps) are AUTO-DERIVED from the
+# working load — 3-set ~40/60/80% (reps 5/3/2), rounded to achievable plates — NOT stored here.
+# See the warmup/ramp/finisher design (docs/superpowers/specs) for how these get generated + rendered.
+# Recovery gap (3-5 min) between finisher and Z2 belongs with the Z2 spec, not here.
+
+d1:  # Monday Upper A
+  warmup:
+    movement_flow_seconds: 90
+    items:
+      - {name: scap_cars, sets: 2, reps: 5}
+      - {name: floor_slides, sets: 1, reps: 5}
+      - {name: jump_rope, seconds: 90, rope: standard, style: light_bounce}
+    activation_seconds: 60
+    items_activation:
+      - {name: prone_y_raise, sets: 2, reps: 12, incline_degrees: 30}
+      - {name: sa_waiters_carry, seconds_per_side: 20, sets: 1}
+  finisher:
+    type: EMOM
+    duration_minutes: 6
+    exercise: kb_swing
+    weight_lb: 30
+    target_reps_per_minute: 15
+    equipment: [kettlebell_30]
+
+d2:  # Tuesday Lower A
+  warmup:
+    movement_flow_seconds: 90
+    items:
+      - {name: deep_squat_hold_rock, seconds: 20}
+      - {name: worlds_greatest, sets: 1, reps_per_side: 2}
+      - {name: cossack_squat, sets: 1, reps_per_side: 3}
+    activation_seconds: 60
+    items_activation:
+      - {name: glute_bridge, sets: 1, reps: 10, hold_seconds: 2}
+      - {name: banded_clamshell, sets: 1, reps_per_side: 10}
+  finisher:
+    type: EMOM
+    duration_minutes: 6
+    exercise: sled_push
+    resistance_level: 8
+    work_seconds_per_minute: 30  # to 40s
+    equipment: [dreadmill]
+
+# d3 Wednesday REST — no warmup/finisher
+
+d4:  # Thursday Upper B / Pull
+  warmup:
+    movement_flow_seconds: 90
+    items:
+      - {name: scapular_pulls, sets: 2, reps: 5, notes: "assisted via Mingmc 4-5 bands if needed"}
+      - {name: open_book, sets: 1, reps_per_side: 5}
+      - {name: jump_rope, seconds: 90, rope: standard, style: light_bounce}
+    activation_seconds: 60
+    items_activation:
+      - {name: prone_y_raise, sets: 2, reps: 12, incline_degrees: 30}
+      - {name: sa_waiters_carry, seconds_per_side: 20, sets: 1}
+  finisher:
+    type: EMOM
+    duration_minutes: 6
+    exercise: sandbag_load_to_utility_seat
+    weight_lb: 100
+    utility_seat_height_inches: 52
+    target_reps_per_minute: 4
+    equipment: [sandbag_100, utility_seat, spotter_arms]
+
+d5:  # Friday Lower B
+  warmup:
+    movement_flow_seconds: 90
+    items:
+      - {name: cat_cow, sets: 1, reps: 5}
+      - {name: worlds_greatest, sets: 1, reps_per_side: 2}
+      - {name: dead_bug, sets: 1, reps_per_side: 5}
+    activation_seconds: 60
+    items_activation:
+      - {name: glute_bridge, sets: 1, reps: 10, hold_seconds: 2}
+      - {name: banded_clamshell, sets: 1, reps_per_side: 10}
+  finisher:
+    type: EMOM
+    duration_minutes: 6
+    exercise: heavy_farmer_carry
+    weight_lb: 55
+    work_seconds_per_minute: 40
+    rest_seconds_per_minute: 20
+    equipment: [dreadmill, farmer_handles]
+
+d6:  # Saturday Weak Points (abbreviated warmup ~3-4 min)
+  warmup:
+    movement_flow_seconds: 60
+    items:
+      - {name: scap_cars, sets: 2, reps: 5}
+      - {name: open_book, sets: 1, reps_per_side: 5}
+      - {name: banded_pull_apart, sets: 1, reps: 15}
+    activation_seconds: 30
+    items_activation:
+      - {name: prone_y_raise, sets: 1, reps: 12}
+  finisher:
+    type: EMOM
+    duration_minutes: 6
+    exercise: jump_rope
+    rope_type: crossrope_quarter_lb
+    work_seconds_per_minute: 30  # to 40s
+    target_reps_per_minute: 40  # to 60, Wk 1 calibration
+    equipment: [crossrope_quarter_lb]
+
+# d7 Sunday REST — no warmup/finisher
