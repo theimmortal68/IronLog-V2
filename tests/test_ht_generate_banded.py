@@ -231,3 +231,62 @@ def test_raised_clamp_allows_223_bottom_rejects_226(gen_db):
     ht_rejects_226 = [v for v in res_226.rejects if v.rule == RuleCode.HT_BOTTOM_OVER_LIMIT]
     assert len(ht_rejects_226) == 1, f"226 bottom should still REJECT under 225 clamp: {ht_rejects_226}"
     assert "226" in ht_rejects_226[0].message and "225" in ht_rejects_226[0].message
+
+
+def test_load_override_bumps_ht_plates_day_scoped(gen_db):
+    """Spec 03: a note-apply LOAD override on D5 Hip Thrust's slot must actually
+    bump its PRESCRIBED plates (205 + 1 = 206) -- before this fix, the assembler's
+    HT branch resolved plates from MovementState.ht_plates and silently ignored
+    the overridden scalar `load` entirely once ht_plates was set (true for every
+    HT movement post go-live), so a load-increase note had zero effect.
+
+    load_delta is deliberately +1 (not the athlete's literal "+5"): D5's real
+    seeded bottom is already 205+Orange(18)=223, two lb under the 225 clamp --
+    a naive +5 plate bump (bottom 228) would correctly REJECT under the same
+    hardware-safety clamp test_raised_clamp_allows_223_bottom_rejects_226
+    proves elsewhere in this file. That's a real, separate product question
+    (a manual LOAD override has no band-reconfiguration safety net the way
+    ht_next_setup's auto-advance does) -- this test isolates spec 03's actual
+    scope (does the override reach ht_plates at all) at a delta that stays
+    safely under the clamp.
+
+    Also proves the override is day-scoped by construction (a SlotMovementOverride
+    is keyed on tier_exercise_id, and D2/D5/D6 Hip Thrust are three distinct
+    TierExercise rows) -- generating D2/D6 in the same test must show their own
+    unaffected seeded plates (205/155), not D5's overridden 206.
+    """
+    from ironlog.models.enums import OverrideType
+    from ironlog.models.program import SlotMovementOverride, TierExercise
+    from ironlog.models.session import Note
+
+    seed_movement_baselines(gen_db)
+
+    d5_ht_te = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t1b")
+    ).one()
+    note = Note(text="ready to go up 5lbs on Day 5")
+    gen_db.add(note)
+    gen_db.commit()
+    gen_db.refresh(note)
+    gen_db.add(SlotMovementOverride(
+        tier_exercise_id=d5_ht_te.id, override_movement_id=d5_ht_te.movement_id,
+        source_note_id=note.id, active=True,
+        override_type=OverrideType.LOAD, load_delta=1.0,
+    ))
+    gen_db.commit()
+
+    expected_plates = {"D2 Lower A": 205.0, "D5 Lower B": 206.0, "D6 Weak Points": 155.0}
+    for role, plates in expected_plates.items():
+        sk = lay_skeleton(role, gen_db)
+        stub = StubProposer(program_selections(sk))
+        outcome = generate_session(role, gen_db, stub, WEEK_KEYER)
+        assert outcome.assembled is not None, f"{role}: no assembled session"
+        sess = outcome.assembled.session
+        ht_sets = [
+            ps for g in sess.groups for ex in g.exercises for ps in ex.planned_sets
+            if ps.target_plates is not None
+        ]
+        assert ht_sets, f"{role}: no HT set with plates"
+        assert all(ps.target_plates == plates for ps in ht_sets), (
+            f"{role} plates {[ps.target_plates for ps in ht_sets]} != expected {plates}"
+        )
