@@ -20,7 +20,12 @@ from typing import Callable, Hashable, List
 from sqlmodel import Session as DBSession
 from sqlmodel import col, select
 
-from ..engine.advance import SessionPerf, advance, performed_floor_delta, roll_unassisted_max
+from ..engine.advance import (
+    SessionPerf,
+    advance,
+    performed_floor_delta,
+    roll_unassisted_max,
+)
 from ..engine.analysis import (
     AnalysisContext,
     AnalysisResult,
@@ -33,10 +38,21 @@ from ..engine.calibration import evaluate_calibration_flip
 from ..engine.e1rm import implied_rir
 from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal
+from ..generation.load_trust import load_field_for_mode
 from ..models.enums import CalibrationStatus, LiftCategory, Objective, ProgressionMode
-from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
+from ..models.library import (
+    E1rmHistory,
+    EngineState,
+    Movement,
+    MovementState,
+    PhasePolicy,
+)
 from ..models.session import (
-    ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
+    ExerciseGroup,
+    PlannedExercise,
+    PlannedSet,
+    Session as WorkoutSession,
+    SetLog,
 )
 from .apply import apply_analysis
 
@@ -96,7 +112,9 @@ def already_analyzed(session_id: int, db: DBSession) -> bool:
     return session.analyzed_at is not None
 
 
-def _resolve_movement_state(db: DBSession, movement_id: int, day_id: str) -> MovementState:
+def _resolve_movement_state(
+    db: DBSession, movement_id: int, day_id: str
+) -> MovementState:
     """Get-or-create with legacy-row adoption (composite (movement_id, day_id) key).
 
     Every pre-Task-1 row (and every existing test fixture seeded before the
@@ -134,8 +152,9 @@ def _resolve_movement_state(db: DBSession, movement_id: int, day_id: str) -> Mov
     return fresh
 
 
-def _build_session_perf(mid: int, movement: Movement, set_logs: List[SetLog],
-                         planned_sets: dict) -> SessionPerf:
+def _build_session_perf(
+    mid: int, movement: Movement, set_logs: List[SetLog], planned_sets: dict
+) -> SessionPerf:
     """Build a SessionPerf for one movement from its raw SetLog/PlannedSet rows.
 
     Groups this movement's non-warmup SetLog rows by set_index — unilateral
@@ -169,7 +188,11 @@ def _build_session_perf(mid: int, movement: Movement, set_logs: List[SetLog],
             ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
             if sl.rpe_numeric is not None:
                 v = sl.rpe_numeric
-            elif ps is not None and ps.target_rpe is not None and sl.feedback_tap is not None:
+            elif (
+                ps is not None
+                and ps.target_rpe is not None
+                and sl.feedback_tap is not None
+            ):
                 v = 10.0 - implied_rir(ps.target_rpe, sl.feedback_tap)
             else:
                 continue
@@ -199,8 +222,9 @@ def _build_session_perf(mid: int, movement: Movement, set_logs: List[SetLog],
     )
 
 
-def _confirmation_window(db: DBSession, mid: int, set_logs: List[SetLog],
-                          planned_sets: dict) -> int:
+def _confirmation_window(
+    db: DBSession, mid: int, set_logs: List[SetLog], planned_sets: dict
+) -> int:
     """T1 (incl. "T1b") -> 1; everything else, including an unresolvable
     label, -> 2 (the accessory default is the safe side)."""
     for sl in set_logs:
@@ -250,18 +274,20 @@ def run_analysis(
     if already_analyzed(session_id, db):
         return AnalysisResult()
     phase = db.exec(select(EngineState)).one().current_phase
-    phase_default = db.exec(
-        select(PhasePolicy).where(PhasePolicy.phase == phase)
-    ).one().default_objective
+    phase_default = (
+        db.exec(select(PhasePolicy).where(PhasePolicy.phase == phase))
+        .one()
+        .default_objective
+    )
 
-    set_logs = db.exec(
-        select(SetLog).where(SetLog.session_id == session_id)
-    ).all()
+    set_logs = db.exec(select(SetLog).where(SetLog.session_id == session_id)).all()
     movement_ids = sorted({sl.movement_id for sl in set_logs})
 
     # Load planned sets for target prescription data.
     # SetLog.target_rpe / target_reps_* don't exist on SetLog; they're on PlannedSet.
-    planned_set_ids = [sl.planned_set_id for sl in set_logs if sl.planned_set_id is not None]
+    planned_set_ids = [
+        sl.planned_set_id for sl in set_logs if sl.planned_set_id is not None
+    ]
     planned_sets: dict = {}
     if planned_set_ids:
         for ps in db.exec(
@@ -276,33 +302,35 @@ def run_analysis(
     for mid in movement_ids:
         state = _resolve_movement_state(db, mid, workout.day_role)
         state_by_mv[mid] = state
-        movement = db.exec(
-            select(Movement).where(Movement.id == mid)
-        ).one()
+        movement = db.exec(select(Movement).where(Movement.id == mid)).one()
         movement_by_mv[mid] = movement
         logged = []
         for sl in set_logs:
             if sl.movement_id != mid:
                 continue
             ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
-            logged.append(LoggedSet(
-                actual_load=sl.actual_load,
-                actual_reps=sl.actual_reps,
-                feedback_tap=sl.feedback_tap,
-                is_warmup=sl.is_warmup,
-                target_rpe=ps.target_rpe if ps else None,
-                target_reps_low=ps.target_reps_low if ps else None,
-                target_reps_high=ps.target_reps_high if ps else None,
-            ))
-        movements_inputs.append(MovementAnalysisInput(
-            movement_id=mid,
-            objective=resolve_objective(movement.objective_override, phase_default),
-            current_tier=state.current_increment_tier,
-            increment_ladder_len=len(movement.increment_ladder or [1]),
-            consecutive_ceiling_sessions=state.consecutive_ceiling_sessions,
-            consecutive_failed_progressions=state.consecutive_failed_progressions,
-            logged_sets=logged,
-        ))
+            logged.append(
+                LoggedSet(
+                    actual_load=sl.actual_load,
+                    actual_reps=sl.actual_reps,
+                    feedback_tap=sl.feedback_tap,
+                    is_warmup=sl.is_warmup,
+                    target_rpe=ps.target_rpe if ps else None,
+                    target_reps_low=ps.target_reps_low if ps else None,
+                    target_reps_high=ps.target_reps_high if ps else None,
+                )
+            )
+        movements_inputs.append(
+            MovementAnalysisInput(
+                movement_id=mid,
+                objective=resolve_objective(movement.objective_override, phase_default),
+                current_tier=state.current_increment_tier,
+                increment_ladder_len=len(movement.increment_ladder or [1]),
+                consecutive_ceiling_sessions=state.consecutive_ceiling_sessions,
+                consecutive_failed_progressions=state.consecutive_failed_progressions,
+                logged_sets=logged,
+            )
+        )
 
     ctx = AnalysisContext(
         movements=movements_inputs,
@@ -337,7 +365,8 @@ def run_analysis(
                 )
 
             consecutive_failed_for_stall = (
-                d.new_consecutive_failed if d.new_consecutive_failed is not None
+                d.new_consecutive_failed
+                if d.new_consecutive_failed is not None
                 else state.consecutive_failed_progressions
             )
             prior_rows = db.exec(
@@ -373,11 +402,16 @@ def run_analysis(
             # not current_load (see Spec 03, the assembler-side HT override fix), so
             # it is explicitly excluded here rather than floored against the wrong field.
             floor_delta = 0.0
-            if (movement.progression_mode == ProgressionMode.LADDER
-                    and movement.lift_category != LiftCategory.HIP_THRUST):
+            if (
+                load_field_for_mode(movement.progression_mode) == "current_load"
+                and movement.lift_category != LiftCategory.HIP_THRUST
+            ):
                 performed_loads = [
-                    sl.actual_load for sl in set_logs
-                    if sl.movement_id == mid and not sl.is_warmup and sl.actual_load is not None
+                    sl.actual_load
+                    for sl in set_logs
+                    if sl.movement_id == mid
+                    and not sl.is_warmup
+                    and sl.actual_load is not None
                 ]
                 floor_delta = performed_floor_delta(state.current_load, performed_loads)
             if adv.earned_load_step is not None or floor_delta > 0.0:
@@ -393,7 +427,8 @@ def run_analysis(
         except Exception:
             logger.exception(
                 "progression-engine advance step failed for movement_id=%s session_id=%s",
-                mid, session_id,
+                mid,
+                session_id,
             )
 
     # Calibration flips: for each CALIBRATING lift, build weekly-max estimates
@@ -412,9 +447,13 @@ def run_analysis(
         ).all()
         for r in prior:
             if r.session_id not in session_date_by_id:
-                session_date_by_id[r.session_id] = db.exec(
-                    select(WorkoutSession).where(WorkoutSession.id == r.session_id)
-                ).one().date
+                session_date_by_id[r.session_id] = (
+                    db.exec(
+                        select(WorkoutSession).where(WorkoutSession.id == r.session_id)
+                    )
+                    .one()
+                    .date
+                )
         # Synthetic row mirrors what the applier will persist for the current session.
         synthetic = E1rmHistory(
             movement_id=d.movement_id,
@@ -443,7 +482,8 @@ def run_analysis(
     db.add(workout)
 
     apply_analysis(
-        result, db,
+        result,
+        db,
         session_id=session_id,
         phase=phase,
         calibration_flips=frozenset(flips),
