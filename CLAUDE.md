@@ -16,14 +16,19 @@ depends on it, `docs/` is the source of truth.
 
 ## Current state
 
+**This table was stale for 2+ weeks (last updated 2026-06-24, HEAD was 15+ commits ahead) — corrected 2026-07-08. See `docs/build-plan.md` for the live, current punch-list; keep THAT updated, not just this table, since this table has drifted before.**
+
 | Layer | Status |
 |---|---|
 | Data model — library/state + session/set-log | **done** (SQLModel, `ironlog/models/`) |
-| Engine — e1RM, loading math, between-set autoregulation, tier logic | **done + tested** (`ironlog/engine/`, 18 tests) |
-| FastAPI surface — example routes | **done** (`ironlog/api/app.py`) |
-| Validator — deterministic hard-rule checks | **not started — this is next** |
-| Generation — LLM propose → validate → approve | **specified** (`docs/06`), stub only |
-| Library seed — full 130-movement import | only 5 example movements seeded |
+| Engine — e1RM, loading math, between-set autoregulation, tier logic | **done + tested** (`ironlog/engine/`) |
+| Validator — deterministic hard-rule checks | **done + live** (`ironlog/engine/validator.py`, `tests/test_validator.py` + `test_ht_validator_config.py`) |
+| Generation — LLM propose → validate → approve | **done + live** (`ironlog/engine/generation.py`), running on Gemini flash-lite behind a swappable proposer port |
+| Library seed | **done** — full movement library + D1-D6 program reconciled to authoritative YAML, calibrated baselines seeded, live on server |
+| Progression engine | **done + live** (2026-07-06 go-live) — `progression_rule` wired from YAML, advance→load bridge ratchets `current_load` on a clean top-of-range RPE-8 session |
+| In-gym logging round-trip (client↔server) | **done + live**, athlete has trained real sessions on it (Day 1-2 feedback already being triaged) |
+| Full test suite | **472 passing** (`.venv/bin/pytest -q` on myflix) |
+| **Current focus** | Real-athlete feedback triage + client polish — see `docs/build-plan.md` "Queued", not a from-scratch build task |
 
 ## Commands
 
@@ -99,27 +104,19 @@ the API is a **shared contract**, not a private interface.
 6. `06_generation_algorithm_spec.md` — the generator (your main upcoming target)
 - `exercise_verification.xlsx` — the verified 130-movement library to import
 
-## Next tasks (recommended build order)
+## Next tasks
 
-Build the deterministic pieces first; they're fully testable and keep the LLM out of
-the picture as long as possible.
+**The deterministic-spine build order that used to live here (validator → WeeklyLedger →
+analysis hook → generation loop → full library import) is DONE.** All five shipped and are
+live on the server, tested (472 passing). Do not treat this as remaining work.
 
-1. **Validator** (`engine/validator.py`, pure logic + tests). Given a proposed `Session`,
-   check the hard rules from `docs/06` §4: equipment in the active-phase manifest,
-   loads within floor/cap, RPE within the `PhasePolicy` envelope, primaries as STRAIGHT
-   groups first, knee-modality frequency, 2:1 pull:push, giant-set concurrency (≤3),
-   HT under its clamp. Return structured violations and distinguish **clamp** (fixable)
-   from **reject** (structural). No LLM.
-2. **WeeklyLedger** — track knee frequency, pull:push ratio, per-pattern volume across a
-   week so the cross-session rules are enforceable (`docs/06` §5).
-3. **Analysis hook** — post-session: update e1RM (`engine/e1rm`), `MovementState`
-   (tier, consecutive_ceiling, calibration_status), evaluate phase gates on `EngineState`.
-4. **Generation loop** (`engine/generation.py`) — deterministic skeleton → LLM proposal
-   (Anthropic messages API, tool-grounded: `getMovementState`, `getWeeklyLedger`,
-   `getManifest`, `getRecentSignatures`) → validator → human approval. See `docs/06`.
-5. **Full library import** — load all 130 movements from `docs/exercise_verification.xlsx`
-   into `seed.py` (only 5 examples are seeded now). Equipment, floor/step, cap, and
-   progression mode are already columns in that sheet.
+**The actual current punch-list lives in `docs/build-plan.md`** — read it, not this section,
+for what's next. As of 2026-07-08 it's real-athlete feedback triage (a client display bug
+showing lb instead of degrees for assist/incline movements; a load-ratchet gap where the
+engine under-prescribes below what the athlete actually performed off-script; warmup/finisher/
+rest-timer features; a larger "AI acts on programming notes" design item) — not new
+deterministic-core work. Keep `docs/build-plan.md` current as things ship; this section
+intentionally stays generic so it doesn't go stale the way the old numbered list did.
 
 ## How to verify your work
 
