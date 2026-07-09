@@ -88,9 +88,15 @@ def test_wiring_is_idempotent(gen_db):
 def _log_clean_session(db, *, day_role, movement_name, session_id,
                         n_sets, reps, target_reps_high, target_rpe=8.0,
                         rep_low=6, feedback=FeedbackTap.ON_TARGET,
-                        session_date=date(2026, 7, 6), label="T1"):
+                        session_date=date(2026, 7, 6), label="T1", actual_load=165.0):
     """Plant one COMPLETED session with `n_sets` clean working sets on a real
-    seeded movement (mirrors conftest.logged_session_id / test_run_analysis_progression)."""
+    seeded movement (mirrors conftest.logged_session_id / test_run_analysis_progression).
+
+    actual_load defaults to 165.0 (Bench's seeded baseline, the original caller)
+    -- pass the movement's own seeded current_load explicitly for any other
+    movement, so the logged performance represents hitting the prescription
+    cleanly rather than an incidental (and, since L's load ratchet, meaningful)
+    mismatch against a different movement's baseline."""
     mv = db.exec(select(Movement).where(Movement.name == movement_name)).one()
     sess = IronSession(id=session_id, date=session_date, day_role=day_role,
                        phase="CUT", status=SessionStatus.COMPLETED)
@@ -111,7 +117,7 @@ def _log_clean_session(db, *, day_role, movement_name, session_id,
         db.add(ps)
         db.flush()
         db.add(SetLog(planned_set_id=ps.id, session_id=sess.id, movement_id=mv.id,
-                      set_index=i, actual_load=165.0, actual_reps=reps,
+                      set_index=i, actual_load=actual_load, actual_reps=reps,
                       feedback_tap=feedback, is_warmup=False))
     db.commit()
     return mv.id
@@ -192,7 +198,8 @@ def test_second_rule_type_single_session_advances(gen_db):
 
     _log_clean_session(gen_db, day_role="D6 Weak Points",
                        movement_name="Cable V-Bar Pushdown [FT]", session_id=9002,
-                       n_sets=3, reps=12, target_reps_high=12, rep_low=8, label="GS3")
+                       n_sets=3, reps=12, target_reps_high=12, rep_low=8, label="GS3",
+                       actual_load=60.0)  # matches its own seeded baseline -- a clean, on-script session
 
     run_analysis(9002, gen_db, WEEK_KEYER)
 

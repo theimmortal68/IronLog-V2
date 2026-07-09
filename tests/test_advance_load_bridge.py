@@ -220,3 +220,125 @@ def test_single_session_clean_advance_earns_step_not_tier():
                 _mv(), 1)
     assert r.advanced is True and r.new_tier is None
     assert r.earned_load_step == 5.0
+
+
+# ---------------------------------------------------------------------------
+# L: load ratchet — never prescribe below a logged actual performance
+# ---------------------------------------------------------------------------
+# Concrete case: Belt Squat seeded 260, athlete logs 265x12 at RPE 8 (off-script
+# heavier). Belt Squat's rule is REP_LADDER, not RPE_8_STANDARD, so advance()
+# earns no scalar earned_load_step here -- the floor must apply independent of
+# whether a clean rule-driven advance fired.
+
+from ironlog.engine.advance import performed_floor_delta
+
+BELT_SQUAT = "Belt Squat [GHR + FT]"
+D2 = "D2 Lower A"
+
+
+def test_performed_floor_delta_floors_to_heaviest_logged():
+    assert performed_floor_delta(260.0, [265.0]) == 5.0
+
+
+def test_performed_floor_delta_zero_when_performed_lighter():
+    assert performed_floor_delta(260.0, [250.0]) == 0.0
+
+
+def test_performed_floor_delta_zero_when_current_load_none():
+    assert performed_floor_delta(None, [265.0]) == 0.0
+
+
+def test_performed_floor_delta_zero_when_no_performed_loads():
+    assert performed_floor_delta(260.0, []) == 0.0
+
+
+def test_performed_floor_delta_picks_heaviest_of_multiple_sets():
+    assert performed_floor_delta(260.0, [250.0, 265.0, 255.0]) == 5.0
+
+
+def _log_belt_squat(db, *, session_id, load, reps, feedback=FeedbackTap.ON_TARGET,
+                    session_date=date(2026, 7, 8)):
+    """Plant one COMPLETED D2 session with one Belt Squat working set at `load`."""
+    bs = db.exec(select(Movement).where(Movement.name == BELT_SQUAT)).one()
+    sess = IronSession(id=session_id, date=session_date, day_role=D2,
+                       phase="CUT", status=SessionStatus.COMPLETED)
+    db.add(sess)
+    db.flush()
+    grp = ExerciseGroup(session_id=sess.id, order_index=0,
+                        group_type=GroupType.STRAIGHT, label="T1")
+    db.add(grp)
+    db.flush()
+    pex = PlannedExercise(group_id=grp.id, movement_id=bs.id, order_index=0,
+                          scheme=Scheme.STRAIGHT, objective=Objective.PROGRESS)
+    db.add(pex)
+    db.flush()
+    ps = PlannedSet(planned_exercise_id=pex.id, set_index=0, set_role=SetRole.WORKING,
+                    target_rpe=8.0, target_reps_low=6, target_reps_high=8)
+    db.add(ps)
+    db.flush()
+    db.add(SetLog(planned_set_id=ps.id, session_id=sess.id, movement_id=bs.id,
+                  set_index=0, actual_load=load, actual_reps=reps,
+                  feedback_tap=feedback, is_warmup=False))
+    db.commit()
+    return bs.id
+
+
+def _belt_squat_state(db):
+    bs = db.exec(select(Movement).where(Movement.name == BELT_SQUAT)).one()
+    return db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == bs.id,
+            MovementState.day_id == D2,
+        )
+    ).one()
+
+
+def test_load_ratchet_floors_to_performed_when_off_script_heavier(gen_db):
+    seed_movement_baselines(gen_db)
+
+    st0 = _belt_squat_state(gen_db)
+    assert st0.current_load == 260
+    assert st0.pending_load_delta is None
+
+    # Off-script heavier: seeded 260, athlete logs 265x12 at RPE 8.
+    _log_belt_squat(gen_db, session_id=9201, load=265.0, reps=12)
+    run_analysis(9201, gen_db, WEEK_KEYER)
+
+    st1 = _belt_squat_state(gen_db)
+    assert st1.active_rule == ProgressionRule.REP_LADDER.value
+    assert st1.pending_load_delta == 5.0, (
+        "floor must stage +5 (265-260) even though REP_LADDER earns no scalar "
+        "earned_load_step of its own"
+    )
+    assert st1.current_load == 260, "run_analysis must NOT write current_load directly"
+
+    # Regenerate D2 and confirm Belt Squat is prescribed 265, not 260.
+    sk = lay_skeleton(D2, gen_db)
+    stub = StubProposer(program_selections(sk))
+    outcome = generate_session(D2, gen_db, stub, WEEK_KEYER)
+    bs = gen_db.exec(select(Movement).where(Movement.name == BELT_SQUAT)).one()
+    prescribed = outcome.assembled.prospective_current_loads[bs.id]
+    assert prescribed == 265, "next Belt Squat prescription must not regress below 265"
+
+    commit_session(outcome.assembled, gen_db, approval_mode="auto", prompt={},
+                   selections_dict={}, clamps=[], repairs=[], fallback_used=False)
+    st2 = _belt_squat_state(gen_db)
+    assert st2.current_load == 265
+    assert st2.pending_load_delta is None, "marker cleared after commit (apply-once)"
+
+
+def test_load_ratchet_does_not_lower_prescription_when_performed_lighter(gen_db):
+    seed_movement_baselines(gen_db)
+    _log_belt_squat(gen_db, session_id=9202, load=250.0, reps=8)
+    run_analysis(9202, gen_db, WEEK_KEYER)
+    st = _belt_squat_state(gen_db)
+    assert st.pending_load_delta is None, "performing lighter than seeded must not floor/lower anything"
+
+
+def test_load_ratchet_excludes_ht_composite_movements(gen_db):
+    """HT is out of scope for this spec (Spec 03 owns it) -- a HIP_THRUST/COMPOSITE
+    movement's floor must never be computed against current_load."""
+    from ironlog.models.enums import LiftCategory
+    ht = gen_db.exec(select(Movement).where(Movement.lift_category == LiftCategory.HIP_THRUST)).first()
+    assert ht is not None
+    assert ht.progression_mode.value == "COMPOSITE"
