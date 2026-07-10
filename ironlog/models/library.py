@@ -82,6 +82,7 @@ class Movement(SQLModel, table=True):
     min_step: Optional[float] = None
     load_floor: Optional[float] = None
     cap: Optional[float] = None
+    ramp_eligible: bool = Field(default=False, sa_column_kwargs={"server_default": text("0")})
     rpe_capped: bool = False
     rpe_cap_exempt: bool = False
 

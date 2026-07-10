@@ -19,7 +19,7 @@ from ironlog.generation.assembler import assemble
 from ironlog.generation.context import resolve_context
 from ironlog.generation.proposer import Selections, SlotSelection
 from ironlog.generation.skeleton import lay_skeleton
-from ironlog.models.enums import OverrideType
+from ironlog.models.enums import OverrideType, SetRole
 from ironlog.models.library import Movement, MovementState
 from ironlog.models.program import SlotMovementOverride, TierExercise
 from ironlog.models.session import Note
@@ -42,10 +42,10 @@ def _assemble(gen_db):
 
 
 def _t1_planned_set(res):
-    """The T1 anchor group's single planned set (Bench Press [PB], STRAIGHT scheme)."""
+    """The T1 anchor group's first working set (Bench Press [PB], STRAIGHT scheme)."""
     t1_group = next(g for g in res.session.groups if g.label == "T1")
     ex = t1_group.exercises[0]
-    return ex.planned_sets[0]
+    return next(ps for ps in ex.planned_sets if ps.set_role == SetRole.WORKING)
 
 
 def _other_slot_loads(res):
