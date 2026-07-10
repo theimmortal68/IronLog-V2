@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import text
+from sqlalchemy import Column, JSON, text
 from sqlmodel import Field, SQLModel
 
 from .enums import KneeModality, OverrideType  # noqa: F401 — used in TierExercise/SlotMovementOverride column types
@@ -43,6 +43,15 @@ class ProgramDay(SQLModel, table=True):
     day_index: int        # 1=Mon … 7=Sun
     day_role: str         # "D1 Upper Push", "D2 Lower A", "" for rest days
     is_rest: bool = False
+
+
+class DayFinisher(SQLModel, table=True):
+    """One EMOM finisher assigned to a non-rest program day."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    program_day_id: int = Field(foreign_key="programday.id")
+    movement_id: int = Field(foreign_key="movement.id")
+    duration_minutes: int
+    params: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class Tier(SQLModel, table=True):
