@@ -551,10 +551,15 @@ def _serialize_session(ws, db) -> SessionDetailResponse:
                 band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
                 band_config=ps.band_config,
             ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
+            unit_hint = (
+                _UNIT_HINTS.get(load_field_for_mode(mv.progression_mode))
+                if mv else None
+            )
             ex_out.append(ExerciseOut(
                 id=(pe.id if pe.id is not None else ei), movement_id=pe.movement_id,
                 movement_name=(mv.name if mv else ""), order_index=pe.order_index,
                 scheme=pe.scheme.value, objective=pe.objective.value,
+                unit_hint=unit_hint,
                 unilateral=(mv.unilateral if mv else False),
                 planned_sets=sets_out,
             ))

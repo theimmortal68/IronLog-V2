@@ -77,6 +77,14 @@ def test_generate_returns_preview_matching_session_shape():
     s0 = g0["exercises"][0]["planned_sets"][0]
     assert isinstance(s0["id"], int)
     assert "target_load" in s0 and "target_reps_low" in s0
+    exercises = {
+        ex["movement_name"]: ex
+        for group in preview["groups"]
+        for ex in group["exercises"]
+    }
+    assert exercises["Bench Press [PB]"]["unit_hint"] == "lb"
+    assert exercises["Ab Wheel [WHEEL]"]["unit_hint"] is None
+    assert exercises["Face-Up Incline Knee Raise"]["unit_hint"] == "assist"
     app.dependency_overrides.clear()
 
 
