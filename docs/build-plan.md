@@ -8,11 +8,12 @@ Last updated 2026-07-09. Source of truth for the in-flight feature/bug work.
 - **Capture** (client, installed): B logged-actuals + edit (bilateral); F weight carry-forward; J idempotent logging (dedups double-submits, preserves unilateral two-sided logs); band-color off-by-one fixed (Orange no longer shows as Red); resume-cursor on reload (background-kill no longer looks like lost data).
 - **L — load ratchet** (merged, 2026-07-09): `performed_floor_delta` — a clean session performed heavier than the seeded baseline (e.g. Belt Squat 265 vs seeded 260) no longer regresses to the old baseline next session. Scoped to plain `current_load` movements; HT excluded (see next item). **Not yet deployed to the live server** (merged to `main`, no live reseed/restart run yet).
 - **Note-apply LOAD override now affects Hip Thrust** (merged, 2026-07-09): the existing "apply a note" mechanism had zero effect on HT's plates (assembler discarded it once `ht_plates` was set). Fixed — a day-scoped "+N lbs" note now actually bumps the target day's HT plates, without compounding across regenerations. Answers the Day-2 "ready to go up 5lbs on Day 5" note. **Not yet deployed to the live server.**
+- **[C-display] server half — unit_hint on ExerciseOut** (merged, 2026-07-09): `ExerciseOut.unit_hint` now surfaces "lb"/"assist"/None per movement (reusing `_UNIT_HINTS`/`load_field_for_mode`), so a client can render "20° assist" instead of "20 lb" for Nordic Curl/Reverse Nordic/Face-Up Incline Knee Raise. First live shakedown of the new codex-generation + Opus-review-gate pipeline — clean pass, no findings. **Client-side render is a separate follow-on spec, not started.** **Not yet deployed to the live server.**
 
 ## Day-2 feedback (2026-07-07) — reviewed + slotted
 
 ### Design / app
-- **[C-display]** Assist/incline movements show a **lb** value instead of **degrees of assist**. Confirmed live: Nordic Curl shows "20 lbs" (note "still posting load as 20lbs instead of 20 degrees of assist"). **Server data is correct** (`assist_level=20°`); the session API hands the client a bare `target_load` float with no unit hint, so it renders "20 lb". FIX = **server**: surface `progression_mode`/`unit_hint` on `ExerciseOut`/`PlannedSetOut` (the `WizardMovement.unit_hint` pattern already exists, wire it into the session path) → **client**: render "20° assist" (degrees) for ASSISTED/incline movements. Applies to: **Nordic Curl, Reverse Nordic, Face-Up Incline Knee Raise**. Recurring visible bug → prioritize. **Spec written** (`.specs/01-unit-hint-display.md`), **held at a HUMAN GATE** (adds a field to a public response DTO — awaiting authorization to route/dispatch).
+- **[C-display]** Assist/incline movements show a **lb** value instead of **degrees of assist**. Confirmed live: Nordic Curl shows "20 lbs" (note "still posting load as 20lbs instead of 20 degrees of assist"). **Server data is correct** (`assist_level=20°`); the session API hands the client a bare `target_load` float with no unit hint, so it renders "20 lb". FIX = **server**: surface `progression_mode`/`unit_hint` on `ExerciseOut`/`PlannedSetOut` (the `WizardMovement.unit_hint` pattern already exists, wire it into the session path) → **client**: render "20° assist" (degrees) for ASSISTED/incline movements. Applies to: **Nordic Curl, Reverse Nordic, Face-Up Incline Knee Raise**. Recurring visible bug → prioritize. **Server half SHIPPED 2026-07-09** (see "Shipped + live" above). Client-side degree render is a separate follow-on spec, not yet written.
 
 ### Exercise / programming — ✅ both shipped 2026-07-09 (see "Shipped + live" above)
 - ~~**[L — load ratchet]**~~ DONE. Belt Squat 265×12 @ RPE8 (seeded 260) no longer regresses.
@@ -21,7 +22,6 @@ Last updated 2026-07-09. Source of truth for the in-flight feature/bug work.
 ## Queued
 | Item | What | Size |
 |---|---|---|
-| **C-display** | assist/incline moves show degrees, not lb (server unit-hint + client render) — spec written, held at HUMAN GATE | small |
 | **A** | warmup/ramp sets (heavy barbell only; 3-set 40/60/80%, reps 5/3/2 — design locked) | med |
 | **I** | finishers (defs saved in `phase1-warmup-finisher-source.yaml`; d6 jump-rope has its own duration→rope progression) | med |
 | **G** | autoregulated rest (hardest set in a giant set governs the duration) | med |
