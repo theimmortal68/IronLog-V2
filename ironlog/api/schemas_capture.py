@@ -3,7 +3,7 @@
 These shapes are mirrored field-for-field by the Android client's Kotlin DTOs.
 Any change here is a contract change that touches both repos.
 """
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -90,6 +90,14 @@ class GroupOut(BaseModel):
     exercises: List[ExerciseOut]
 
 
+class FinisherOut(BaseModel):
+    exercise_name: str
+    duration_minutes: int
+    params: Dict[str, Any]
+    current_duration_seconds: Optional[int] = None
+    current_rope: Optional[str] = None
+
+
 class SessionDetailResponse(BaseModel):
     id: int
     date: str
@@ -97,3 +105,4 @@ class SessionDetailResponse(BaseModel):
     phase: str
     status: str
     groups: List[GroupOut]
+    finisher: Optional[FinisherOut] = None
