@@ -269,27 +269,35 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     has_current_ht_setup = base is not None or (state is not None and state.ht_plates is not None)
     if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:
         cur_plates, cur_config = _resolve_ht_current_setup(state, load)
-        # A LOAD override on this slot bumps HT's resolved plates directly (the
+        by_id = {b.id: b for b in band_inventory}
+        if prospective_ht is not None:
+            # Stage the NEXT setup from the REAL (pre-override) current state, so
+            # commit_session advances MovementState AFTER this session is logged —
+            # session N prescribes current, commit moves the state to next, session
+            # N+1 prescribes that next, and so on. A LOAD override is a
+            # prescription-only tweak (Option-C, mirrors _apply_slot_override's own
+            # prospective-captured-before-override pattern above) and must NEVER
+            # leak into the trajectory commit_session persists — applying it here
+            # would compound the override into ht_plates every regeneration cycle,
+            # since an active override has no auto-expiry.
+            next_plates, next_config = ht_next_setup(cur_plates, cur_config, band_inventory)
+            prospective_ht[movement.id] = (next_plates, list(next_config))
+        # A LOAD override on this slot bumps HT's PRESCRIBED plates only (the
         # scalar `load` override above was already discarded by
         # _resolve_ht_current_setup once ht_plates was set -- apply it exactly
-        # once, here, not via the scalar path).
-        cur_plates = _apply_ht_load_override(db, tier_exercise_id, cur_plates)
-        by_id = {b.id: b for b in band_inventory}
-        # Prescribe the CURRENT seeded setup on the planned sets — no auto-advance
-        # at prescription time (2026-07-06 athlete directive: Week 1 shows exactly
-        # the seeded setup). Advancement is TIMED at commit, not prescription.
-        cur_peak = config_peak(cur_plates, cur_config, by_id)
+        # once, here, not via the scalar path) -- applied AFTER prospective_ht is
+        # staged from the un-overridden state.
+        prescribed_plates = _apply_ht_load_override(db, tier_exercise_id, cur_plates)
+        # Prescribe the CURRENT seeded setup (plus any active override) on the
+        # planned sets — no auto-advance at prescription time (2026-07-06 athlete
+        # directive: Week 1 shows exactly the seeded setup). Advancement is TIMED
+        # at commit, not prescription.
+        cur_peak = config_peak(prescribed_plates, cur_config, by_id)
         for ps in sets:
-            ps.target_plates = cur_plates
+            ps.target_plates = prescribed_plates
             ps.band_config = list(cur_config)
             ps.target_felt_peak = cur_peak
             ps.target_load = None
-        if prospective_ht is not None:
-            # Stage the NEXT setup so commit_session advances MovementState AFTER
-            # this session is logged — session N prescribes current, commit moves
-            # the state to next, session N+1 prescribes that next, and so on.
-            next_plates, next_config = ht_next_setup(cur_plates, cur_config, band_inventory)
-            prospective_ht[movement.id] = (next_plates, list(next_config))
 
     ex = PlannedExercise(
         movement_id=movement.id,

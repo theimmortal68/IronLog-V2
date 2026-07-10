@@ -290,3 +290,100 @@ def test_load_override_bumps_ht_plates_day_scoped(gen_db):
         assert all(ps.target_plates == plates for ps in ht_sets), (
             f"{role} plates {[ps.target_plates for ps in ht_sets]} != expected {plates}"
         )
+
+
+def test_load_override_does_not_compound_into_committed_ht_plates(gen_db):
+    """Regression (found in review, before merge): a LOAD override has no
+    auto-expiry -- it stays `active=True` across regenerations until manually
+    reverted. The FIRST implementation of _apply_ht_load_override applied the
+    override to cur_plates BEFORE computing ht_next_setup, so the overridden
+    value became the basis for prospective_ht -- which commit_session persists.
+    Every regenerate+commit cycle re-added the override on top of the already-
+    advanced state, permanently drifting ht_plates upward by the override delta
+    every single cycle instead of applying it once as a prescription-only tweak.
+
+    Proves TWO regenerate+commit cycles with the SAME active +1 override on D5
+    (seeded 205) land on exactly the plain two-step ht_next_setup trajectory
+    from 205 -- i.e. the override affects only what's PRESCRIBED each session,
+    never what commit_session persists as the next state.
+    """
+    from ironlog.engine.band_composite import Band, ht_next_setup
+    from ironlog.generation.loop import commit_session
+    from ironlog.models.enums import OverrideType
+    from ironlog.models.library import MovementState
+    from ironlog.models.program import SlotMovementOverride, TierExercise
+    from ironlog.models.session import Note
+
+    seed_movement_baselines(gen_db)
+    inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
+                 for bp in gen_db.exec(select(BandPair)).all()]
+    orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
+
+    # Ground truth: the plain (no-override) two-step trajectory from D5's
+    # seeded 205 + Orange.
+    true_step1_plates, true_step1_config = ht_next_setup(205.0, [orange.id], inventory)
+    true_step2_plates, true_step2_config = ht_next_setup(
+        true_step1_plates, true_step1_config, inventory
+    )
+
+    d5_ht_te = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t1b")
+    ).one()
+    note = Note(text="ready to go up on Day 5")
+    gen_db.add(note)
+    gen_db.commit()
+    gen_db.refresh(note)
+    gen_db.add(SlotMovementOverride(
+        tier_exercise_id=d5_ht_te.id, override_movement_id=d5_ht_te.movement_id,
+        source_note_id=note.id, active=True,
+        override_type=OverrideType.LOAD, load_delta=1.0,
+    ))
+    gen_db.commit()
+
+    ht_mv = gen_db.exec(select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")).one()
+
+    # Cycle 1: generate + commit D5 (override active throughout).
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    stub = StubProposer(program_selections(sk))
+    outcome = generate_session("D5 Lower B", gen_db, stub, WEEK_KEYER)
+    assert outcome.assembled.prospective_ht_setups[ht_mv.id] == (
+        true_step1_plates, list(true_step1_config)
+    ), (
+        "cycle 1: the prospective (committed) next-setup must be computed from "
+        "the PRE-override plates (205), matching the plain no-override "
+        "trajectory -- the override must not leak into it"
+    )
+    commit_session(outcome.assembled, gen_db, approval_mode="auto", prompt={},
+                   selections_dict={}, clamps=[], repairs=[], fallback_used=False)
+
+    st_after_1 = gen_db.exec(
+        select(MovementState).where(MovementState.movement_id == ht_mv.id,
+                                    MovementState.day_id == "D5 Lower B")
+    ).one()
+    assert st_after_1.ht_plates == true_step1_plates, (
+        f"after cycle 1, committed ht_plates {st_after_1.ht_plates} must equal the "
+        f"normal one-step advance {true_step1_plates}, NOT that plus the override delta"
+    )
+
+    # Cycle 2: generate + commit D5 AGAIN, override STILL active (no auto-expiry).
+    sk2 = lay_skeleton("D5 Lower B", gen_db)
+    stub2 = StubProposer(program_selections(sk2))
+    outcome2 = generate_session("D5 Lower B", gen_db, stub2, WEEK_KEYER)
+    assert outcome2.assembled.prospective_ht_setups[ht_mv.id] == (
+        true_step2_plates, list(true_step2_config)
+    ), (
+        "cycle 2: prospective next-setup must be the plain second step from "
+        "cycle 1's REAL committed state, not inflated by the still-active override"
+    )
+    commit_session(outcome2.assembled, gen_db, approval_mode="auto", prompt={},
+                   selections_dict={}, clamps=[], repairs=[], fallback_used=False)
+
+    st_after_2 = gen_db.exec(
+        select(MovementState).where(MovementState.movement_id == ht_mv.id,
+                                    MovementState.day_id == "D5 Lower B")
+    ).one()
+    assert st_after_2.ht_plates == true_step2_plates, (
+        f"after cycle 2 (override STILL active), committed ht_plates "
+        f"{st_after_2.ht_plates} must equal a normal two-step advance from 205 "
+        f"({true_step2_plates}), NOT drifted further by the override each cycle"
+    )
