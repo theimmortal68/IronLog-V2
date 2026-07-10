@@ -100,6 +100,7 @@ class Movement(SQLModel, table=True):
     assist_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
     position_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
     rep_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
+    rope_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
     load_equipment: Optional[Equipment] = Relationship(back_populates="movements")
     state: Optional["MovementState"] = Relationship(back_populates="movement")
@@ -167,6 +168,9 @@ class MovementState(SQLModel, table=True):
     active_rule: Optional[str] = None
     current_body_position: Optional[str] = None
     current_rep_target: Optional[int] = None            # rep-ladder rule state (Task 3)
+    duration_ladder: Optional[list] = Field(default=None, sa_column=Column(JSON))
+    current_duration_seconds: Optional[int] = None
+    current_rope: Optional[str] = None
     unassisted_max_rolling: Optional[int] = None
     stall_signal: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     ht_band_config: Optional[list] = Field(default=None, sa_column=Column(JSON))  # HT band-composite (Task 1)

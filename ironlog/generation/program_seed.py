@@ -16,10 +16,12 @@ from typing import Dict, Optional
 
 from sqlmodel import Session, select
 
-from ironlog.models.enums import KneeModality
-from ironlog.models.library import Movement
+from ironlog.models.enums import (
+    KneeModality, LiftCategory, ProgressionMode, ProgressionRule,
+)
+from ironlog.models.library import Movement, MovementState
 from ironlog.models.program import (
-    MesoRotation, Program, ProgramDay, Tier, TierExercise, TierKind,
+    DayFinisher, MesoRotation, Program, ProgramDay, Tier, TierExercise, TierKind,
 )
 
 # ---------------------------------------------------------------------------
@@ -171,6 +173,7 @@ def seed_phase1_program(db: Session) -> None:
     _seed_d4(db, day_objs["D4 Upper Pull"],  lib)
     _seed_d5(db, day_objs["D5 Lower B"],     lib)
     _seed_d6(db, day_objs["D6 Weak Points"], lib)
+    _seed_finishers(db, {pd.day_index: pd for pd in day_objs.values()})
 
     db.commit()
 
@@ -252,6 +255,91 @@ def _add_mr(db: Session, te: TierExercise, meso_number: int,
     )
     db.add(mr)
     return mr
+
+
+def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
+    finishers = {
+        1: {
+            "name": "kb_swing",
+            "params": {
+                "weight_lb": 30,
+                "target_reps_per_minute": 15,
+                "equipment": ["kettlebell_30"],
+            },
+        },
+        2: {
+            "name": "sled_push",
+            "params": {
+                "resistance_level": 8,
+                "work_seconds_per_minute": 30,
+                "equipment": ["dreadmill"],
+            },
+        },
+        4: {
+            "name": "sandbag_load_to_utility_seat",
+            "params": {
+                "weight_lb": 100,
+                "utility_seat_height_inches": 52,
+                "target_reps_per_minute": 4,
+                "equipment": ["sandbag_100", "utility_seat", "spotter_arms"],
+            },
+        },
+        5: {
+            "name": "heavy_farmer_carry",
+            "params": {
+                "weight_lb": 55,
+                "work_seconds_per_minute": 40,
+                "rest_seconds_per_minute": 20,
+                "equipment": ["dreadmill", "farmer_handles"],
+            },
+        },
+        6: {
+            "name": "jump_rope",
+            "params": {
+                "rope_type": "crossrope_quarter_lb",
+                "work_seconds_per_minute": 30,
+                "target_reps_per_minute": 40,
+                "equipment": ["crossrope_quarter_lb"],
+            },
+            "duration_ladder": [35, 40, 45, 50],
+            "rope_ladder": ["quarter_lb", "half_lb", "one_lb"],
+            "current_duration_seconds": 35,
+            "current_rope": "quarter_lb",
+        },
+    }
+
+    for day_index, spec in finishers.items():
+        movement = Movement(
+            name=spec["name"],
+            base_name=spec["name"],
+            lift_category=LiftCategory.NONE,
+            progression_mode=ProgressionMode.FINISHER,
+            progression_rule=(
+                ProgressionRule.FINISHER_DURATION_THEN_ROPE
+                if day_index == 6 else None
+            ),
+            rope_ladder=spec.get("rope_ladder"),
+        )
+        db.add(movement)
+        db.flush()
+
+        db.add(MovementState(
+            movement_id=movement.id,
+            active_rule=(
+                ProgressionRule.FINISHER_DURATION_THEN_ROPE
+                if day_index == 6 else None
+            ),
+            duration_ladder=spec.get("duration_ladder"),
+            current_duration_seconds=spec.get("current_duration_seconds"),
+            current_rope=spec.get("current_rope"),
+        ))
+        db.add(DayFinisher(
+            program_day_id=days_by_index[day_index].id,
+            movement_id=movement.id,
+            duration_minutes=6,
+            params=spec["params"],
+        ))
+    db.flush()
 
 
 # ---------------------------------------------------------------------------

@@ -42,6 +42,7 @@ class ProgressionMode(str, Enum):
     ASSISTED = "ASSISTED"            # progress by REDUCING assistance
     PROTOCOL = "PROTOCOL"            # bodyweight / reps / tempo
     CONDITIONING = "CONDITIONING"
+    FINISHER = "FINISHER"
     NONE = "NONE"
 
 
@@ -191,6 +192,7 @@ class ProgressionRule(str, Enum):
     BODY_POSITION = "BODY_POSITION"
     PULL_UP_ROLLING_MAX = "PULL_UP_ROLLING_MAX"
     FIXED_LOAD = "FIXED_LOAD"
+    FINISHER_DURATION_THEN_ROPE = "FINISHER_DURATION_THEN_ROPE"
 
 
 class StallType(str, Enum):
