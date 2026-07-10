@@ -75,6 +75,7 @@ class ExerciseOut(BaseModel):
     order_index: int
     scheme: str
     objective: str
+    unit_hint: Optional[str] = None
     planned_sets: List[PlannedSetOut]
 
 
