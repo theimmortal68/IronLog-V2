@@ -265,6 +265,23 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     load, rep_low, rep_high = _apply_slot_override(db, tier_exercise_id, load, rep_low, rep_high)
     sets = _sets_for_scheme(movement.scheme, load, ctx,
                             rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap)
+    if is_anchor and movement.ramp_eligible and load is not None:
+        ramp_sets = [
+            PlannedSet(
+                set_index=set_index,
+                set_role=SetRole.RAMP,
+                is_warmup=True,
+                target_load=round_to_achievable(load * pct, floor, step),
+                target_reps_low=reps,
+                target_reps_high=reps,
+            )
+            for set_index, pct, reps in (
+                (-3, 0.4, 5),
+                (-2, 0.6, 3),
+                (-1, 0.8, 2),
+            )
+        ]
+        sets = ramp_sets + sets
 
     has_current_ht_setup = base is not None or (state is not None and state.ht_plates is not None)
     if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:

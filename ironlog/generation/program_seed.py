@@ -76,6 +76,15 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Single-Arm DB Row":                            "Single-Arm DB Row [DB]",
 }
 
+RAMP_ELIGIBLE_MOVEMENT_NAMES = {
+    "Bench Press [PB]",
+    "Belt Squat [GHR + FT]",
+    "Back Squat [PB]",
+    # The authoritative YAML ids rdl_d5 and rdl_conventional both resolve here.
+    "RDL [PB]",
+    "Staggered RDL [PB]",
+}
+
 
 def _build_lib_map(db: Session) -> Dict[str, int]:
     """Return {movement.name: movement.id} for all seeded library movements."""
@@ -123,6 +132,7 @@ def seed_phase1_program(db: Session) -> None:
     NEVER call this on the production DB without a reseed/migration plan.
     """
     lib = _build_lib_map(db)
+    _mark_ramp_eligible_movements(db, lib)
 
     # ── Program ──────────────────────────────────────────────────────────────
     prog = Program(
@@ -211,6 +221,22 @@ def _add_te(db: Session, tier_id: int, slot_id: str, prog_name: str,
     db.add(te)
     db.flush()
     return te
+
+
+def _mark_ramp_eligible_movements(db: Session, lib: Dict[str, int]) -> None:
+    missing = sorted(name for name in RAMP_ELIGIBLE_MOVEMENT_NAMES if name not in lib)
+    if missing:
+        raise ValueError(
+            "HALT-AND-FLAG: ramp-eligible movement(s) missing from seeded library: "
+            f"{missing!r}"
+        )
+    movements = db.exec(
+        select(Movement).where(Movement.name.in_(RAMP_ELIGIBLE_MOVEMENT_NAMES))
+    ).all()
+    for movement in movements:
+        movement.ramp_eligible = True
+        db.add(movement)
+    db.flush()
 
 
 def _add_mr(db: Session, te: TierExercise, meso_number: int,
