@@ -41,6 +41,8 @@ class AdvanceResult:
     new_assist_level: Optional[float] = None
     new_rep_target: Optional[int] = None
     new_body_position: Optional[str] = None
+    new_duration_seconds: Optional[int] = None
+    new_rope: Optional[str] = None
     earned_load_step: Optional[float] = None   # K2: scalar load step earned on a clean advance
 
 
@@ -200,6 +202,54 @@ def _body_position(state, perf, movement, window) -> AdvanceResult:
     return _ladder_step(state, perf, window, rule, ladder, state.current_body_position, "new_body_position")
 
 
+def _finisher_duration_then_rope(state, perf, movement, window) -> AdvanceResult:
+    rule = ProgressionRule.FINISHER_DURATION_THEN_ROPE.value
+    duration_ladder = state.duration_ladder or []
+    current_duration = state.current_duration_seconds
+    current_rope = state.current_rope
+    duration_result = _ladder_step(
+        state,
+        perf,
+        window,
+        rule,
+        duration_ladder,
+        current_duration,
+        "new_duration_seconds",
+    )
+
+    if not duration_ladder or current_duration not in duration_ladder or not _clean(perf):
+        duration_result.new_rope = current_rope
+        return duration_result
+
+    streak = state.consecutive_advance_count + 1
+    if streak < window:
+        duration_result.new_rope = current_rope
+        return duration_result
+
+    duration_idx = duration_ladder.index(current_duration)
+    if duration_idx < len(duration_ladder) - 1:
+        duration_result.new_rope = current_rope
+        return duration_result
+
+    rope_ladder = movement.rope_ladder or []
+    if current_rope not in rope_ladder:
+        duration_result.new_rope = current_rope
+        return duration_result
+
+    rope_idx = rope_ladder.index(current_rope)
+    if rope_idx >= len(rope_ladder) - 1:
+        duration_result.new_rope = current_rope
+        return duration_result
+
+    return AdvanceResult(
+        True,
+        rule,
+        0,
+        new_duration_seconds=duration_ladder[0],
+        new_rope=rope_ladder[rope_idx + 1],
+    )
+
+
 def _pull_up_rolling_max(state, perf, movement, window) -> AdvanceResult:
     # tracking-only this chunk: no load/assist change, no cross-day action.
     # The persistence layer (Task 6) calls `roll_unassisted_max` to update
@@ -221,6 +271,7 @@ _DISPATCH = {
     ProgressionRule.INCLINE_REDUCTION: _incline_reduction,
     ProgressionRule.ASSISTANCE_REDUCTION: _assistance_reduction,
     ProgressionRule.BODY_POSITION: _body_position,
+    ProgressionRule.FINISHER_DURATION_THEN_ROPE: _finisher_duration_then_rope,
     ProgressionRule.PULL_UP_ROLLING_MAX: _pull_up_rolling_max,
 }
 
