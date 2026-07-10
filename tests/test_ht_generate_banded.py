@@ -231,3 +231,159 @@ def test_raised_clamp_allows_223_bottom_rejects_226(gen_db):
     ht_rejects_226 = [v for v in res_226.rejects if v.rule == RuleCode.HT_BOTTOM_OVER_LIMIT]
     assert len(ht_rejects_226) == 1, f"226 bottom should still REJECT under 225 clamp: {ht_rejects_226}"
     assert "226" in ht_rejects_226[0].message and "225" in ht_rejects_226[0].message
+
+
+def test_load_override_bumps_ht_plates_day_scoped(gen_db):
+    """Spec 03: a note-apply LOAD override on D5 Hip Thrust's slot must actually
+    bump its PRESCRIBED plates (205 + 1 = 206) -- before this fix, the assembler's
+    HT branch resolved plates from MovementState.ht_plates and silently ignored
+    the overridden scalar `load` entirely once ht_plates was set (true for every
+    HT movement post go-live), so a load-increase note had zero effect.
+
+    load_delta is deliberately +1 (not the athlete's literal "+5"): D5's real
+    seeded bottom is already 205+Orange(18)=223, two lb under the 225 clamp --
+    a naive +5 plate bump (bottom 228) would correctly REJECT under the same
+    hardware-safety clamp test_raised_clamp_allows_223_bottom_rejects_226
+    proves elsewhere in this file. That's a real, separate product question
+    (a manual LOAD override has no band-reconfiguration safety net the way
+    ht_next_setup's auto-advance does) -- this test isolates spec 03's actual
+    scope (does the override reach ht_plates at all) at a delta that stays
+    safely under the clamp.
+
+    Also proves the override is day-scoped by construction (a SlotMovementOverride
+    is keyed on tier_exercise_id, and D2/D5/D6 Hip Thrust are three distinct
+    TierExercise rows) -- generating D2/D6 in the same test must show their own
+    unaffected seeded plates (205/155), not D5's overridden 206.
+    """
+    from ironlog.models.enums import OverrideType
+    from ironlog.models.program import SlotMovementOverride, TierExercise
+    from ironlog.models.session import Note
+
+    seed_movement_baselines(gen_db)
+
+    d5_ht_te = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t1b")
+    ).one()
+    note = Note(text="ready to go up 5lbs on Day 5")
+    gen_db.add(note)
+    gen_db.commit()
+    gen_db.refresh(note)
+    gen_db.add(SlotMovementOverride(
+        tier_exercise_id=d5_ht_te.id, override_movement_id=d5_ht_te.movement_id,
+        source_note_id=note.id, active=True,
+        override_type=OverrideType.LOAD, load_delta=1.0,
+    ))
+    gen_db.commit()
+
+    expected_plates = {"D2 Lower A": 205.0, "D5 Lower B": 206.0, "D6 Weak Points": 155.0}
+    for role, plates in expected_plates.items():
+        sk = lay_skeleton(role, gen_db)
+        stub = StubProposer(program_selections(sk))
+        outcome = generate_session(role, gen_db, stub, WEEK_KEYER)
+        assert outcome.assembled is not None, f"{role}: no assembled session"
+        sess = outcome.assembled.session
+        ht_sets = [
+            ps for g in sess.groups for ex in g.exercises for ps in ex.planned_sets
+            if ps.target_plates is not None
+        ]
+        assert ht_sets, f"{role}: no HT set with plates"
+        assert all(ps.target_plates == plates for ps in ht_sets), (
+            f"{role} plates {[ps.target_plates for ps in ht_sets]} != expected {plates}"
+        )
+
+
+def test_load_override_does_not_compound_into_committed_ht_plates(gen_db):
+    """Regression (found in review, before merge): a LOAD override has no
+    auto-expiry -- it stays `active=True` across regenerations until manually
+    reverted. The FIRST implementation of _apply_ht_load_override applied the
+    override to cur_plates BEFORE computing ht_next_setup, so the overridden
+    value became the basis for prospective_ht -- which commit_session persists.
+    Every regenerate+commit cycle re-added the override on top of the already-
+    advanced state, permanently drifting ht_plates upward by the override delta
+    every single cycle instead of applying it once as a prescription-only tweak.
+
+    Proves TWO regenerate+commit cycles with the SAME active +1 override on D5
+    (seeded 205) land on exactly the plain two-step ht_next_setup trajectory
+    from 205 -- i.e. the override affects only what's PRESCRIBED each session,
+    never what commit_session persists as the next state.
+    """
+    from ironlog.engine.band_composite import Band, ht_next_setup
+    from ironlog.generation.loop import commit_session
+    from ironlog.models.enums import OverrideType
+    from ironlog.models.library import MovementState
+    from ironlog.models.program import SlotMovementOverride, TierExercise
+    from ironlog.models.session import Note
+
+    seed_movement_baselines(gen_db)
+    inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
+                 for bp in gen_db.exec(select(BandPair)).all()]
+    orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
+
+    # Ground truth: the plain (no-override) two-step trajectory from D5's
+    # seeded 205 + Orange.
+    true_step1_plates, true_step1_config = ht_next_setup(205.0, [orange.id], inventory)
+    true_step2_plates, true_step2_config = ht_next_setup(
+        true_step1_plates, true_step1_config, inventory
+    )
+
+    d5_ht_te = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t1b")
+    ).one()
+    note = Note(text="ready to go up on Day 5")
+    gen_db.add(note)
+    gen_db.commit()
+    gen_db.refresh(note)
+    gen_db.add(SlotMovementOverride(
+        tier_exercise_id=d5_ht_te.id, override_movement_id=d5_ht_te.movement_id,
+        source_note_id=note.id, active=True,
+        override_type=OverrideType.LOAD, load_delta=1.0,
+    ))
+    gen_db.commit()
+
+    ht_mv = gen_db.exec(select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")).one()
+
+    # Cycle 1: generate + commit D5 (override active throughout).
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    stub = StubProposer(program_selections(sk))
+    outcome = generate_session("D5 Lower B", gen_db, stub, WEEK_KEYER)
+    assert outcome.assembled.prospective_ht_setups[ht_mv.id] == (
+        true_step1_plates, list(true_step1_config)
+    ), (
+        "cycle 1: the prospective (committed) next-setup must be computed from "
+        "the PRE-override plates (205), matching the plain no-override "
+        "trajectory -- the override must not leak into it"
+    )
+    commit_session(outcome.assembled, gen_db, approval_mode="auto", prompt={},
+                   selections_dict={}, clamps=[], repairs=[], fallback_used=False)
+
+    st_after_1 = gen_db.exec(
+        select(MovementState).where(MovementState.movement_id == ht_mv.id,
+                                    MovementState.day_id == "D5 Lower B")
+    ).one()
+    assert st_after_1.ht_plates == true_step1_plates, (
+        f"after cycle 1, committed ht_plates {st_after_1.ht_plates} must equal the "
+        f"normal one-step advance {true_step1_plates}, NOT that plus the override delta"
+    )
+
+    # Cycle 2: generate + commit D5 AGAIN, override STILL active (no auto-expiry).
+    sk2 = lay_skeleton("D5 Lower B", gen_db)
+    stub2 = StubProposer(program_selections(sk2))
+    outcome2 = generate_session("D5 Lower B", gen_db, stub2, WEEK_KEYER)
+    assert outcome2.assembled.prospective_ht_setups[ht_mv.id] == (
+        true_step2_plates, list(true_step2_config)
+    ), (
+        "cycle 2: prospective next-setup must be the plain second step from "
+        "cycle 1's REAL committed state, not inflated by the still-active override"
+    )
+    commit_session(outcome2.assembled, gen_db, approval_mode="auto", prompt={},
+                   selections_dict={}, clamps=[], repairs=[], fallback_used=False)
+
+    st_after_2 = gen_db.exec(
+        select(MovementState).where(MovementState.movement_id == ht_mv.id,
+                                    MovementState.day_id == "D5 Lower B")
+    ).one()
+    assert st_after_2.ht_plates == true_step2_plates, (
+        f"after cycle 2 (override STILL active), committed ht_plates "
+        f"{st_after_2.ht_plates} must equal a normal two-step advance from 205 "
+        f"({true_step2_plates}), NOT drifted further by the override each cycle"
+    )
