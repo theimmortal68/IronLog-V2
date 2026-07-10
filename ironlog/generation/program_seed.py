@@ -319,16 +319,21 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t1.id, "d4_t1", "Assisted Pull-up (2-phase)", lib, 1, "anchor",
             pattern="vertical_pull", rep_low=6, rep_high=8, scheme="REP_RATIO")
 
-    # T2 GS — Meadows Row / Single-Arm DB Row / Face-Up Incline Knee Raise
+    # T2 GS — Meadows Row / Face-Up Incline Knee Raise / Single-Arm DB Row
+    # (Face-Up Knee moved between Meadows and DB Row, athlete request 2026-07-09;
+    # slot_id -> movement mapping is UNCHANGED -- d4_t2b is still Single-Arm DB
+    # Row's slot, d4_t2c is still Face-Up Knee's slot -- only the exercise_order
+    # values are swapped, since slot_id is a stable key elsewhere (overrides,
+    # rep-scheme lookups) and shouldn't be reassigned to a different movement.)
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     d4_t2a = _add_te(db, t2.id, "d4_t2a", "Meadows Row", lib, 1, "semi",
                      pattern="horizontal_pull", rep_low=10, rep_high=10,
                      scheme="DOUBLE_PROGRESSION")
     _add_mr(db, d4_t2a, 2, "Pendlay Row", lib)
-    _add_te(db, t2.id, "d4_t2b", "Single-Arm DB Row", lib, 2, "free",
+    _add_te(db, t2.id, "d4_t2b", "Single-Arm DB Row", lib, 3, "free",
             pattern="horizontal_pull", rep_low=12, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d4_t2c", "Face-Up Incline Knee Raise", lib, 3, "free",
+    _add_te(db, t2.id, "d4_t2c", "Face-Up Incline Knee Raise", lib, 2, "free",
             pattern="core", rep_low=12, rep_high=12)
 
     # T3 GS — DB Rear Delt Fly / Andreoni Cable Pullover / Dragon Flag
