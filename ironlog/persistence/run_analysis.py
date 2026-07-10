@@ -33,7 +33,8 @@ from ..engine.calibration import evaluate_calibration_flip
 from ..engine.e1rm import implied_rir
 from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal
-from ..models.enums import CalibrationStatus, LiftCategory, Objective, ProgressionMode
+from ..generation.load_trust import load_field_for_mode
+from ..models.enums import CalibrationStatus, LiftCategory, Objective
 from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
@@ -368,12 +369,14 @@ def run_analysis(
             if adv.new_body_position is not None:
                 d.new_body_position = adv.new_body_position
             # L: never let the next prescription regress below what was actually
-            # performed this session. Scoped to plain LADDER (scalar current_load)
-            # movements only -- HT/COMPOSITE's load lives in ht_plates/ht_band_config,
-            # not current_load (see Spec 03, the assembler-side HT override fix), so
-            # it is explicitly excluded here rather than floored against the wrong field.
+            # performed this session. Scoped to movements whose load field is
+            # current_load (review finding: progression_mode == LADDER alone let a
+            # future COMPOSITE-but-not-HIP_THRUST movement slip through) -- HT's
+            # load lives in ht_plates/ht_band_config, not current_load (see Spec 03,
+            # the assembler-side HT override fix), so HIP_THRUST is excluded
+            # explicitly too, rather than floored against the wrong field.
             floor_delta = 0.0
-            if (movement.progression_mode == ProgressionMode.LADDER
+            if (load_field_for_mode(movement.progression_mode) == "current_load"
                     and movement.lift_category != LiftCategory.HIP_THRUST):
                 performed_loads = [
                     sl.actual_load for sl in set_logs
