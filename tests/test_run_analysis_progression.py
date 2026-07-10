@@ -135,13 +135,18 @@ def test_accessory_needs_two_clean_sessions_to_advance():
                               current_load=50.0))
         db.commit()
 
-        _seed_session(db, 1, 1, label="T2 GS", session_date=date(2026, 1, 7))
+        # actual_load=50.0 matches the seeded current_load above -- a clean, on-script
+        # performance (this test is about the 2-session confirmation window, not L's
+        # load ratchet; the shared helper's 135.0 default would otherwise read as an
+        # incidental off-script-heavier performance and stage an unrelated floor).
+        _seed_session(db, 1, 1, label="T2 GS", session_date=date(2026, 1, 7), actual_load=50.0)
         run_analysis(1, db, WEEK_KEYER)
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
         assert st.current_increment_tier == 0, "one clean session must not be enough for an accessory"
         assert st.consecutive_advance_count == 1
 
-        _seed_session(db, 2, 1, label="T2 GS", day_role="Upper A", session_date=date(2026, 1, 14))
+        _seed_session(db, 2, 1, label="T2 GS", day_role="Upper A", session_date=date(2026, 1, 14),
+                      actual_load=50.0)
         run_analysis(2, db, WEEK_KEYER)
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
         # Re-pointed (K2): the second clean session clears the streak and advances by

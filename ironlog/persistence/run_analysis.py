@@ -20,7 +20,7 @@ from typing import Callable, Hashable, List
 from sqlmodel import Session as DBSession
 from sqlmodel import col, select
 
-from ..engine.advance import SessionPerf, advance, roll_unassisted_max
+from ..engine.advance import SessionPerf, advance, performed_floor_delta, roll_unassisted_max
 from ..engine.analysis import (
     AnalysisContext,
     AnalysisResult,
@@ -33,7 +33,8 @@ from ..engine.calibration import evaluate_calibration_flip
 from ..engine.e1rm import implied_rir
 from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal
-from ..models.enums import CalibrationStatus, Objective
+from ..generation.load_trust import load_field_for_mode
+from ..models.enums import CalibrationStatus, LiftCategory, Objective
 from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
@@ -367,10 +368,27 @@ def run_analysis(
                 d.new_rep_target = adv.new_rep_target
             if adv.new_body_position is not None:
                 d.new_body_position = adv.new_body_position
-            if adv.earned_load_step is not None:
+            # L: never let the next prescription regress below what was actually
+            # performed this session. Scoped to movements whose load field is
+            # current_load (review finding: progression_mode == LADDER alone let a
+            # future COMPOSITE-but-not-HIP_THRUST movement slip through) -- HT's
+            # load lives in ht_plates/ht_band_config, not current_load (see Spec 03,
+            # the assembler-side HT override fix), so HIP_THRUST is excluded
+            # explicitly too, rather than floored against the wrong field.
+            floor_delta = 0.0
+            if (load_field_for_mode(movement.progression_mode) == "current_load"
+                    and movement.lift_category != LiftCategory.HIP_THRUST):
+                performed_loads = [
+                    sl.actual_load for sl in set_logs
+                    if sl.movement_id == mid and not sl.is_warmup and sl.actual_load is not None
+                ]
+                floor_delta = performed_floor_delta(state.current_load, performed_loads)
+            if adv.earned_load_step is not None or floor_delta > 0.0:
                 # K2: stage the earned load step (never current_load). commit_session
                 # applies it to current_load and clears the marker (apply-once).
-                d.pending_load_delta = adv.earned_load_step
+                # The staged delta is whichever is larger: the rule-driven clean-advance
+                # step, or the floor needed to not regress below a performed weight.
+                d.pending_load_delta = max(adv.earned_load_step or 0.0, floor_delta)
             if new_unassisted_max_rolling is not None:
                 d.new_unassisted_max_rolling = new_unassisted_max_rolling
             d.stall_signal_computed = True

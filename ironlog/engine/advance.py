@@ -17,7 +17,7 @@ up only on sustained breakthrough. Bumping it on a clean advance shrinks the ste
 instead of adding load, which was backwards.
 """
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 from ..models.enums import LiftCategory, ProgressionMode, ProgressionRule
 
@@ -60,6 +60,20 @@ def _earned_step(state, movement) -> Optional[float]:
         return None
     idx = min(max(state.current_increment_tier, 0), len(ladder) - 1)
     return ladder[idx]
+
+
+def performed_floor_delta(current_load: Optional[float], performed_loads: List[float]) -> float:
+    """The minimum load bump required so the next prescription is never below
+    the heaviest weight actually logged this session (L: the load ratchet).
+
+    Returns 0.0 if current_load is None (needs-calibration -- nothing to floor
+    against) or no performed_loads exceed it. Never negative -- a lighter-than-
+    prescribed performance must not lower the next prescription.
+    """
+    if current_load is None or not performed_loads:
+        return 0.0
+    heaviest = max(performed_loads)
+    return max(heaviest - current_load, 0.0)
 
 
 def _rpe8(state, perf, movement, window) -> AdvanceResult:
