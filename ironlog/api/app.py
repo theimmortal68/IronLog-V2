@@ -15,7 +15,7 @@ v0.6 additions (Task 10):
 
 The generate endpoint uses StubProposer for the beta build (LLM adapter is Task 11).
 Candidates are stored in a module-level dict (_candidates); cleared on restart.
-scope marker on /generate: "main-work-only; warmups/finishers/Z2 per program doc,
+scope marker on /generate: "main-work-only; warmups/Z2 per program doc,
 not yet in-app".
 """
 import os
@@ -42,6 +42,7 @@ from .schemas_wizard import (
 )
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
+from ..generation.assembler import build_finisher_payload
 from ..generation.loop import commit_session, generate_session
 from ..generation.load_trust import compute_load_trust, load_field_for_mode
 from ..generation.skeleton import lay_skeleton
@@ -206,7 +207,7 @@ def generate(req: GenerateRequest, db: Session = Depends(get_session)):
     Candidate stored in _candidates[candidate_id]; nothing written to DB until approve.
     Regenerate = call this endpoint again (returns a new candidate_id).
 
-    The 'scope' marker is always present: main-work only; warmups/finishers/Z2
+    The 'scope' marker is always present: main-work only; warmups/Z2
     are per program doc and not yet in-app (deferred to v0.7).
     """
     sk = lay_skeleton(req.day_role, db)
@@ -216,14 +217,18 @@ def generate(req: GenerateRequest, db: Session = Depends(get_session)):
     _candidates[candidate_id] = outcome
     preview = None
     if outcome.assembled is not None:
-        preview = _serialize_session(outcome.assembled.session, db)
+        preview = _serialize_session(
+            outcome.assembled.session,
+            db,
+            finisher=outcome.assembled.finisher,
+        )
     return GenerateResponse(
         candidate_id=candidate_id,
         day_role=req.day_role,
         exhausted=outcome.exhausted,
         attempts=outcome.attempts,
         scope=(
-            "main-work-only; warmups/finishers/Z2 per program doc, not yet in-app"
+            "main-work-only; warmups/Z2 per program doc, not yet in-app"
         ),
         preview=preview,
     )
@@ -517,7 +522,7 @@ def revert_override(override_id: int, db: Session = Depends(get_session)):
 # Capture read path (logging round-trip — Task 3)
 # ---------------------------------------------------------------------------
 
-def _serialize_session(ws, db) -> SessionDetailResponse:
+def _serialize_session(ws, db, finisher=None) -> SessionDetailResponse:
     """Walk the relationship graph and serialize to SessionDetailResponse.
 
     Also used for in-memory (uncommitted) generate candidates, where ws.id /
@@ -571,6 +576,7 @@ def _serialize_session(ws, db) -> SessionDetailResponse:
     return SessionDetailResponse(
         id=(ws.id if ws.id is not None else 0), date=ws.date.isoformat(),
         day_role=ws.day_role, phase=ws.phase, status=ws.status.value, groups=groups_out,
+        finisher=finisher,
     )
 
 
@@ -584,7 +590,14 @@ def get_today_session(db: Session = Depends(get_session)):
         .where(WorkoutSession.analyzed_at.is_(None))
         .order_by(WorkoutSession.id.desc())
     ).first()
-    return _serialize_session(ws, db) if ws else None
+    if ws is None:
+        return None
+    program_day_id = (ws.signature or {}).get("program_day_id")
+    finisher = (
+        build_finisher_payload(db, program_day_id)
+        if program_day_id is not None else None
+    )
+    return _serialize_session(ws, db, finisher=finisher)
 
 
 class SessionSummary(BaseModel):
@@ -616,7 +629,12 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)):
     ws = db.get(WorkoutSession, session_id)
     if ws is None:
         raise HTTPException(404, "session not found")
-    return _serialize_session(ws, db)
+    program_day_id = (ws.signature or {}).get("program_day_id")
+    finisher = (
+        build_finisher_payload(db, program_day_id)
+        if program_day_id is not None else None
+    )
+    return _serialize_session(ws, db, finisher=finisher)
 
 
 class LoggedSet(BaseModel):

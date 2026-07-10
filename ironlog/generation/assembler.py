@@ -13,15 +13,19 @@ NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlmodel import Session as DBSession, select
 
 from ..engine.band_composite import Band, config_peak, ht_next_setup
 from ..engine.loading import clamp_to_cap, round_to_achievable
 from ..engine.progression import resolve_objective
-from ..models.enums import GroupType, LiftCategory, ProgressionMode, Scheme, SessionStatus, SetRole
-from ..models.library import BandPair, Equipment, Movement, MovementState
+from ..models.enums import (
+    GroupType, LiftCategory, ProgressionMode, ProgressionRule, Scheme,
+    SessionStatus, SetRole,
+)
+from ..models.library import BandPair, EngineState, Equipment, Movement, MovementState
+from ..models.program import DayFinisher, ProgramDay, Tier, TierExercise
 from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet
 from ..models.session import Session as WorkoutSession
 from .context import GenerationContext
@@ -39,6 +43,109 @@ class AssembledSession:
     # Mirrors prospective_current_loads: computed here, written only by
     # commit_session at approval (Option-C two-writer boundary).
     prospective_ht_setups: Dict[int, Tuple[float, list]] = field(default_factory=dict)
+    finisher: Optional[Dict[str, Any]] = None
+
+
+def _program_day_id_from_skeleton(skeleton: Skeleton, db: DBSession) -> Optional[int]:
+    """Resolve the ProgramDay id through the skeleton's TierExercise FK metadata.
+
+    Rest days have no tiers, so they fall through to a ProgramDay lookup and
+    return a rest-day id with no DayFinisher row. Training days normally resolve
+    through TierExercise -> Tier -> ProgramDay, so meso movement swaps do not
+    affect the finisher lookup.
+    """
+    tier_exercise_ids: List[int] = []
+    tier_exercise_ids.extend(
+        meta.tier_exercise_id
+        for meta in skeleton.anchor_meta
+        if meta.tier_exercise_id is not None
+    )
+    tier_exercise_ids.extend(
+        slot.tier_exercise_id
+        for slot in skeleton.adaptive_slots
+        if slot.tier_exercise_id is not None
+    )
+    for tier_exercise_id in tier_exercise_ids:
+        tier_exercise = db.get(TierExercise, tier_exercise_id)
+        if tier_exercise is None:
+            continue
+        tier = db.get(Tier, tier_exercise.tier_id)
+        if tier is not None:
+            return tier.program_day_id
+
+    stmt = select(ProgramDay).where(ProgramDay.day_role == skeleton.day_role)
+    engine_state = db.get(EngineState, 1)
+    if engine_state is not None and engine_state.active_program_id is not None:
+        stmt = stmt.where(ProgramDay.program_id == engine_state.active_program_id)
+    program_day = db.exec(stmt.order_by(ProgramDay.day_index)).first()
+    return program_day.id if program_day is not None else None
+
+
+def _finisher_state(
+    db: DBSession,
+    movement_id: int,
+    day_role: Optional[str],
+) -> Optional[MovementState]:
+    if day_role:
+        state = db.exec(
+            select(MovementState).where(
+                MovementState.movement_id == movement_id,
+                MovementState.day_id == day_role,
+            )
+        ).first()
+        if state is not None:
+            return state
+    state = db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == movement_id,
+            MovementState.day_id == None,  # noqa: E711
+        )
+    ).first()
+    if state is not None:
+        return state
+    return db.exec(
+        select(MovementState).where(MovementState.movement_id == movement_id)
+    ).first()
+
+
+def build_finisher_payload(
+    db: DBSession,
+    program_day_id: Optional[int],
+) -> Optional[Dict[str, Any]]:
+    """Build the generated-session finisher payload for one ProgramDay."""
+    if program_day_id is None:
+        return None
+    finisher = db.exec(
+        select(DayFinisher).where(DayFinisher.program_day_id == program_day_id)
+    ).first()
+    if finisher is None:
+        return None
+
+    movement = db.get(Movement, finisher.movement_id)
+    program_day = db.get(ProgramDay, program_day_id)
+    state = _finisher_state(
+        db,
+        finisher.movement_id,
+        program_day.day_role if program_day is not None else None,
+    )
+    current_duration_seconds = None
+    current_rope = None
+    if (
+        movement is not None
+        and movement.progression_rule == ProgressionRule.FINISHER_DURATION_THEN_ROPE.value
+    ):
+        current_duration_seconds = (
+            state.current_duration_seconds if state is not None else None
+        )
+        current_rope = state.current_rope if state is not None else None
+
+    return {
+        "exercise_name": movement.name if movement is not None else "",
+        "duration_minutes": finisher.duration_minutes,
+        "params": dict(finisher.params or {}),
+        "current_duration_seconds": current_duration_seconds,
+        "current_rope": current_rope,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -450,5 +557,12 @@ def assemble(selections: Selections, skeleton: Skeleton,
         order += 1
         session.groups.append(g)
 
+    program_day_id = _program_day_id_from_skeleton(skeleton, db)
+    finisher = build_finisher_payload(db, program_day_id)
+    if program_day_id is not None:
+        session.signature = dict(session.signature or {})
+        session.signature["program_day_id"] = program_day_id
+
     return AssembledSession(session=session, prospective_current_loads=prospective,
-                            prospective_ht_setups=prospective_ht)
+                            prospective_ht_setups=prospective_ht,
+                            finisher=finisher)
