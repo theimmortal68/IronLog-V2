@@ -28,6 +28,7 @@ gen_db fixture auto-discovered from conftest.py.
 import datetime
 
 import pytest
+from sqlmodel import select
 
 from ironlog.generation.context import resolve_context
 from ironlog.generation.fallback import (
@@ -36,7 +37,7 @@ from ironlog.generation.fallback import (
     program_selections,
 )
 from ironlog.generation.loop import generate_session
-from ironlog.generation.proposer import StubProposer
+from ironlog.generation.proposer import Selections, SlotSelection, StubProposer
 from ironlog.generation.repair import build_validation_context
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.engine.validator import validate
@@ -213,6 +214,218 @@ def test_last_valid_reconstructs_prior_session(gen_db):
     # At least one movement from the prior session must appear in the result.
     assert result_mids & seeded_mids, (
         "last_valid_selections should recover movements from the prior session"
+    )
+
+
+def _set_slot_orders(db, slot_orders):
+    from ironlog.models.program import TierExercise
+
+    for slot_id, exercise_order in slot_orders.items():
+        te = db.exec(
+            select(TierExercise).where(TierExercise.slot_id == slot_id)
+        ).one()
+        te.exercise_order = exercise_order
+        db.add(te)
+    db.commit()
+
+
+def _expected_last_valid(slots, movement_by_slot):
+    ordered = [
+        SlotSelection(slot_id=s.slot_id, movement_id=movement_by_slot[s.slot_id])
+        for s in slots
+    ]
+    return Selections(
+        ordering=[s.slot_id for s in ordered],
+        slots=ordered,
+        rationale="deterministic fallback (last valid, loads refreshed)",
+    )
+
+
+def _insert_completed_prior_session(db, day_role, anchor_mid, movement_ids):
+    prior = Session(
+        date=datetime.date(2026, 7, 1),
+        day_role=day_role,
+        phase="P1_CUT",
+        status=SessionStatus.COMPLETED,
+    )
+    db.add(prior)
+    db.flush()
+
+    anchor_group = ExerciseGroup(
+        session_id=prior.id,
+        order_index=0,
+        group_type=GroupType.STRAIGHT,
+        rounds=1,
+    )
+    db.add(anchor_group)
+    db.flush()
+    anchor_ex = PlannedExercise(
+        group_id=anchor_group.id,
+        movement_id=anchor_mid,
+        order_index=0,
+        scheme=Scheme.TOPSET_BACKOFF,
+        objective=Objective.PROGRESS,
+    )
+    db.add(anchor_ex)
+    db.flush()
+    db.add(PlannedSet(
+        planned_exercise_id=anchor_ex.id,
+        set_index=0,
+        set_role=SetRole.WORKING,
+        target_load=100.0,
+    ))
+
+    adaptive_group = ExerciseGroup(
+        session_id=prior.id,
+        order_index=1,
+        group_type=GroupType.GIANT_SET,
+        rounds=3,
+    )
+    db.add(adaptive_group)
+    db.flush()
+    for order_index, movement_id in enumerate(movement_ids):
+        ex = PlannedExercise(
+            group_id=adaptive_group.id,
+            movement_id=movement_id,
+            order_index=order_index,
+            scheme=Scheme.STRAIGHT,
+            objective=Objective.MAINTAIN,
+        )
+        db.add(ex)
+        db.flush()
+        db.add(PlannedSet(
+            planned_exercise_id=ex.id,
+            set_index=0,
+            set_role=SetRole.WORKING,
+            target_load=50.0,
+        ))
+
+    db.commit()
+
+
+def test_last_valid_unchanged_order_is_byte_identical_to_positional_replay(gen_db):
+    """No program-structure change: identity matching must emit exactly the same
+    Selections as the old positional replay behavior."""
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D4 Upper Pull", gen_db)
+    ctx = resolve_context("D4 Upper Pull", sk, gen_db, wk)
+    adaptive_slots = [s for s in sk.adaptive_slots if s.kind in ("giant", "knee")]
+    movement_by_slot = {s.slot_id: s.program_movement_id for s in adaptive_slots}
+
+    _insert_completed_prior_session(
+        gen_db,
+        "D4 Upper Pull",
+        sk.anchor_movement_ids[0],
+        [movement_by_slot[s.slot_id] for s in adaptive_slots],
+    )
+
+    assert last_valid_selections(sk, ctx, gen_db) == _expected_last_valid(
+        adaptive_slots,
+        movement_by_slot,
+    )
+
+
+def test_last_valid_matches_reordered_prior_by_slot_identity(gen_db):
+    """A completed session logged under the old D4 order must replay into the
+    current skeleton by each slot's reachable movement identity, not by position."""
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    old_order = {"d4_t2a": 1, "d4_t2b": 2, "d4_t2c": 3}
+    current_order = {"d4_t2a": 1, "d4_t2c": 2, "d4_t2b": 3}
+
+    _set_slot_orders(gen_db, old_order)
+    old_sk = lay_skeleton("D4 Upper Pull", gen_db)
+    old_slots = [s for s in old_sk.adaptive_slots if s.kind in ("giant", "knee")]
+    old_movement_by_slot = {s.slot_id: s.program_movement_id for s in old_slots}
+    _insert_completed_prior_session(
+        gen_db,
+        "D4 Upper Pull",
+        old_sk.anchor_movement_ids[0],
+        [old_movement_by_slot[s.slot_id] for s in old_slots],
+    )
+
+    _set_slot_orders(gen_db, current_order)
+    current_sk = lay_skeleton("D4 Upper Pull", gen_db)
+    ctx = resolve_context("D4 Upper Pull", current_sk, gen_db, wk)
+    current_slots = [
+        s for s in current_sk.adaptive_slots if s.kind in ("giant", "knee")
+    ]
+
+    assert last_valid_selections(current_sk, ctx, gen_db) == _expected_last_valid(
+        current_slots,
+        old_movement_by_slot,
+    )
+
+
+def test_last_valid_matches_prior_meso_rotation_variant_after_reorder(gen_db):
+    """A prior meso-2 swap remains attached to its owning slot after the current
+    exercise order changes."""
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    old_order = {"d4_t2a": 1, "d4_t2b": 2, "d4_t2c": 3}
+    current_order = {"d4_t2c": 1, "d4_t2a": 2, "d4_t2b": 3}
+
+    _set_slot_orders(gen_db, old_order)
+    old_sk = lay_skeleton("D4 Upper Pull", gen_db, meso_number=2)
+    old_slots = [s for s in old_sk.adaptive_slots if s.kind in ("giant", "knee")]
+    old_movement_by_slot = {s.slot_id: s.program_movement_id for s in old_slots}
+    _insert_completed_prior_session(
+        gen_db,
+        "D4 Upper Pull",
+        old_sk.anchor_movement_ids[0],
+        [old_movement_by_slot[s.slot_id] for s in old_slots],
+    )
+
+    _set_slot_orders(gen_db, current_order)
+    current_sk = lay_skeleton("D4 Upper Pull", gen_db)
+    ctx = resolve_context("D4 Upper Pull", current_sk, gen_db, wk)
+    current_slots = [
+        s for s in current_sk.adaptive_slots if s.kind in ("giant", "knee")
+    ]
+
+    assert last_valid_selections(current_sk, ctx, gen_db) == _expected_last_valid(
+        current_slots,
+        old_movement_by_slot,
+    )
+
+
+def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(gen_db):
+    """If a historical movement is no longer reachable for its slot, replay falls
+    back to the current slot's program movement."""
+    from ironlog.models.program import MesoRotation, TierExercise
+
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    old_sk = lay_skeleton("D4 Upper Pull", gen_db, meso_number=2)
+    old_slots = [s for s in old_sk.adaptive_slots if s.kind in ("giant", "knee")]
+    old_movement_by_slot = {s.slot_id: s.program_movement_id for s in old_slots}
+    _insert_completed_prior_session(
+        gen_db,
+        "D4 Upper Pull",
+        old_sk.anchor_movement_ids[0],
+        [old_movement_by_slot[s.slot_id] for s in old_slots],
+    )
+
+    d4_t2a = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d4_t2a")
+    ).one()
+    rotation = gen_db.exec(
+        select(MesoRotation).where(MesoRotation.tier_exercise_id == d4_t2a.id)
+    ).one()
+    gen_db.delete(rotation)
+    gen_db.commit()
+
+    current_sk = lay_skeleton("D4 Upper Pull", gen_db)
+    ctx = resolve_context("D4 Upper Pull", current_sk, gen_db, wk)
+    current_slots = [
+        s for s in current_sk.adaptive_slots if s.kind in ("giant", "knee")
+    ]
+    current_movement_by_slot = {
+        s.slot_id: old_movement_by_slot.get(s.slot_id, s.program_movement_id)
+        for s in current_slots
+    }
+    current_movement_by_slot["d4_t2a"] = d4_t2a.movement_id
+
+    assert last_valid_selections(current_sk, ctx, gen_db) == _expected_last_valid(
+        current_slots,
+        current_movement_by_slot,
     )
 
 

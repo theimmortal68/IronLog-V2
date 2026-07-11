@@ -16,6 +16,7 @@ from typing import Optional
 from sqlmodel import Session as DBSession, select
 
 from ..models.enums import SessionStatus
+from ..models.program import MesoRotation, TierExercise
 from ..models.session import Session as WorkoutSession
 from .assembler import AssembledSession, assemble
 from .context import GenerationContext
@@ -51,11 +52,12 @@ def last_valid_selections(
     """Reconstruct selections from the most recent COMPLETED session for this
     day_role.  Returns None if no prior COMPLETED session exists.
 
-    Slot fills are inferred from the prior session's non-anchor exercises (in
-    order_index order), matched positionally to the skeleton's adaptive slots
-    with kind in ('giant', 'knee').  The returned Selections are then passed to
-    assemble() so that loads are refreshed from the current MovementState — the
-    prior session's target_load values are not reused.
+    Slot fills are inferred from the prior session's non-anchor exercises, then
+    matched to the current skeleton's adaptive slots by movement reachability
+    for that slot.  This preserves the prior movement variant while allowing
+    program exercise_order changes to take effect.  The returned Selections are
+    then passed to assemble() so that loads are refreshed from the current
+    MovementState — the prior session's target_load values are not reused.
     """
     prior: Optional[WorkoutSession] = db.exec(
         select(WorkoutSession)
@@ -85,10 +87,27 @@ def last_valid_selections(
     # in the flat list (anchors come first per PRIMARY_NOT_FIRST invariant).
     non_anchor = exs[-len(slot_iter):] if len(exs) >= len(slot_iter) else exs
 
+    used_by_movement_id = {}
+    for ex in non_anchor:
+        used_by_movement_id.setdefault(ex.movement_id, ex)
+
     slots = []
     order = []
-    for spec, ex in zip(slot_iter, non_anchor):
-        slots.append(SlotSelection(slot_id=spec.slot_id, movement_id=ex.movement_id))
+    for spec in slot_iter:
+        movement_id = None
+        reachable = _reachable_movements(spec, db)
+        for prior_movement_id in list(used_by_movement_id):
+            if prior_movement_id in reachable:
+                used_by_movement_id.pop(prior_movement_id)
+                movement_id = prior_movement_id
+                break
+
+        if movement_id is None:
+            movement_id = spec.program_movement_id
+        if movement_id is None:
+            continue
+
+        slots.append(SlotSelection(slot_id=spec.slot_id, movement_id=movement_id))
         order.append(spec.slot_id)
 
     if not slots:
@@ -99,6 +118,27 @@ def last_valid_selections(
         slots=slots,
         rationale="deterministic fallback (last valid, loads refreshed)",
     )
+
+
+def _reachable_movements(slot, db: DBSession) -> set[int]:
+    """All movements that can legitimately fill this current adaptive slot."""
+    movement_ids = set()
+    if slot.program_movement_id is not None:
+        movement_ids.add(slot.program_movement_id)
+    if slot.tier_exercise_id is None:
+        return movement_ids
+
+    te = db.get(TierExercise, slot.tier_exercise_id)
+    if te is not None:
+        movement_ids.add(te.movement_id)
+
+    rotation_ids = db.exec(
+        select(MesoRotation.movement_id).where(
+            MesoRotation.tier_exercise_id == slot.tier_exercise_id
+        )
+    ).all()
+    movement_ids.update(rotation_ids)
+    return movement_ids
 
 
 def fallback_session(
