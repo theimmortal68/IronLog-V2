@@ -1,3 +1,7 @@
+**RETRACTED 2026-07-10 — diagnosis was wrong, do not implement.** Dispatched and generated; the resulting diff correctly implemented what this spec asked for, but broke 8 pre-existing tests via the validator's `GIANT_SET_CONCURRENCY` rule (max 3 exercises per giant set, "room geometry" — see `docs/06_generation_algorithm_spec.md:85`, `docs/superpowers/specs/2026-06-24-validator-design.md:197-199`). D5's T3 tier genuinely seeds 4 concurrent exercises (poliquin_step_up, reverse_nordic_assisted, cable_tib_raise_d5, hyper_pro_calf_raise — confirmed via `docs/program/phase1-seed-source.yaml:63-67`, no meso-rotation link between any pair, unlike T2's apparent 4th entry which IS a meso alternate for an existing slot). Forcing all 4 into one physical `GIANT_SET` group — what this spec asked for — is exactly what the validator exists to reject. The pre-existing "fragmentation" this spec set out to fix may be an accidental-but-load-bearing workaround for a genuine program-design inconsistency (a 4-exercise tier that exceeds the room's 3-station limit), not a bug. See the 2026-07-10 21:XX session's completion report for the corrected understanding and the question posed back to the user. Worktree abandoned (`abandoned/task-07-giant-set-grouping`), not merged.
+
+---
+
 # Spec 07: Fix giant-set fragmentation for knee-modality-tagged exercises
 
 ## Objective
