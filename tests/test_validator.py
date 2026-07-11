@@ -238,16 +238,17 @@ def test_giant_set_rounds_3_passes():
     assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_ROUNDS] == []
 
 
-def test_giant_set_concurrency_rejects_4_exercises():
-    ctx = ValidationContext(movements={i: make_movement(i) for i in range(1, 5)})
+def test_giant_set_concurrency_rejects_5_exercises():
+    ctx = ValidationContext(movements={i: make_movement(i) for i in range(1, 6)})
     session = make_session([
         make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
-            make_exercise(i, idx, [make_set(0)]) for idx, i in enumerate(range(1, 5))
+            make_exercise(i, idx, [make_set(0)]) for idx, i in enumerate(range(1, 6))
         ]),
     ])
     rejects = [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_CONCURRENCY]
     assert len(rejects) == 1
-    assert "4 exercises" in rejects[0].message
+    assert "5 exercises" in rejects[0].message
+    assert "expected 1-4" in rejects[0].message
 
 
 def test_giant_set_concurrency_rejects_empty():
@@ -259,11 +260,11 @@ def test_giant_set_concurrency_rejects_empty():
     assert len(rejects) == 1
 
 
-def test_giant_set_concurrency_1_to_3_passes():
-    ctx = ValidationContext(movements={i: make_movement(i) for i in range(1, 4)})
+def test_giant_set_concurrency_1_to_4_passes():
+    ctx = ValidationContext(movements={i: make_movement(i) for i in range(1, 5)})
     session = make_session([
         make_group(0, GroupType.GIANT_SET, rounds=3, exercises=[
-            make_exercise(i, idx, [make_set(0)]) for idx, i in enumerate(range(1, 4))
+            make_exercise(i, idx, [make_set(0)]) for idx, i in enumerate(range(1, 5))
         ]),
     ])
     assert [v for v in validate(session, ctx).rejects if v.rule == RuleCode.GIANT_SET_CONCURRENCY] == []

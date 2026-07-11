@@ -82,7 +82,7 @@ The template defines the slots; generation fills the adaptive ones.
 
 **Hard — structural** (never violated): primaries as straight sets first · giant sets 3×3 · knee-priority frequencies (Nordic 2×/wk, tib 2×/wk, KOT 2×/wk, sissy 1×/wk) · 2:1 horizontal pull:push · Z2 end-block with backward-walk lead-in.
 
-**Hard — feasibility** (never violated): equipment in the active-phase manifest · single-KB · Dreadmill is an end-block, not a mid-circuit station · giant-set concurrency (≤3 items usable at once, room geometry) · setup+footwear transition budget within the 45–80 min cap · loads within floors/caps · RPE within phase cap · HT under the 220 clamp.
+**Hard — feasibility** (never violated): equipment in the active-phase manifest · single-KB · Dreadmill is an end-block, not a mid-circuit station · giant-set concurrency (≤4 items usable at once, room geometry) · setup+footwear transition budget within the 45–80 min cap · loads within floors/caps · RPE within phase cap · HT under the 220 clamp.
 
 **Soft — novelty**: no-two-identical (signature distance, §7).
 
