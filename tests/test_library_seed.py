@@ -142,3 +142,15 @@ def test_sissy_squat_single_continuous_track(seeded):
     assert s.scheme == Scheme.DOUBLE_PROGRESSION
     # exactly one Sissy Squat movement — no plate/DB split
     assert sum(1 for m in _all(seeded) if m.name == "Sissy Squat") == 1
+
+
+def test_assisted_seed_ladders_for_nordic_family_not_pull_up(seeded):
+    by_name = {m.name: m for m in _all(seeded)}
+
+    nordic_ladder = by_name["Nordic Curl [GHR]"].assist_ladder
+    assert nordic_ladder == [25, 20, 15, 10, 5, 0]
+    assert 20 in nordic_ladder and 25 in nordic_ladder
+    assert by_name["Nordic Curl - Volume [GHR]"].assist_ladder == [25, 20, 15, 10, 5, 0]
+    assert by_name["Reverse Nordic Curl [GHR]"].assist_ladder == [20, 15, 10, 5, 0]
+
+    assert by_name["Pull-up [TOWER + TUBES]"].assist_ladder is None
