@@ -30,6 +30,7 @@ def test_menu_hard_filters_inactive_and_wrong_pattern(gen_db):
     knee_slot = SlotSpec(
         slot_id="k", kind="knee", pattern=None,
         tier_role="free", knee_modality="NORDIC", program_movement_id=None,
+        is_giant_tier=True,
     )
     menu = build_candidate_menu(knee_slot, gen_db, manifest)
     movers = {m.id: m for m in gen_db.exec(select(Movement)).all()}

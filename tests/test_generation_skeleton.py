@@ -37,6 +37,17 @@ def test_d2_has_knee_slots_in_adaptive(gen_db):
     assert len(knee_slots) >= 3, "D2 must have at least 3 knee slots (NORDIC, KOT, TIB)"
 
 
+def test_knee_slots_in_giant_tiers_remember_giant_tier(gen_db):
+    """D5 T3 is a GIANT_SET tier even though most slots are knee_modality-tagged."""
+    sk = lay_skeleton("D5 Lower B", gen_db, meso_number=1)
+    slots = {s.slot_id: s for s in sk.adaptive_slots}
+
+    assert slots["d5_t2c"].kind == "knee"
+    assert slots["d5_t2c"].is_giant_tier is True
+    for slot_id in ("d5_t3a", "d5_t3b", "d5_t3c", "d5_t3d"):
+        assert slots[slot_id].is_giant_tier is True
+
+
 def test_invalid_day_role_raises(gen_db):
     import pytest
     with pytest.raises(ValueError, match="No ProgramDay"):

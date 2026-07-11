@@ -444,8 +444,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
     Layout:
       1. Anchor movements → STRAIGHT groups in skeleton order (T1 first).
       2. Adaptive slots → iterated in selections.ordering:
-           giant kind  → exercises appended into one GIANT_SET group per source tier (rounds=3)
-           knee / other → own STRAIGHT group each
+           giant tier  → exercises appended into one GIANT_SET group per source tier (rounds=3)
+           other       → own STRAIGHT group each
 
     Computes prospective_current_loads for every movement but does NOT write
     to MovementState or commit anything.
@@ -505,7 +505,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
         if m is None:
             continue
 
-        if slot.kind == "giant":
+        if slot.is_giant_tier:
             # group_key identifies the source tier; fallback to slot_id so that
             # manually-constructed SlotSpecs (empty group_key) still get separate groups.
             gk = slot.group_key if slot.group_key else slot_id

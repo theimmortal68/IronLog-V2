@@ -180,7 +180,7 @@ def _check_giant_set_rounds(session: Session, ctx: ValidationContext) -> List[Vi
 
 
 def _check_giant_set_concurrency(session: Session, ctx: ValidationContext) -> List[Violation]:
-    """GIANT_SET groups must have 1..=3 exercises (room geometry).
+    """GIANT_SET groups must have 1..=4 exercises (room geometry).
 
     Iteration is unsorted (same rationale as _check_giant_set_rounds): violations
     carry group_index for callers that need ordering.
@@ -189,11 +189,11 @@ def _check_giant_set_concurrency(session: Session, ctx: ValidationContext) -> Li
     for group in session.groups:
         if group.group_type == GroupType.GIANT_SET:
             n = len(group.exercises)
-            if not 1 <= n <= 3:
+            if not 1 <= n <= 4:
                 violations.append(Violation(
                     kind=ViolationKind.REJECT,
                     rule=RuleCode.GIANT_SET_CONCURRENCY,
-                    message=f"GIANT_SET has {n} exercises, expected 1-3 (room geometry)",
+                    message=f"GIANT_SET has {n} exercises, expected 1-4 (room geometry)",
                     group_index=group.order_index,
                 ))
     return violations

@@ -28,6 +28,8 @@ class SlotSpec:
     tier_role: str                  # "anchor" | "semi" | "free"
     knee_modality: Optional[str]
     program_movement_id: Optional[int]   # the program prior for this slot
+    is_giant_tier: bool = False     # True when the source Tier is GIANT_SET,
+                                    # independent of kind/knee_modality.
     group_key: str = ""             # tier_label of the source Tier; used by the
                                     # assembler to group giant slots into one
                                     # ExerciseGroup per tier (e.g. "T2 GS").
@@ -100,6 +102,8 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         kind = "knee" if knee_modality set,
                "giant" if tier is GIANT_SET,
                "accessory" otherwise.
+        is_giant_tier is set directly from the source Tier so knee-priority
+        slots inside GIANT_SET tiers still assemble into the shared tier group.
     """
     if program_id is None:
         from ironlog.models.library import EngineState
@@ -149,6 +153,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     tier_role=te.tier_role,
                     knee_modality=te.knee_modality,
                     program_movement_id=_effective_movement_id(db, te, meso_number),
+                    is_giant_tier=tier.tier_kind == TierKind.GIANT_SET,
                     group_key=tier.tier_label,
                     rep_low=te.rep_low, rep_high=te.rep_high, rpe_cap=te.rpe_cap,
                     rest_seconds=tier.rest_seconds, shoe=tier.shoe,

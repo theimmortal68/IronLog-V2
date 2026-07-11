@@ -17,6 +17,8 @@ from ironlog.generation.assembler import assemble
 from ironlog.generation.context import resolve_context
 from ironlog.generation.proposer import Selections, SlotSelection
 from ironlog.generation.skeleton import lay_skeleton
+from ironlog.models.enums import GroupType
+from ironlog.models.library import Movement
 from ironlog.models.library import MovementState
 from sqlmodel import select
 
@@ -28,6 +30,23 @@ def _canned_for(sk, ctx):
         if s.kind in ("giant", "knee"):
             slots.append(SlotSelection(s.slot_id, ctx.candidate_menus[s.slot_id][0]))
     return Selections(ordering=[s.slot_id for s in slots], slots=slots, rationale="t")
+
+
+def _names_for_group(group, db):
+    names = {
+        m.id: m.name
+        for m in db.exec(select(Movement).where(Movement.id.in_([e.movement_id for e in group.exercises]))).all()
+    }
+    return [names[e.movement_id] for e in sorted(group.exercises, key=lambda e: e.order_index)]
+
+
+def _giant_group_by_label(session, label):
+    matches = [
+        g for g in session.groups
+        if g.group_type == GroupType.GIANT_SET and g.label == label
+    ]
+    assert len(matches) == 1, f"expected exactly one GIANT_SET group for {label!r}, got {len(matches)}"
+    return matches[0]
 
 
 def test_assembler_is_deterministic(gen_db_calibrated):
@@ -82,3 +101,41 @@ def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
     )
     assert groups[0].group_type.value == "STRAIGHT" and groups[0].label == "T1"
     assert groups[1].group_type.value == "GIANT_SET" and groups[1].label == "T2 GS"
+
+
+def test_d1_t2_giant_set_stays_grouped(gen_db_calibrated):
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
+
+    group = _giant_group_by_label(res.session, "T2 GS")
+    assert _names_for_group(group, gen_db) == [
+        "Pendlay Row - Narrow [OB]",
+        "Incline DB Press [DB + BENCH]",
+        "Face-Up Incline Knee Raise",
+    ]
+
+
+def test_d5_knee_modality_giant_tiers_stay_grouped(gen_db_calibrated):
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
+    res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
+
+    t2 = _giant_group_by_label(res.session, "T2 GS")
+    assert _names_for_group(t2, gen_db) == [
+        "Bulgarian Split Squat [DB]",
+        "Reverse Hyper [REV_HYPER]",
+        "Nordic Curl [GHR]",
+    ]
+
+    t3 = _giant_group_by_label(res.session, "T3 GS")
+    assert _names_for_group(t3, gen_db) == [
+        "Poliquin Step-up",
+        "Reverse Nordic Curl [GHR]",
+        "Cable Tibialis Raise",
+        "Calf Raise [GHR]",
+    ]

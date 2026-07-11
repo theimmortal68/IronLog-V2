@@ -10,7 +10,8 @@ Tests:
      — last_valid_selections returns Selections that match the prior session's
        movements when a COMPLETED session exists.
   4. test_d1_giant_groups_are_per_tier (Fix 1 proof)
-     — the assembled D1 program session has multiple GIANT_SET groups, each ≤3 exercises.
+     — the assembled D1 program session has multiple GIANT_SET groups, each matching
+       its 3-exercise source tier.
   5. test_build_validation_context_is_structural_only (Fix 2 proof)
      — build_validation_context returns tallies=None (structural-only; no cross-session checks).
   6. test_cold_start_d1_no_spurious_knee_frequency_reject
@@ -452,9 +453,9 @@ def test_d1_giant_groups_are_per_tier(gen_db):
     )
     for g in giant_groups:
         n = len(g.exercises)
-        assert 1 <= n <= 3, (
+        assert n == 3, (
             f"GIANT_SET group (order_index={g.order_index}) has {n} exercises; "
-            f"expected 1-3 (room-geometry constraint)"
+            "expected D1's 3-exercise source tier"
         )
 
 
