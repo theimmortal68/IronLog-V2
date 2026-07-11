@@ -9,6 +9,8 @@ Last updated 2026-07-09. Source of truth for the in-flight feature/bug work.
 - **L — load ratchet** (merged, 2026-07-09): `performed_floor_delta` — a clean session performed heavier than the seeded baseline (e.g. Belt Squat 265 vs seeded 260) no longer regresses to the old baseline next session. Scoped to plain `current_load` movements; HT excluded (see next item). **LIVE** (deployed 2026-07-09 22:41, service restart + smoke-checked).
 - **Note-apply LOAD override now affects Hip Thrust** (merged, 2026-07-09): the existing "apply a note" mechanism had zero effect on HT's plates (assembler discarded it once `ht_plates` was set). Fixed — a day-scoped "+N lbs" note now actually bumps the target day's HT plates, without compounding across regenerations. Answers the Day-2 "ready to go up 5lbs on Day 5" note. **LIVE** (deployed 2026-07-09 22:41).
 - **[C-display] server half — unit_hint on ExerciseOut** (merged, 2026-07-09): `ExerciseOut.unit_hint` now surfaces "lb"/"assist"/None per movement (reusing `_UNIT_HINTS`/`load_field_for_mode`), so a client can render "20° assist" instead of "20 lb" for Nordic Curl/Reverse Nordic/Face-Up Incline Knee Raise. First live shakedown of the new codex-generation + Opus-review-gate pipeline — clean pass, no findings. **Client-side render is a separate follow-on spec, not started.** **LIVE** (deployed 2026-07-09 22:41).
+- **A — ramp sets** (merged 2026-07-10): heavy-barbell T1 anchors (Bench/Belt Squat/Back Squat/RDL variants) get an auto-derived 3-set 40/60/80% ramp (reps 5/3/2) ahead of the working sets. `Movement.ramp_eligible` (migration 025). **LIVE** (deployed + live-seeded 2026-07-10, smoke-checked: Belt Squat 260 → ramp 105/155/207.5).
+- **I — EMOM finishers** (merged 2026-07-10, 3-part decomposition after the combined spec proved too large for one dispatch): `DayFinisher` table + D6's duration→rope-weight progression rule (`FINISHER_DURATION_THEN_ROPE`) + generation/API wiring (`FinisherOut` on the session response). **LIVE** (deployed + live-seeded 2026-07-10, smoke-checked: D2 surfaces the `sled_push` finisher). Migrations (025/026) only added schema — the actual seed data needed a new one-off idempotent script (`ironlog/generation/live_seed_ramp_and_finishers.py`, safe to re-run) since `program_seed.py`'s full seeder can't run against production.
 
 ## Day-2 feedback (2026-07-07) — reviewed + slotted
 
@@ -22,8 +24,6 @@ Last updated 2026-07-09. Source of truth for the in-flight feature/bug work.
 ## Queued
 | Item | What | Size |
 |---|---|---|
-| **A** | warmup/ramp sets (heavy barbell only; 3-set 40/60/80%, reps 5/3/2 — design locked) | med |
-| **I** | finishers (defs saved in `phase1-warmup-finisher-source.yaml`; d6 jump-rope has its own duration→rope progression) | med |
 | **G** | autoregulated rest (hardest set in a giant set governs the duration) | med |
 | **D+E** | background rest timer (foreground service: keeps counting + notification + sound when app unfocused) | med (client) |
 | **H** | AI acts on programming notes (reorder / assist+reps / cross-day requests) — own design | large |
