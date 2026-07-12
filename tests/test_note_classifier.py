@@ -4,7 +4,7 @@ import pytest
 
 from ironlog.generation.gemini import ProposerError
 from ironlog.models.enums import NoteClass
-from ironlog.notes.classify import NoteClassifier
+from ironlog.notes.classify import NOTE_CLASSIFICATION_SCHEMA, NoteClassifier
 
 
 class _FakeResp:
@@ -55,6 +55,35 @@ def test_action_type_round_trips_for_each_enum_value(action_type):
     assert r.action_type == action_type
 
 
+def test_reorder_action_type_round_trips_structured_neighbors():
+    obj = {"classification": "CONFIG_CHANGE",
+           "proposed_change": {"movement": "Knee Raises", "action": "move", "params": None,
+                               "before_movement": "Single Arm Rows",
+                               "after_movement": "Meadows Rows"},
+           "confidence": 0.86, "rationale": "asks to move knee raises between rows",
+           "action_type": "REORDER"}
+    clf = NoteClassifier("k", http=_FakeHTTP(_envelope(obj)))
+    r = clf.classify("move knee raises between meadows rows and single arm rows")
+    assert r.classification == NoteClass.CONFIG_CHANGE
+    assert r.action_type == "REORDER"
+    assert r.proposed_change["movement"] == "Knee Raises"
+    assert r.proposed_change["before_movement"] == "Single Arm Rows"
+    assert r.proposed_change["after_movement"] == "Meadows Rows"
+
+
+def test_reorder_single_after_neighbor_keeps_before_null():
+    obj = {"classification": "CONFIG_CHANGE",
+           "proposed_change": {"movement": "Knee Raises", "action": "move", "params": None,
+                               "before_movement": None, "after_movement": "Meadows Rows"},
+           "confidence": 0.82, "rationale": "asks to move knee raises after meadows rows",
+           "action_type": "REORDER"}
+    clf = NoteClassifier("k", http=_FakeHTTP(_envelope(obj)))
+    r = clf.classify("move knee raises after meadows rows")
+    assert r.action_type == "REORDER"
+    assert r.proposed_change["before_movement"] is None
+    assert r.proposed_change["after_movement"] == "Meadows Rows"
+
+
 def test_unknown_action_type_defaults_to_other():
     obj = {"classification": "CONFIG_CHANGE",
            "proposed_change": {"movement": "Bench Press", "action": "switch", "params": None},
@@ -88,6 +117,15 @@ def test_request_sets_structured_output_schema():
     gc = kw["json"]["generationConfig"]
     assert gc["responseMimeType"] == "application/json"
     assert "responseJsonSchema" in gc
+
+
+def test_schema_includes_reorder_action_type_and_neighbor_fields():
+    action_schema = NOTE_CLASSIFICATION_SCHEMA["properties"]["action_type"]
+    assert action_schema["enum"] == [
+        "SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "REORDER", "OTHER"]
+    props = NOTE_CLASSIFICATION_SCHEMA["properties"]["proposed_change"]["properties"]
+    assert props["before_movement"] == {"type": ["string", "null"]}
+    assert props["after_movement"] == {"type": ["string", "null"]}
 
 
 def test_bad_classification_value_raises():

@@ -26,8 +26,14 @@ NOTE_SYSTEM_INSTRUCTION = (
     "- LOAD_INCREASE: the current load is too light and should go up (e.g. 'bump belt squat +10').\n"
     "- LOAD_DECREASE: the current load is too heavy and should come down (e.g. 'drop OHP weight').\n"
     "- REP_CHANGE: a different rep target/scheme is requested (e.g. 'drop OHP to 3x8').\n"
+    "- REORDER: change where this movement falls in the day's exercise sequence relative to "
+    "OTHER named movements (e.g. 'move knee raises between meadows rows and single arm rows').\n"
     "- OTHER: anything else, including any note that is not a CONFIG_CHANGE.\n"
     "proposed_change.movement stays the extracted subject movement regardless of action_type. "
+    "For REORDER, extract proposed_change.before_movement and proposed_change.after_movement "
+    "as the named neighboring movements: after_movement is the movement the subject should "
+    "come after, before_movement is the movement the subject should come before. Use null "
+    "for either if the note only specifies one neighbor; use null for both for non-REORDER actions. "
     "Return confidence 0..1 and a one-line rationale."
 )
 
@@ -44,11 +50,13 @@ NOTE_CLASSIFICATION_SCHEMA = {
                 "movement": {"type": ["string", "null"]},
                 "action": {"type": ["string", "null"]},
                 "params": {"type": ["string", "null"]},
+                "before_movement": {"type": ["string", "null"]},
+                "after_movement": {"type": ["string", "null"]},
             },
         },
         "action_type": {
             "type": "string",
-            "enum": ["SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "OTHER"],
+            "enum": ["SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "REORDER", "OTHER"],
         },
         "confidence": {"type": "number"},
         "rationale": {"type": "string"},
@@ -56,7 +64,7 @@ NOTE_CLASSIFICATION_SCHEMA = {
     "required": ["classification", "action_type", "confidence", "rationale"],
 }
 
-_ACTION_TYPES = {"SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "OTHER"}
+_ACTION_TYPES = {"SWAP", "LOAD_INCREASE", "LOAD_DECREASE", "REP_CHANGE", "REORDER", "OTHER"}
 
 
 @dataclass
