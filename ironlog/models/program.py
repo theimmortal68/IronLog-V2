@@ -43,6 +43,7 @@ class ProgramDay(SQLModel, table=True):
     day_index: int        # 1=Mon … 7=Sun
     day_role: str         # "D1 Upper Push", "D2 Lower A", "" for rest days
     is_rest: bool = False
+    warmup_config: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
 
 class DayFinisher(SQLModel, table=True):

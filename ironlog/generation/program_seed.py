@@ -1,8 +1,8 @@
 """
 program_seed.py — seed the Phase 1 program definition (the evolving-seed prior).
 
-Seeded: main-work tiers only (D1-D6), TierExercises, MesoRotations.
-NOT seeded: warmups, finishers (EMOM), Z2 (deferred to v0.7).
+Seeded: main-work tiers, warmups, finishers (EMOM), TierExercises, MesoRotations.
+NOT seeded: Z2 (deferred to v0.7).
 
 Movement resolution rule (the library-import lesson — halt-and-flag):
 - Every program movement name is looked up in PROGRAM_TO_LIBRARY to get the
@@ -87,6 +87,73 @@ RAMP_ELIGIBLE_MOVEMENT_NAMES = {
     "Staggered RDL [PB]",
 }
 
+WARMUP_CONFIGS: Dict[int, dict] = {
+    1: {
+        "movement_flow_seconds": 90,
+        "items": [
+            {"name": "scap_cars", "sets": 2, "reps": 5},
+            {"name": "floor_slides", "sets": 1, "reps": 5},
+            {"name": "jump_rope", "seconds": 90, "rope": "standard", "style": "light_bounce"},
+        ],
+        "activation_seconds": 60,
+        "items_activation": [
+            {"name": "prone_y_raise", "sets": 2, "reps": 12, "incline_degrees": 30},
+            {"name": "sa_waiters_carry", "seconds_per_side": 20, "sets": 1},
+        ],
+    },
+    2: {
+        "movement_flow_seconds": 90,
+        "items": [
+            {"name": "deep_squat_hold_rock", "seconds": 20},
+            {"name": "worlds_greatest", "sets": 1, "reps_per_side": 2},
+            {"name": "cossack_squat", "sets": 1, "reps_per_side": 3},
+        ],
+        "activation_seconds": 60,
+        "items_activation": [
+            {"name": "glute_bridge", "sets": 1, "reps": 10, "hold_seconds": 2},
+            {"name": "banded_clamshell", "sets": 1, "reps_per_side": 10},
+        ],
+    },
+    4: {
+        "movement_flow_seconds": 90,
+        "items": [
+            {"name": "scapular_pulls", "sets": 2, "reps": 5, "notes": "assisted via Mingmc 4-5 bands if needed"},
+            {"name": "open_book", "sets": 1, "reps_per_side": 5},
+            {"name": "jump_rope", "seconds": 90, "rope": "standard", "style": "light_bounce"},
+        ],
+        "activation_seconds": 60,
+        "items_activation": [
+            {"name": "prone_y_raise", "sets": 2, "reps": 12, "incline_degrees": 30},
+            {"name": "sa_waiters_carry", "seconds_per_side": 20, "sets": 1},
+        ],
+    },
+    5: {
+        "movement_flow_seconds": 90,
+        "items": [
+            {"name": "cat_cow", "sets": 1, "reps": 5},
+            {"name": "worlds_greatest", "sets": 1, "reps_per_side": 2},
+            {"name": "dead_bug", "sets": 1, "reps_per_side": 5},
+        ],
+        "activation_seconds": 60,
+        "items_activation": [
+            {"name": "glute_bridge", "sets": 1, "reps": 10, "hold_seconds": 2},
+            {"name": "banded_clamshell", "sets": 1, "reps_per_side": 10},
+        ],
+    },
+    6: {
+        "movement_flow_seconds": 60,
+        "items": [
+            {"name": "scap_cars", "sets": 2, "reps": 5},
+            {"name": "open_book", "sets": 1, "reps_per_side": 5},
+            {"name": "banded_pull_apart", "sets": 1, "reps": 15},
+        ],
+        "activation_seconds": 30,
+        "items_activation": [
+            {"name": "prone_y_raise", "sets": 1, "reps": 12},
+        ],
+    },
+}
+
 
 def _build_lib_map(db: Session) -> Dict[str, int]:
     """Return {movement.name: movement.id} for all seeded library movements."""
@@ -116,8 +183,8 @@ def _resolve(prog_name: str, lib: Dict[str, int]) -> int:
 def seed_phase1_program(db: Session) -> None:
     """Seed the Phase 1 Post-HGC program definition into the given session.
 
-    Seeded: Program, 7 ProgramDays (5 training + 2 rest), Tiers, TierExercises,
-    and all MesoRotations:
+    Seeded: Program, 7 ProgramDays (5 training + 2 rest), warmups on training
+    days, Tiers, TierExercises, finishers, and all MesoRotations:
       - d2_t1: Belt Squat → Back Squat (meso-2)
       - d4_t2a: Meadows Row → Pendlay Row - Medium (meso-2)
       - d5_t1: RDL → Staggered RDL (meso-2)
@@ -129,7 +196,7 @@ def seed_phase1_program(db: Session) -> None:
     The guard contract: _resolve() is called on EVERY rotation movement name; any
     unresolved name raises ValueError immediately (halt-and-flag, never invent/skip).
 
-    Warmups, finishers, Z2 are NOT seeded (deferred to v0.7).
+    Z2 is NOT seeded (deferred to v0.7).
     The session is committed at the end.
     NEVER call this on the production DB without a reseed/migration plan.
     """
@@ -157,7 +224,8 @@ def seed_phase1_program(db: Session) -> None:
     ]
     for idx, role, is_rest in days_spec:
         db.add(ProgramDay(program_id=prog.id, day_index=idx,
-                          day_role=role, is_rest=is_rest))
+                          day_role=role, is_rest=is_rest,
+                          warmup_config=WARMUP_CONFIGS.get(idx)))
     db.flush()
 
     day_objs: Dict[str, ProgramDay] = {
