@@ -12,6 +12,7 @@ gen_db / gen_db_calibrated fixtures auto-discovered from conftest.py.
 import importlib
 
 from fastapi.testclient import TestClient
+import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
@@ -133,6 +134,34 @@ def test_same_slot_same_type_apply_supersedes_prior_override(gen_db_calibrated):
 
     # The assembler prescribes the LATEST override (+15), not the superseded +10.
     assert _t1_planned_set(_assemble(gen_db)).target_load == engine_load + 15
+
+
+def test_apply_reorder_override_persists_override_order(gen_db_calibrated):
+    from ironlog.notes.apply import apply_override
+
+    gen_db = gen_db_calibrated
+    te = gen_db.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
+    note = Note(text="move bench between slots")
+    gen_db.add(note); gen_db.commit(); gen_db.refresh(note)
+
+    ov = apply_override(note, te.id, "REORDER", gen_db, override_order=2.5)
+
+    persisted = gen_db.get(SlotMovementOverride, ov.id)
+    assert persisted.override_type == OverrideType.REORDER
+    assert persisted.override_order == 2.5
+    assert persisted.override_movement_id == te.movement_id
+
+
+def test_apply_reorder_override_requires_override_order(gen_db_calibrated):
+    from ironlog.notes.apply import apply_override
+
+    gen_db = gen_db_calibrated
+    te = gen_db.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
+    note = Note(text="move bench without a target order")
+    gen_db.add(note); gen_db.commit(); gen_db.refresh(note)
+
+    with pytest.raises(ValueError, match="override_order required"):
+        apply_override(note, te.id, "REORDER", gen_db, override_order=None)
 
 
 def test_supersede_reflected_in_overrides_list_http():

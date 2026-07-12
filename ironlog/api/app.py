@@ -415,6 +415,7 @@ class ApplyNoteRequest(BaseModel):
     load_absolute: Optional[float] = None
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None
+    override_order: Optional[float] = None
 
 
 @app.post("/notes/{note_id}/apply")
@@ -429,7 +430,8 @@ def apply_note(note_id: int, req: ApplyNoteRequest, db: Session = Depends(get_se
             n, req.tier_exercise_id, req.override_type, db,
             override_movement_id=req.override_movement_id,
             load_delta=req.load_delta, load_absolute=req.load_absolute,
-            rep_low=req.rep_low, rep_high=req.rep_high)
+            rep_low=req.rep_low, rep_high=req.rep_high,
+            override_order=req.override_order)
     except SlotResolutionError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:
@@ -438,7 +440,8 @@ def apply_note(note_id: int, req: ApplyNoteRequest, db: Session = Depends(get_se
             "override_type": ov.override_type.value,
             "override_movement_id": ov.override_movement_id,
             "load_delta": ov.load_delta, "load_absolute": ov.load_absolute,
-            "rep_low": ov.rep_low, "rep_high": ov.rep_high, "note_id": note_id}
+            "rep_low": ov.rep_low, "rep_high": ov.rep_high,
+            "override_order": ov.override_order, "note_id": note_id}
 
 
 @app.get("/programs/{program_id}/slots")
@@ -504,6 +507,8 @@ def list_overrides(db: Session = Depends(get_session)):
         elif ov.override_type == OverrideType.REPS:
             row["rep_low"] = ov.rep_low
             row["rep_high"] = ov.rep_high
+        elif ov.override_type == OverrideType.REORDER:
+            row["override_order"] = ov.override_order
         out.append(row)
     return out
 

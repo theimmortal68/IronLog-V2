@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Column, JSON, text
+from sqlalchemy import Column, JSON, REAL, text
 from sqlmodel import Field, SQLModel
 
 from .enums import KneeModality, OverrideType  # noqa: F401 — used in TierExercise/SlotMovementOverride column types
@@ -125,3 +125,4 @@ class SlotMovementOverride(SQLModel, table=True):
     load_absolute: Optional[float] = None
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None
+    override_order: Optional[float] = Field(default=None, sa_column=Column(REAL))
