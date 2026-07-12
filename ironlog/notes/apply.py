@@ -48,7 +48,8 @@ def resolve_slot(note, db: DBSession) -> TierExercise:
 
 def apply_override(note, tier_exercise_id, override_type, db: DBSession, *,
                     override_movement_id=None, load_delta=None, load_absolute=None,
-                    rep_low=None, rep_high=None) -> SlotMovementOverride:
+                    rep_low=None, rep_high=None,
+                    override_order=None) -> SlotMovementOverride:
     """Create a live-state SlotMovementOverride for an EXPLICIT slot + override
     the client has already confirmed. Deterministic; NO LLM in this path.
 
@@ -59,8 +60,9 @@ def apply_override(note, tier_exercise_id, override_type, db: DBSession, *,
     Raises SlotResolutionError (-> 404) if the TierExercise or (for MOVEMENT)
     the target movement doesn't exist. Raises ValueError (-> 400) for a
     malformed per-type payload (LOAD needs exactly one of load_delta /
-    load_absolute; REPS needs rep_low and/or rep_high). On success, stamps
-    note.confirmed/applied and returns the created override.
+    load_absolute; REPS needs rep_low and/or rep_high; REORDER needs
+    override_order). On success, stamps note.confirmed/applied and returns the
+    created override.
     """
     from ..models.library import Movement
     from ..models.enums import OverrideType
@@ -90,6 +92,11 @@ def apply_override(note, tier_exercise_id, override_type, db: DBSession, *,
             raise ValueError("rep_low and/or rep_high required")
         kw["override_movement_id"] = te.movement_id
         kw["rep_low"], kw["rep_high"] = rep_low, rep_high
+    elif ot == OverrideType.REORDER:
+        if override_order is None:
+            raise ValueError("override_order required")
+        kw["override_movement_id"] = te.movement_id
+        kw["override_order"] = override_order
 
     # Latest apply wins: supersede any prior ACTIVE override on the SAME slot of
     # the SAME type before creating the new one. Without this, same-type rows

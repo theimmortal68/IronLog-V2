@@ -220,7 +220,10 @@ class OverrideType(str, Enum):
     MOVEMENT: swap the slot's movement (the original, still-supported behavior).
     LOAD: adjust the prescribed load at prescription time (delta or absolute).
     REPS: adjust the prescribed rep target (rep_low/rep_high) at prescription time.
+    REORDER: adjust the slot's effective sequence position (`override_order`)
+        without touching the base program's `exercise_order`.
     """
     MOVEMENT = "MOVEMENT"
     LOAD = "LOAD"
     REPS = "REPS"
+    REORDER = "REORDER"
