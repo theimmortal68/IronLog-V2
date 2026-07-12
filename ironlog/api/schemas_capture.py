@@ -90,6 +90,13 @@ class GroupOut(BaseModel):
     exercises: List[ExerciseOut]
 
 
+class WarmupOut(BaseModel):
+    movement_flow_seconds: int
+    items: List[Dict[str, Any]]
+    activation_seconds: int
+    items_activation: List[Dict[str, Any]]
+
+
 class FinisherOut(BaseModel):
     exercise_name: str
     duration_minutes: int
@@ -105,4 +112,5 @@ class SessionDetailResponse(BaseModel):
     phase: str
     status: str
     groups: List[GroupOut]
+    warmup: Optional[WarmupOut] = None
     finisher: Optional[FinisherOut] = None

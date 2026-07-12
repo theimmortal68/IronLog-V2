@@ -58,6 +58,12 @@ def test_generate_d1_includes_kb_swing_finisher(client_engine):
     body = _generate(client, "D1 Upper Push")
 
     assert body["scope"] == "main-work-only; warmups/Z2 per program doc, not yet in-app"
+    assert body["preview"]["warmup"]["items"][2] == {
+        "name": "jump_rope",
+        "seconds": 90,
+        "rope": "standard",
+        "style": "light_bounce",
+    }
     assert body["preview"]["finisher"] == {
         "exercise_name": "kb_swing",
         "duration_minutes": 6,
@@ -77,6 +83,7 @@ def test_generate_rest_day_has_no_finisher(client_engine):
     body = _generate(client, "")
 
     assert body["preview"]["groups"] == []
+    assert body["preview"]["warmup"] is None
     assert body["preview"]["finisher"] is None
 
 
@@ -121,3 +128,4 @@ def test_approved_session_detail_includes_finisher(client_engine):
     assert detail.status_code == 200, detail.text
 
     assert detail.json()["finisher"]["exercise_name"] == "kb_swing"
+    assert detail.json()["warmup"]["movement_flow_seconds"] == 90

@@ -42,7 +42,7 @@ from .schemas_wizard import (
 )
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
-from ..generation.assembler import build_finisher_payload
+from ..generation.assembler import build_finisher_payload, build_warmup_payload
 from ..generation.loop import commit_session, generate_session
 from ..generation.load_trust import compute_load_trust, load_field_for_mode
 from ..generation.skeleton import lay_skeleton
@@ -220,6 +220,7 @@ def generate(req: GenerateRequest, db: Session = Depends(get_session)):
         preview = _serialize_session(
             outcome.assembled.session,
             db,
+            warmup=outcome.assembled.warmup,
             finisher=outcome.assembled.finisher,
         )
     return GenerateResponse(
@@ -522,7 +523,7 @@ def revert_override(override_id: int, db: Session = Depends(get_session)):
 # Capture read path (logging round-trip — Task 3)
 # ---------------------------------------------------------------------------
 
-def _serialize_session(ws, db, finisher=None) -> SessionDetailResponse:
+def _serialize_session(ws, db, finisher=None, warmup=None) -> SessionDetailResponse:
     """Walk the relationship graph and serialize to SessionDetailResponse.
 
     Also used for in-memory (uncommitted) generate candidates, where ws.id /
@@ -576,6 +577,7 @@ def _serialize_session(ws, db, finisher=None) -> SessionDetailResponse:
     return SessionDetailResponse(
         id=(ws.id if ws.id is not None else 0), date=ws.date.isoformat(),
         day_role=ws.day_role, phase=ws.phase, status=ws.status.value, groups=groups_out,
+        warmup=warmup,
         finisher=finisher,
     )
 
@@ -593,11 +595,15 @@ def get_today_session(db: Session = Depends(get_session)):
     if ws is None:
         return None
     program_day_id = (ws.signature or {}).get("program_day_id")
+    warmup = (
+        build_warmup_payload(db, program_day_id)
+        if program_day_id is not None else None
+    )
     finisher = (
         build_finisher_payload(db, program_day_id)
         if program_day_id is not None else None
     )
-    return _serialize_session(ws, db, finisher=finisher)
+    return _serialize_session(ws, db, warmup=warmup, finisher=finisher)
 
 
 class SessionSummary(BaseModel):
@@ -630,11 +636,15 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)):
     if ws is None:
         raise HTTPException(404, "session not found")
     program_day_id = (ws.signature or {}).get("program_day_id")
+    warmup = (
+        build_warmup_payload(db, program_day_id)
+        if program_day_id is not None else None
+    )
     finisher = (
         build_finisher_payload(db, program_day_id)
         if program_day_id is not None else None
     )
-    return _serialize_session(ws, db, finisher=finisher)
+    return _serialize_session(ws, db, warmup=warmup, finisher=finisher)
 
 
 class LoggedSet(BaseModel):

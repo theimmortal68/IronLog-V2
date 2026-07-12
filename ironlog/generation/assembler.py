@@ -43,6 +43,7 @@ class AssembledSession:
     # Mirrors prospective_current_loads: computed here, written only by
     # commit_session at approval (Option-C two-writer boundary).
     prospective_ht_setups: Dict[int, Tuple[float, list]] = field(default_factory=dict)
+    warmup: Optional[Dict[str, Any]] = None
     finisher: Optional[Dict[str, Any]] = None
 
 
@@ -146,6 +147,19 @@ def build_finisher_payload(
         "current_duration_seconds": current_duration_seconds,
         "current_rope": current_rope,
     }
+
+
+def build_warmup_payload(
+    db: DBSession,
+    program_day_id: Optional[int],
+) -> Optional[Dict[str, Any]]:
+    """Static, unprogressed per-day warmup block -- no state, no movement FK."""
+    if program_day_id is None:
+        return None
+    program_day = db.get(ProgramDay, program_day_id)
+    if program_day is None or program_day.warmup_config is None:
+        return None
+    return dict(program_day.warmup_config)
 
 
 # ---------------------------------------------------------------------------
@@ -558,6 +572,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
         session.groups.append(g)
 
     program_day_id = _program_day_id_from_skeleton(skeleton, db)
+    warmup = build_warmup_payload(db, program_day_id)
     finisher = build_finisher_payload(db, program_day_id)
     if program_day_id is not None:
         session.signature = dict(session.signature or {})
@@ -565,4 +580,5 @@ def assemble(selections: Selections, skeleton: Skeleton,
 
     return AssembledSession(session=session, prospective_current_loads=prospective,
                             prospective_ht_setups=prospective_ht,
+                            warmup=warmup,
                             finisher=finisher)
