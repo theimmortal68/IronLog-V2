@@ -182,7 +182,7 @@ def compute_owed_requirements(tallies: WeeklyTallies) -> dict:
 # build_weak_point_hints
 # ---------------------------------------------------------------------------
 
-def build_weak_point_hints(db: Session) -> Dict[int, dict]:
+def build_weak_point_hints(db: Session, day_id: str) -> Dict[int, dict]:
     """Per stalled movement: typed + severity + limiter record (gap D).
 
     Notes:
@@ -198,8 +198,27 @@ def build_weak_point_hints(db: Session) -> Dict[int, dict]:
     """
     records: Dict[int, dict] = {}
     movements = {m.id: m for m in db.exec(select(Movement)).all()}
-    states = db.exec(select(MovementState)).all()
-    for st in states:
+    candidate_states = db.exec(
+        select(MovementState).where(
+            or_(MovementState.day_id == day_id,
+                col(MovementState.day_id).is_(None))
+        )
+    ).all()
+    states_by_movement: Dict[int, List[MovementState]] = {}
+    for st in candidate_states:
+        states_by_movement.setdefault(st.movement_id, []).append(st)
+
+    resolved_states: List[MovementState] = []
+    for rows in states_by_movement.values():
+        exact = next((st for st in rows if st.day_id == day_id), None)
+        if exact is not None:
+            resolved_states.append(exact)
+            continue
+        legacy = next((st for st in rows if st.day_id is None), None)
+        if legacy is not None:
+            resolved_states.append(legacy)
+
+    for st in resolved_states:
         rows = db.exec(
             select(E1rmHistory).where(E1rmHistory.movement_id == st.movement_id)
         ).all()
@@ -344,7 +363,7 @@ def resolve_context(
     ]
 
     # Weak-point hints (stall detection, L1 soft)
-    weak_hints = build_weak_point_hints(db)
+    weak_hints = build_weak_point_hints(db, day_role)
 
     # Open Notes: movement_id is set, note has not been applied, AND the note is
     # actionable (CONFIG_CHANGE / PROGRAMMING_REQUEST) — the same set the
