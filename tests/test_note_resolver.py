@@ -247,6 +247,25 @@ def test_ht_load_note_over_bottom_clamp_is_invalid(resolver_db):
     assert "225.0" in proposal.validation_note
 
 
+def test_ht_load_note_without_calibrated_baseline_is_invalid(resolver_db):
+    db, ctx = resolver_db
+    db.delete(ctx["states"]["hip_thrust"])
+    db.commit()
+    note = _note(
+        "LOAD_INCREASE",
+        {"movement": "Hip Thrust", "action": "bump", "params": "+5"},
+    )
+
+    proposal = resolve_note(note, db)[0]
+
+    assert proposal.tier_exercise_id == ctx["tes"]["hip_thrust"].id
+    assert proposal.override_type == "LOAD"
+    assert proposal.load_delta == 5.0
+    assert proposal.valid is False
+    assert proposal.validation_note is not None
+    assert "calibrated baseline" in proposal.validation_note.lower()
+
+
 def test_reorder_between_two_sibling_movements_computes_between_order(resolver_db):
     db, ctx = resolver_db
     note = _note(

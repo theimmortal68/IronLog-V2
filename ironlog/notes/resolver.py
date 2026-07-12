@@ -249,11 +249,24 @@ def _compute_and_validate_proposal(te: TierExercise, note, db: Session) -> Resol
             base_load = resolve_start_load(m, st, db)
 
             if is_ht:
-                current_plates = (
-                    st.ht_plates
-                    if (st is not None and st.ht_plates is not None)
-                    else (base_load if base_load is not None else 0.0)
-                )
+                if st is not None and st.ht_plates is not None:
+                    current_plates = st.ht_plates
+                elif base_load is not None:
+                    current_plates = base_load
+                else:
+                    return ResolvedProposal(
+                        tier_exercise_id=te.id,
+                        day_role=day_role,
+                        slot_label=slot_label,
+                        override_type="LOAD",
+                        load_delta=delta,
+                        valid=False,
+                        validation_note=(
+                            "No calibrated baseline for this HT movement - "
+                            "cannot safely compute a load change"
+                        ),
+                        summary=summary,
+                    )
                 if st is not None and st.ht_band_config is not None:
                     config = list(st.ht_band_config)
                 elif st is not None and st.ht_band_pair_id is not None:
