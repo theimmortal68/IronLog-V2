@@ -49,6 +49,7 @@ from ..generation.skeleton import lay_skeleton
 from ..generation.fallback import program_selections
 from ..generation.proposer import StubProposer
 from ..generation.repair import RepairOutcome
+from ..notes.resolver import resolve_note
 
 app = FastAPI(title="IronLog V2", version="0.1.0")
 
@@ -341,6 +342,22 @@ def submit_session(session_id: int, req: SubmitRequest, background_tasks: Backgr
 # Notes review path (note-confirm, Task 3)
 # ---------------------------------------------------------------------------
 
+class ProposalOut(BaseModel):
+    tier_exercise_id: int
+    day_role: str
+    slot_label: str
+    override_type: str
+    override_movement_id: Optional[int] = None
+    load_delta: Optional[float] = None
+    load_absolute: Optional[float] = None
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None
+    override_order: Optional[float] = None
+    valid: bool = True
+    validation_note: Optional[str] = None
+    summary: str = ""
+
+
 class NoteReviewOut(BaseModel):
     id: int
     session_id: Optional[int] = None
@@ -351,6 +368,7 @@ class NoteReviewOut(BaseModel):
     proposed_change: Optional[dict] = None
     confidence: Optional[float] = None
     action_type: Optional[str] = None
+    resolved_proposals: List[ProposalOut] = []
 
 
 @app.get("/notes/review", response_model=List[NoteReviewOut])
@@ -366,12 +384,28 @@ def get_notes_review(db: Session = Depends(get_session)):
     out = []
     for n in rows:
         meta = n.classification_meta or {}
+        proposed_change = meta.get("proposed_change")
+        action_type = meta.get("action_type")
+        resolved_proposals = []
+        if (
+            n.classification in (NoteClass.CONFIG_CHANGE, NoteClass.PROGRAMMING_REQUEST)
+            and action_type is not None
+            and action_type != "OTHER"
+            and proposed_change is not None
+        ):
+            try:
+                resolved_proposals = [
+                    ProposalOut(**vars(proposal))
+                    for proposal in resolve_note(n, db)
+                ]
+            except Exception:
+                resolved_proposals = []
         out.append(NoteReviewOut(
             id=n.id, session_id=n.session_id, movement_id=n.movement_id,
             created_at=n.created_at.isoformat(), text=n.text,
             classification=n.classification.value,
-            proposed_change=meta.get("proposed_change"), confidence=meta.get("confidence"),
-            action_type=meta.get("action_type")))
+            proposed_change=proposed_change, confidence=meta.get("confidence"),
+            action_type=action_type, resolved_proposals=resolved_proposals))
     return out
 
 
