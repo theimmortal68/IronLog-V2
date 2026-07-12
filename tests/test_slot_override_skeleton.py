@@ -57,12 +57,149 @@ def _seed(db):
     }
 
 
+def _seed_ordering_program(db):
+    """Program whose rows are inserted out of exercise_order for ordering tests."""
+    prog = Program(name="Reorder Phase", phase="P1", duration_weeks=4)
+    db.add(prog)
+    db.commit()
+    db.refresh(prog)
+
+    day = ProgramDay(program_id=prog.id, day_index=0, day_role="D Reorder Test")
+    db.add(day)
+    db.commit()
+    db.refresh(day)
+
+    t1 = Tier(program_day_id=day.id, tier_label="T1", tier_order=1, tier_kind=TierKind.T1_STRAIGHT)
+    t2 = Tier(program_day_id=day.id, tier_label="T2", tier_order=2, tier_kind=TierKind.ACCESSORY)
+    db.add(t1)
+    db.add(t2)
+    db.commit()
+    db.refresh(t1)
+    db.refresh(t2)
+
+    movements = {
+        "anchor_1": Movement(name="Anchor One [PB]", base_name="Anchor One"),
+        "anchor_2": Movement(name="Anchor Two [PB]", base_name="Anchor Two"),
+        "anchor_3": Movement(name="Anchor Three [PB]", base_name="Anchor Three"),
+        "slot_1": Movement(name="Slot One [PB]", base_name="Slot One"),
+        "slot_2": Movement(name="Slot Two [PB]", base_name="Slot Two"),
+        "slot_3": Movement(name="Slot Three [PB]", base_name="Slot Three"),
+    }
+    for movement in movements.values():
+        db.add(movement)
+    db.commit()
+    for movement in movements.values():
+        db.refresh(movement)
+
+    tes = {
+        "anchor_1": TierExercise(
+            tier_id=t1.id, slot_id="re_t1a", movement_id=movements["anchor_1"].id,
+            exercise_order=1, tier_role="anchor",
+        ),
+        "anchor_2": TierExercise(
+            tier_id=t1.id, slot_id="re_t1b", movement_id=movements["anchor_2"].id,
+            exercise_order=2, tier_role="anchor",
+        ),
+        "anchor_3": TierExercise(
+            tier_id=t1.id, slot_id="re_t1c", movement_id=movements["anchor_3"].id,
+            exercise_order=3, tier_role="anchor",
+        ),
+        "slot_1": TierExercise(
+            tier_id=t2.id, slot_id="re_t2a", movement_id=movements["slot_1"].id,
+            exercise_order=1, tier_role="semi",
+        ),
+        "slot_2": TierExercise(
+            tier_id=t2.id, slot_id="re_t2b", movement_id=movements["slot_2"].id,
+            exercise_order=2, tier_role="semi",
+        ),
+        "slot_3": TierExercise(
+            tier_id=t2.id, slot_id="re_t2c", movement_id=movements["slot_3"].id,
+            exercise_order=3, tier_role="semi",
+        ),
+    }
+    for key in ("anchor_3", "anchor_1", "anchor_2", "slot_3", "slot_1", "slot_2"):
+        db.add(tes[key])
+    db.commit()
+    for te in tes.values():
+        db.refresh(te)
+
+    return {"movements": movements, "tes": tes}
+
+
+def _add_reorder_override(db, te, source_note_id, override_order, active=True):
+    db.add(SlotMovementOverride(
+        tier_exercise_id=te.id,
+        override_movement_id=te.movement_id,
+        source_note_id=source_note_id,
+        override_type=OverrideType.REORDER,
+        override_order=override_order,
+        active=active,
+    ))
+
+
 def test_skeleton_emits_base_movement_with_no_override():
     db = DBSession(_engine())
     ctx = _seed(db)
     sk = lay_skeleton("D1 Upper Push", db, meso_number=1)
     assert sk.anchor_movement_ids == [ctx["bench"].id]
     assert sk.adaptive_slots[0].program_movement_id == ctx["close_grip"].id
+
+
+def test_skeleton_order_without_reorder_overrides_matches_base_exercise_order():
+    db = DBSession(_engine())
+    ctx = _seed_ordering_program(db)
+
+    sk = lay_skeleton("D Reorder Test", db, meso_number=1)
+
+    assert sk.anchor_movement_ids == [
+        ctx["movements"]["anchor_1"].id,
+        ctx["movements"]["anchor_2"].id,
+        ctx["movements"]["anchor_3"].id,
+    ]
+    assert [meta.tier_exercise_id for meta in sk.anchor_meta] == [
+        ctx["tes"]["anchor_1"].id,
+        ctx["tes"]["anchor_2"].id,
+        ctx["tes"]["anchor_3"].id,
+    ]
+    assert [slot.slot_id for slot in sk.adaptive_slots] == ["re_t2a", "re_t2b", "re_t2c"]
+    assert [slot.program_movement_id for slot in sk.adaptive_slots] == [
+        ctx["movements"]["slot_1"].id,
+        ctx["movements"]["slot_2"].id,
+        ctx["movements"]["slot_3"].id,
+    ]
+
+
+def test_skeleton_uses_active_reorder_override_for_effective_order():
+    db = DBSession(_engine())
+    ctx = _seed_ordering_program(db)
+    note = Note(text="move reordered slots")
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+
+    _add_reorder_override(db, ctx["tes"]["anchor_3"], note.id, override_order=1.5)
+    _add_reorder_override(db, ctx["tes"]["anchor_2"], note.id, override_order=0.5, active=False)
+    _add_reorder_override(db, ctx["tes"]["slot_3"], note.id, override_order=1.5)
+    _add_reorder_override(db, ctx["tes"]["slot_1"], note.id, override_order=3.5)
+    _add_reorder_override(db, ctx["tes"]["slot_2"], note.id, override_order=0.5, active=False)
+    db.commit()
+
+    sk = lay_skeleton("D Reorder Test", db, meso_number=1)
+
+    assert sk.anchor_movement_ids == [
+        ctx["movements"]["anchor_1"].id,
+        ctx["movements"]["anchor_3"].id,
+        ctx["movements"]["anchor_2"].id,
+    ]
+    assert [meta.tier_exercise_id for meta in sk.anchor_meta] == [
+        ctx["tes"]["anchor_1"].id,
+        ctx["tes"]["anchor_3"].id,
+        ctx["tes"]["anchor_2"].id,
+    ]
+    assert [slot.slot_id for slot in sk.adaptive_slots] == ["re_t2c", "re_t2b", "re_t2a"]
+
+    db.refresh(ctx["tes"]["slot_3"])
+    assert ctx["tes"]["slot_3"].exercise_order == 3
 
 
 def test_active_override_swaps_only_its_slot():

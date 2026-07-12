@@ -132,8 +132,8 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         exercises = db.exec(
             select(TierExercise)
             .where(TierExercise.tier_id == tier.id)
-            .order_by(TierExercise.exercise_order)
         ).all()
+        exercises = sorted(exercises, key=lambda te: _effective_exercise_order(db, te))
 
         for te in exercises:
             if te.tier_role == "anchor":
@@ -166,6 +166,16 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         anchor_meta=anchor_meta,
         adaptive_slots=adaptive_slots,
     )
+
+
+def _effective_exercise_order(db: Session, te: TierExercise) -> float:
+    ov = db.exec(select(SlotMovementOverride).where(
+        SlotMovementOverride.tier_exercise_id == te.id,
+        SlotMovementOverride.override_type == OverrideType.REORDER,
+        SlotMovementOverride.active == True)).first()  # noqa: E712
+    if ov is not None:
+        return ov.override_order
+    return float(te.exercise_order)
 
 
 def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:
