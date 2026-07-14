@@ -436,7 +436,7 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T3 GS — Pull-up / Cross-Body Lateral Raise / Lat Prayer
     t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d1_t3a", "Pull-up (2-phase)", lib, 1, "free",
-            pattern="vertical_pull", rep_low=6, rep_high=10, scheme="REP_RATIO")
+            pattern="vertical_pull", rep_low=8, rep_high=12, scheme="REP_RATIO")
     _add_te(db, t3.id, "d1_t3b", "Cross-Body Lateral Raise", lib, 2, "free",
             pattern="lateral_raise", rep_low=12, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
