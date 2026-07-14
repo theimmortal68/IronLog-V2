@@ -18,7 +18,7 @@ days:
       {m: incline_db_press, reps: [10,10], rule: rpe_8_standard, load: 55},
       {m: face_up_incline_knee_raise_d1, reps: [15,15], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: pull_up_d1, reps: [6,10], rule: pull_up_rolling_max},
+      {m: pull_up_d1, reps: [8,12], rule: pull_up_rolling_max},
       {m: cross_body_lateral_raise, reps: [12,12], rule: rpe_8_standard, load: 12.5, unilateral: true},
       {m: lat_prayer, reps: [12,12], rule: rpe_8_standard, load: 60}]}
     T4_GIANT: {group_key: "T4 GS", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
