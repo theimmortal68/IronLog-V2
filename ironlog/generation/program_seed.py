@@ -425,10 +425,10 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T2 GS — Pendlay Row Narrow / Incline DB Press / Face-Up Incline Knee Raise
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, t2.id, "d1_t2a", "Pendlay Row Narrow", lib, 1, "semi",
-            pattern="horizontal_pull", rep_low=8, rep_high=8,
+            pattern="horizontal_pull", rep_low=6, rep_high=8,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d1_t2b", "Incline DB Press", lib, 2, "free",
-            pattern="vertical_push", rep_low=10, rep_high=10,
+            pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d1_t2c", "Face-Up Incline Knee Raise", lib, 3, "free",
             pattern="core", rep_low=15, rep_high=15)
@@ -438,20 +438,20 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t3.id, "d1_t3a", "Pull-up (2-phase)", lib, 1, "free",
             pattern="vertical_pull", rep_low=8, rep_high=12, scheme="REP_RATIO")
     _add_te(db, t3.id, "d1_t3b", "Cross-Body Lateral Raise", lib, 2, "free",
-            pattern="lateral_raise", rep_low=12, rep_high=12,
+            pattern="lateral_raise", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d1_t3c", "Lat Prayer", lib, 3, "free",
-            pattern="lat", rep_low=12, rep_high=12, scheme="DOUBLE_PROGRESSION")
+            pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
 
     # T4 GS — Seated Cable Row / Ab Wheel Rollout / Cross-Body Rear Delt Fly
     t4 = _add_tier(db, pd.id, "T4 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, t4.id, "d1_t4a", "Seated Cable Row", lib, 1, "semi",
-            pattern="horizontal_pull", rep_low=12, rep_high=12,
+            pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t4.id, "d1_t4b", "Ab Wheel Rollout", lib, 2, "free",
             pattern="core", rep_low=8, rep_high=8)
     _add_te(db, t4.id, "d1_t4c", "Cross-Body Rear Delt Fly", lib, 3, "free",
-            pattern="rear_delt", rep_low=12, rep_high=12,
+            pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 
 
@@ -484,10 +484,10 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T3 — ATG Split Squat / Cable Tib Raise (knee pair)
     t3 = _add_tier(db, pd.id, "T3", 4, TierKind.PAIR, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d2_t3a", "ATG Split Squat", lib, 1, "free",
-            knee_modality=KneeModality.KOT, rep_low=8, rep_high=10,
+            knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d2_t3b", "Cable Tib Raise", lib, 2, "free",
-            knee_modality=KneeModality.TIB, rep_low=12, rep_high=15,
+            knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 
 
@@ -509,11 +509,11 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # rep-scheme lookups) and shouldn't be reassigned to a different movement.)
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     d4_t2a = _add_te(db, t2.id, "d4_t2a", "Meadows Row", lib, 1, "semi",
-                     pattern="horizontal_pull", rep_low=10, rep_high=10,
+                     pattern="horizontal_pull", rep_low=8, rep_high=12,
                      scheme="DOUBLE_PROGRESSION")
     _add_mr(db, d4_t2a, 2, "Pendlay Row", lib)
     _add_te(db, t2.id, "d4_t2b", "Single-Arm DB Row", lib, 3, "free",
-            pattern="horizontal_pull", rep_low=12, rep_high=12,
+            pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d4_t2c", "Face-Up Incline Knee Raise", lib, 2, "free",
             pattern="core", rep_low=12, rep_high=12)
@@ -521,10 +521,10 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T3 GS — DB Rear Delt Fly / Andreoni Cable Pullover / Dragon Flag
     t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d4_t3a", "DB Rear Delt Fly", lib, 1, "free",
-            pattern="rear_delt", rep_low=12, rep_high=12,
+            pattern="rear_delt", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d4_t3b", "Andreoni Cable Pullover", lib, 2, "free",
-            pattern="lat", rep_low=12, rep_high=12, scheme="DOUBLE_PROGRESSION")
+            pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d4_t3c", "Dragon Flag", lib, 3, "free",
             pattern="core", rep_low=3, rep_high=6)
 
@@ -552,9 +552,9 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T2 GS — Bulgarian Split Squat / Scout Reverse Hyper / Assisted Nordic
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, t2.id, "d5_t2a", "Bulgarian Split Squat", lib, 1, "free",
-            pattern="lunge", rep_low=8, rep_high=10, scheme="DOUBLE_PROGRESSION")
+            pattern="lunge", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
     d5_t2b = _add_te(db, t2.id, "d5_t2b", "Scout Reverse Hyper", lib, 2, "free",
-                     pattern="reverse_hyper", rep_low=15, rep_high=15,
+                     pattern="reverse_hyper", rep_low=15, rep_high=20,
                      scheme="DOUBLE_PROGRESSION")
     # d5_t2b meso-2: the single-leg Reverse Hyper is a DISTINCT library movement
     # (Reverse Hyper - Single Leg [REV_HYPER]) with a 12–15 rep override — a real
@@ -568,13 +568,13 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T3 GS — Poliquin / Reverse Nordic (assisted) / Cable Tib / Hyper Pro Calf
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Adipower II")
     _add_te(db, t3.id, "d5_t3a", "Poliquin Step-up", lib, 1, "free",
-            knee_modality=KneeModality.KOT, rep_low=8, rep_high=10,
+            knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d5_t3b", "Reverse Nordic (assisted)", lib, 2, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=10,
             scheme="ASSISTED")
     _add_te(db, t3.id, "d5_t3c", "Cable Tib Raise", lib, 3, "free",
-            knee_modality=KneeModality.TIB, rep_low=12, rep_high=15,
+            knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d5_t3d", "Hyper Pro Calf Raise", lib, 4, "free",
             pattern="calf", rep_low=10, rep_high=15, scheme="DOUBLE_PROGRESSION")
@@ -602,7 +602,7 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="reverse_hyper", rep_low=15, rep_high=20, scheme="FIXED",
             rpe_cap=6.0)
     _add_te(db, gs2.id, "d6_g2b", "DB Seal Row", lib, 2, "free",
-            pattern="horizontal_pull", rep_low=10, rep_high=12,
+            pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs2.id, "d6_g2c", "Lateral Raise", lib, 3, "free",
             pattern="lateral_raise", rep_low=10, rep_high=15,
@@ -611,10 +611,10 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # GS3 — Face Pull / Cable V-Bar Pushdown / T-Bar Row Wide
     gs3 = _add_tier(db, pd.id, "GS3", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, gs3.id, "d6_g3a", "Face Pull", lib, 1, "free",
-            pattern="rear_delt", rep_low=12, rep_high=15,
+            pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs3.id, "d6_g3b", "Cable V-Bar Pushdown", lib, 2, "semi",
             pattern="triceps", rep_low=8, rep_high=12, scheme="SINGLE_SESSION")
     _add_te(db, gs3.id, "d6_g3c", "T-Bar Row Wide", lib, 3, "semi",
-            pattern="horizontal_pull", rep_low=8, rep_high=10,
+            pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
