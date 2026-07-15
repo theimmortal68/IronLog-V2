@@ -461,20 +461,20 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 
 def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T1 — Belt Squat (anchor; meso-2 rotation → Back Squat)
-    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
+    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Adipower II")
     d2_t1 = _add_te(db, t1.id, "d2_t1", "Belt Squat", lib, 1, "anchor",
                     pattern="squat", rep_low=6, rep_high=8, rpe_cap=8.0,
                     scheme="STRAIGHT")
     _add_mr(db, d2_t1, 2, "Back Squat", lib)
 
     # T1b — Barbell Hip Thrust (anchor)
-    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=150, shoe="Metcon 9")
+    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=150, shoe="Adipower II")
     _add_te(db, t1b.id, "d2_t1b", "Barbell Hip Thrust (220 cap)", lib, 1, "anchor",
             pattern="hip_thrust", rep_low=8, rep_high=8, rpe_cap=8.0,
             scheme="COMPOSITE")
 
     # T2 GS — Assisted Nordic / Scout Reverse Hyper
-    t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t2.id, "d2_t2a", "Assisted Nordic", lib, 1, "free",
             knee_modality=KneeModality.NORDIC, rep_low=8, rep_high=8,
             scheme="ASSISTED")
@@ -482,7 +482,7 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="reverse_hyper", rep_low=15, rep_high=15, scheme="REP_AT_CAP")
 
     # T3 — ATG Split Squat / Cable Tib Raise (knee pair)
-    t3 = _add_tier(db, pd.id, "T3", 4, TierKind.PAIR, rounds=3, rest_seconds=75, shoe="Metcon 9")
+    t3 = _add_tier(db, pd.id, "T3", 4, TierKind.PAIR, rounds=3, rest_seconds=75, shoe="Adipower II")
     _add_te(db, t3.id, "d2_t3a", "ATG Split Squat", lib, 1, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
