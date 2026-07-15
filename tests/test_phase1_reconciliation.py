@@ -1,6 +1,6 @@
 """Tests for the Phase-1 seed reconciliation (Task 2 of the in-gym-logging chunk).
 
-Covers: literal rep targets on 13 TierExercises, Tier.rest_seconds across all
+Covers: literal rep targets on selected TierExercises, Tier.rest_seconds across all
 9 tier_label buckets, Movement.scheme flips (Belt Squat + RDL -> STRAIGHT;
 Bench Press -> STRAIGHT via the Task 2 review fix), the matching
 TierExercise.scheme sync for d1_t1/d2_t1/d5_t1, Movement.unilateral flags on
@@ -20,25 +20,37 @@ from ironlog.models.program import ProgramDay, Tier, TierExercise
 # slot_id -> (rep_low, rep_high) — post-YAML-reconciliation final values.
 CHANGED_REP_TARGETS = {
     "d1_t1": (6, 8),
-    "d1_t2a": (8, 8),
-    "d1_t2b": (10, 10),
+    "d1_t2a": (6, 8),
+    "d1_t2b": (8, 12),
     "d1_t2c": (15, 15),
     "d1_t3a": (8, 12),
-    "d1_t3b": (12, 12),
-    "d1_t3c": (12, 12),
-    "d1_t4a": (12, 12),
+    "d1_t3b": (10, 15),
+    "d1_t3c": (8, 12),
+    "d1_t4a": (8, 12),
     "d1_t4b": (8, 8),
-    "d1_t4c": (12, 12),
+    "d1_t4c": (10, 15),
+    "d2_t3a": (8, 12),
+    "d2_t3b": (10, 15),
     "d4_t1": (6, 8),
-    "d6_g1b": (8, 12),
+    "d4_t2a": (8, 12),
+    "d4_t2b": (8, 12),
+    "d4_t3a": (8, 12),
+    "d4_t3b": (8, 12),
+    "d5_t2a": (8, 12),
+    "d5_t2b": (15, 20),
+    "d5_t3a": (8, 12),
+    "d5_t3c": (10, 15),
     "d5_t3d": (10, 15),
+    "d6_g1b": (8, 12),
+    "d6_g2b": (8, 12),
+    "d6_g3a": (10, 15),
+    "d6_g3c": (8, 12),
 }
 
 # slot_id -> (rep_low, rep_high) — anchor slots reconciled to the YAML.
 UNCHANGED_REP_TARGETS = {
     "d2_t1": (6, 8),      # Belt Squat anchor
     "d5_t1": (6, 8),      # RDL anchor
-    "d4_t3a": (12, 12),   # DB Rear Delt Fly (D4 T3 slot-1, post-restructure)
 }
 
 # (day_role, tier_label) -> rest_seconds. Per-day because rests are non-uniform
