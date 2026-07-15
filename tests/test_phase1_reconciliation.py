@@ -63,7 +63,7 @@ TIER_REST_MAP = {
     ("D2 Lower A", "T1"): 120,
     ("D2 Lower A", "T1b"): 150,
     ("D2 Lower A", "T2 GS"): 90,
-    ("D2 Lower A", "T3"): 75,
+    ("D2 Lower A", "T3 GS"): 75,
     ("D4 Upper Pull", "T1"): 180,
     ("D4 Upper Pull", "T2 GS"): 90,
     ("D4 Upper Pull", "T3 GS"): 75,
