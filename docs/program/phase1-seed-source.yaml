@@ -50,17 +50,18 @@ days:
       {m: andreoni_bar_cable_pullover, reps: [8,12], rule: rpe_8_standard, load: 70},
       {m: dragon_flag, reps: [3,6], rule: body_position_progression, body_position: tuck, position_ladder: [tuck, single_leg_extended, straddle, full]}]}
 
-  d5:  # Lower B — shoe: Metcon 9, SWAP -> Adipower II at T3
+  d5:  # Lower B — shoe: Metcon 9 through T1b, SWAP -> Adipower II at T2 (moved from T3
+       # 2026-07-17: BSS needs the heel, so the swap must land before BSS, not after)
     T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
       {m: rdl_d5, reps: [6,8], rule: rpe_8_standard, load: 255, meso: {1: rdl_conventional, 2: rdl_staggered}}]}
     T1b: {group_key: "T1b", rest: 150, shoe: "Metcon 9", anchor: true, ex: [
       {m: hip_thrust_d5, reps: [8,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223(accepted, <225 clamp); INDEPENDENT track from d2
-    T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
+    T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [   # <-- SHOE SWAP
       {m: bulgarian_split_squat, reps: [8,12], rule: rpe_8_standard, load: 30, unilateral: true},
       {m: scout_reverse_hyper_bilateral_d5, reps: [15,20], rule: rep_ladder, load: 180, rep_target: 15, rep_ladder: [15,18,20,22,25], ceiling: true, meso: 1},
       {m: scout_reverse_hyper_single_leg_d5, reps: [12,15], rule: rpe_8_standard, load: 70, unilateral: true, meso: 2},  # SEPARATE movement id (meso rotation = two ids)
-      {m: assisted_nordic_curl_d5, reps: [8,10], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
-    T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Adipower II", ex: [   # <-- SHOE SWAP
+      {m: assisted_nordic_curl_d5, reps: [8,12], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
+    T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Adipower II", ex: [
       {m: poliquin_step_up, reps: [8,12], rule: rpe_8_standard, load: 20, unilateral: true},
       {m: reverse_nordic_assisted, reps: [8,10], rule: assistance_reduction, assist_level: 20, assist_ladder: [20,15,10,5,0]},
       {m: cable_tib_raise_d5, reps: [10,15], rule: rpe_8_standard, load: 30},  # INDEPENDENT from d2 (25); d5=30

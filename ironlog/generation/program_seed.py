@@ -550,7 +550,10 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             scheme="COMPOSITE")
 
     # T2 GS — Bulgarian Split Squat / Scout Reverse Hyper / Assisted Nordic
-    t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    # Shoe swap moved here (was T3): BSS needs the Adipower II heel, so the
+    # swap must land before BSS is performed, not after (athlete correction
+    # 2026-07-17 -- was previously Metcon 9 through T2, swapping only at T3).
+    t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t2.id, "d5_t2a", "Bulgarian Split Squat", lib, 1, "free",
             pattern="lunge", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
     d5_t2b = _add_te(db, t2.id, "d5_t2b", "Scout Reverse Hyper", lib, 2, "free",
@@ -562,7 +565,7 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_mr(db, d5_t2b, 2, "Scout Reverse Hyper - Single Leg", lib,
             rep_low=12, rep_high=15)
     _add_te(db, t2.id, "d5_t2c", "Assisted Nordic (eccentric)", lib, 3, "free",
-            knee_modality=KneeModality.NORDIC, rep_low=8, rep_high=10,
+            knee_modality=KneeModality.NORDIC, rep_low=8, rep_high=12,
             scheme="ASSISTED")
 
     # T3 GS — Poliquin / Reverse Nordic (assisted) / Cable Tib / Hyper Pro Calf

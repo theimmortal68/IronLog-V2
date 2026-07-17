@@ -7,7 +7,9 @@ engine/current_load involvement (assembler tests already gate that
 separately in test_generation_assembler.py / test_assembler_fidelity.py).
 
 Anchors on the seeded D5 Lower B program day, which is the one day with a
-mid-session swap: T1/T1b/T2 GS carry "Metcon 9"; T3 GS carries "Adipower II".
+mid-session swap: T1/T1b carry "Metcon 9"; T2 GS/T3 GS carry "Adipower II"
+(swap moved from before-T3 to before-T2 on 2026-07-17 so it lands before
+Bulgarian Split Squat, which needs the Adipower II heel).
 
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
@@ -40,12 +42,12 @@ def _shoes_by_label(gen_db, day_role):
 
 
 def test_d5_shoe_swap_metcon_to_adipower(gen_db):
-    """D5 Lower B: T1 / T1b / T2 GS carry 'Metcon 9'; T3 GS (the mid-session
-    swap target between T2 and T3) carries 'Adipower II'."""
+    """D5 Lower B: T1 / T1b carry 'Metcon 9'; T2 GS (the mid-session swap
+    target, moved before Bulgarian Split Squat) / T3 GS carry 'Adipower II'."""
     by_label = _shoes_by_label(gen_db, "D5 Lower B")
     assert by_label["T1"] == {"Metcon 9"}
     assert by_label["T1b"] == {"Metcon 9"}
-    assert by_label["T2 GS"] == {"Metcon 9"}
+    assert by_label["T2 GS"] == {"Adipower II"}
     assert by_label["T3 GS"] == {"Adipower II"}
 
 
