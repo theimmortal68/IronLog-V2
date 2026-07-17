@@ -16,7 +16,7 @@ days:
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: pendlay_row_narrow, reps: [6,8], rule: rpe_8_standard, load: 170},
       {m: incline_db_press, reps: [8,12], rule: rpe_8_standard, load: 55},
-      {m: face_up_incline_knee_raise_d1, reps: [15,15], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
+      {m: face_up_incline_knee_raise_d1, reps: [10,15], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
       {m: pull_up_d1, reps: [8,12], rule: pull_up_rolling_max},
       {m: cross_body_lateral_raise, reps: [10,15], rule: rpe_8_standard, load: 12.5, unilateral: true},
@@ -43,7 +43,7 @@ days:
       {m: pull_up_d4, reps: [6,8], rule: pull_up_rolling_max}]}  # 2-phase; milestone (6->all-unassisted Wk2) MANUAL
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: meadows_row_bruno_bar, reps: [8,12], rule: rpe_8_standard, load: 35, unilateral: true, meso: {2: pendlay_row}},
-      {m: face_up_incline_knee_raise_d4, reps: [12,12], rule: incline_reduction, assist_level: 10, assist_ladder: [10,5,0]},
+      {m: face_up_incline_knee_raise_d4, reps: [10,15], rule: incline_reduction, assist_level: 10, assist_ladder: [10,5,0]},
       {m: single_arm_db_row, reps: [8,12], rule: rpe_8_standard, load: 40, unilateral: true}]}  # MOVED after Face-Up Knee (athlete request 2026-07-09)
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
       {m: db_rear_delt_fly, reps: [8,12], rule: rpe_8_standard, load: 10},

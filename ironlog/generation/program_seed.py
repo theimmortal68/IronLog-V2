@@ -431,7 +431,7 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d1_t2c", "Face-Up Incline Knee Raise", lib, 3, "free",
-            pattern="core", rep_low=15, rep_high=15)
+            pattern="core", rep_low=10, rep_high=15)
 
     # T3 GS — Pull-up / Cross-Body Lateral Raise / Lat Prayer
     t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
@@ -516,7 +516,7 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d4_t2c", "Face-Up Incline Knee Raise", lib, 2, "free",
-            pattern="core", rep_low=12, rep_high=12)
+            pattern="core", rep_low=10, rep_high=15)
 
     # T3 GS — DB Rear Delt Fly / Andreoni Cable Pullover / Dragon Flag
     t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
