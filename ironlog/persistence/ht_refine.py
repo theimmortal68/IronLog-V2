@@ -122,7 +122,7 @@ def refine_from_logged_ht(session_id: int, db: DBSession) -> None:
 
     planned_sets = _load_planned_sets(db, ht_logs)
 
-    touched_band_ids: set = set()
+    observed_by_band_id: dict = {}
     for sl in ht_logs:
         ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
         config = _resolved_band_config(sl, ps)
@@ -130,18 +130,22 @@ def refine_from_logged_ht(session_id: int, db: DBSession) -> None:
             continue  # multi-band (or unresolvable): can't isolate, skip
 
         band_id = config[0]
-        band = db.get(BandPair, band_id)
-        if band is None:
-            continue
-
         actual_plates = sl.actual_plates
         if actual_plates is None and ps is not None:
             actual_plates = ps.target_plates
         if actual_plates is None:
             continue  # no plates reference at all: can't compute observed peak
 
-        observed = sl.felt_peak - actual_plates
-        band.peak_lb = round(0.7 * band.peak_lb + 0.3 * observed, 1)
+        observed_by_band_id.setdefault(band_id, []).append(sl.felt_peak - actual_plates)
+
+    touched_band_ids: set = set()
+    for band_id, observations in observed_by_band_id.items():
+        band = db.get(BandPair, band_id)
+        if band is None:
+            continue
+
+        mean_observed = sum(observations) / len(observations)
+        band.peak_lb = round(0.7 * band.peak_lb + 0.3 * mean_observed, 1)
         db.add(band)
         touched_band_ids.add(band_id)
 
