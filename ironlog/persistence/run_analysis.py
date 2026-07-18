@@ -331,10 +331,10 @@ def run_analysis(
     sleep_ok = compute_sleep_ok(readiness_inputs, as_of=today)
     subjective_ok = compute_subjective_ok(readiness_inputs, as_of=today)
     
-    # 60-90 day trailing window for RHR baseline (exclude last 7 days)
+    # 60-90 day trailing window for RHR baseline (excludes the last 7-day trend window)
     rhr_baseline_rows = [
-        r.resting_hr for r in readiness_inputs 
-        if today - timedelta(days=90) <= r.date <= today - timedelta(days=7) and r.resting_hr is not None
+        r.resting_hr for r in readiness_inputs
+        if today - timedelta(days=90) <= r.date <= today - timedelta(days=60) and r.resting_hr is not None
     ]
     baseline_rhr = sum(rhr_baseline_rows) / len(rhr_baseline_rows) if rhr_baseline_rows else None
     rhr_down = compute_rhr_down(readiness_inputs, as_of=today, baseline=baseline_rhr)
