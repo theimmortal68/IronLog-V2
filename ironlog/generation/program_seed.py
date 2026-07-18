@@ -56,7 +56,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "RDL":                                          "RDL [PB]",
     "Barbell Hip Thrust (220 cap, independent track)": "Hip Thrust [HIP_THRUST]",
     "Bulgarian Split Squat":                        "Bulgarian Split Squat [DB]",
-    "Scout Reverse Hyper":                          "Reverse Hyper [REV_HYPER]",
+    "Scout Reverse Hyper (90 cap)":                 "Light Reverse Hyper [REV_HYPER]",
     "Scout Reverse Hyper - Single Leg":             "Reverse Hyper - Single Leg [REV_HYPER]",
     "Assisted Nordic (eccentric)":                  "Nordic Curl [GHR]",
     "Reverse Nordic (assisted)":                    "Reverse Nordic Curl [GHR]",
@@ -69,7 +69,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "DB Seal Row":                                  "DB Seal Row [DB + UTIL_SEAT]",
     "Lateral Raise":                                "Lateral Raise [FT]",
     "Cable V-Bar Pushdown":                         "Cable V-Bar Pushdown [FT]",
-    "Reverse Hyper Recovery":                       "Light Reverse Hyper [REV_HYPER]",
+    "Reverse Hyper Recovery":                       "Reverse Hyper Recovery [REV_HYPER]",
     "Face Pull":                                    "Face Pull [FT]",
     # ── Meso-2 rotation variants ─────────────────────────────────────────────
     "Back Squat":                                   "Back Squat [PB]",
@@ -556,7 +556,15 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t2.id, "d5_t2a", "Bulgarian Split Squat", lib, 1, "free",
             pattern="lunge", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
-    d5_t2b = _add_te(db, t2.id, "d5_t2b", "Scout Reverse Hyper", lib, 2, "free",
+    # Remapped to the cap=90 "Light Reverse Hyper" movement (athlete correction
+    # 2026-07-17: D5 runs a 90lb cap, not D2's 180lb -- previously both days
+    # pointed at the same cap=180 movement, so D5 was training the heavier
+    # variant by mistake). D6's recovery slot, which used to share this same
+    # cap=90 movement with a conflicting FIXED_LOAD rule, got its own new
+    # "Reverse Hyper Recovery [REV_HYPER]" movement instead (see seed.py) so
+    # each movement now carries exactly one progression rule. Rep range
+    # (15-20) was already correct, unchanged.
+    d5_t2b = _add_te(db, t2.id, "d5_t2b", "Scout Reverse Hyper (90 cap)", lib, 2, "free",
                      pattern="reverse_hyper", rep_low=15, rep_high=20,
                      scheme="DOUBLE_PROGRESSION")
     # d5_t2b meso-2: the single-leg Reverse Hyper is a DISTINCT library movement

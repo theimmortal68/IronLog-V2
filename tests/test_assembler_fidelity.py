@@ -78,7 +78,7 @@ def test_rpe_from_reverse_hyper_recovery_cap(gen_db):
     assert out.exhausted is False
     sess = out.assembled.session
 
-    rhr_id = _movement_id(gen_db, "Light Reverse Hyper [REV_HYPER]")
+    rhr_id = _movement_id(gen_db, "Reverse Hyper Recovery [REV_HYPER]")
     ex, group = _exercise_and_group(sess, rhr_id)
 
     assert ex.planned_sets, "Reverse Hyper Recovery must assemble sets"

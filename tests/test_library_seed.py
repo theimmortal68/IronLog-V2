@@ -42,7 +42,11 @@ def _all(s):
 def test_total_count_103(seeded):
     # go-live Task 1 added 2 movements (Face Pull [FT], Reverse Hyper -
     # Single Leg [REV_HYPER]): 108 -> 110.
-    assert len(_all(seeded)) == 110
+    # 2026-07-17: +1 for "Reverse Hyper Recovery [REV_HYPER]" (D6's recovery
+    # slot got its own movement, no longer sharing "Light Reverse Hyper" with
+    # D5's real training day, which has a conflicting progression rule):
+    # 110 -> 111.
+    assert len(_all(seeded)) == 111
 
 
 def test_status_counts(seeded):
@@ -50,7 +54,8 @@ def test_status_counts(seeded):
     c = Counter(m.status for m in _all(seeded))
     # go-live Task 1: +2 new ACTIVE movements, +2 ACTIVE-flips (Lat Prayer,
     # Dips) pulled out of INACTIVE: 99 -> 103, 8 -> 6.
-    assert c[Status.ACTIVE] == 103
+    # 2026-07-17: +1 ACTIVE for "Reverse Hyper Recovery [REV_HYPER]": 103 -> 104.
+    assert c[Status.ACTIVE] == 104
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

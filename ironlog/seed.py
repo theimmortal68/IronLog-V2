@@ -218,6 +218,16 @@ MOVEMENTS = [
          load_code="REV_HYPER", tags=["REV_HYPER"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.STRAIGHT,
          load_floor=0, cap=90, family="reverse_hyper", primary_muscle="GLUTES", secondary_muscles=["HAMSTRINGS", "SPINAL_ERECTORS"]),
+    # D6's recovery-day slot gets its OWN movement (2026-07-17): it previously
+    # shared "Light Reverse Hyper [REV_HYPER]" with D5, but D6 runs FIXED_LOAD
+    # (maintenance, no progression) while D5 needs real DOUBLE_PROGRESSION at
+    # this same 90lb cap -- wire_progression_rules' HALT-AND-FLAG safety check
+    # correctly refused letting one movement carry two conflicting rules.
+    dict(name="Reverse Hyper Recovery [REV_HYPER]", base_name="Reverse Hyper Recovery",
+         region=Region.LOWER, lift_category=LiftCategory.REV_HYPER, status=Status.ACTIVE,
+         load_code="REV_HYPER", tags=["REV_HYPER"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.STRAIGHT,
+         load_floor=0, cap=90, family="reverse_hyper", primary_muscle="GLUTES", secondary_muscles=["HAMSTRINGS", "SPINAL_ERECTORS"]),
     dict(name="Reverse Hyper - Single Leg [REV_HYPER]", base_name="Reverse Hyper - Single Leg",
          region=Region.LOWER, lift_category=LiftCategory.REV_HYPER, status=Status.ACTIVE,
          load_code="REV_HYPER", tags=["REV_HYPER"], unilateral=True,

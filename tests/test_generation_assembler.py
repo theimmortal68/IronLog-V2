@@ -128,7 +128,7 @@ def test_d5_knee_modality_giant_tiers_stay_grouped(gen_db_calibrated):
     t2 = _giant_group_by_label(res.session, "T2 GS")
     assert _names_for_group(t2, gen_db) == [
         "Bulgarian Split Squat [DB]",
-        "Reverse Hyper [REV_HYPER]",
+        "Light Reverse Hyper [REV_HYPER]",
         "Nordic Curl [GHR]",
     ]
 
