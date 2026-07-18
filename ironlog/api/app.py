@@ -40,6 +40,8 @@ from .schemas_wizard import (
     StartProgramResponse, WizardMovement, WizardResolveRequest,
     WizardResolveResponse, WizardStateResponse,
 )
+from .schemas_readiness import DailyReadinessIn, DailyReadinessOut, ConfirmPhaseRequest
+from ..models.library import EngineState, DailyReadiness
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.assembler import build_finisher_payload, build_warmup_payload
@@ -322,20 +324,26 @@ def submit_session(session_id: int, req: SubmitRequest, background_tasks: Backgr
     # rows; independent of run_analysis (BandPair.peak_lb is inventory
     # calibration, not current_load/ht_plates/ht_band_config).
     refine_from_logged_ht(session_id, db)
-
-    # Fire the analyze-at-log seam (v0.6 two-writer boundary: run_analysis owns
-    # current_load; this handler never writes it).  The SetLog write committed
-    # above — a run_analysis failure does NOT lose the logged workout (the write
-    # is already durable; /log can re-run analysis idempotently via analyzed_at).
-    # In production EngineState + MovementState always exist; if run_analysis
-    # genuinely fails here that should surface as a real error, not a silent 200.
-    run_analysis(session_id, db, _week_keyer)
+    result = run_analysis(session_id, db, _week_keyer)
+    
+    available_phase = result.phase_transition_available.value if result.phase_transition_available else None
+    
+    # Store it in EngineState so the confirm-phase endpoint can validate against it
+    engine_state = db.exec(select(EngineState)).one()
+    engine_state.pending_phase_transition = available_phase
+    db.add(engine_state)
+    db.commit()
 
     background_tasks.add_task(classify_session_notes, session_id)
 
     written = len(db.exec(select(SetLog).where(SetLog.session_id == session_id)).all())
-    return SubmitResponse(session_id=session_id, status=SessionStatus.COMPLETED.value,
-                          set_logs_written=written, already_completed=False)
+    return SubmitResponse(
+        session_id=session_id, 
+        status=SessionStatus.COMPLETED.value,
+        set_logs_written=written, 
+        already_completed=False,
+        phase_transition_available=available_phase,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -970,3 +978,48 @@ def start_program(program_id: int, db: Session = Depends(get_session)):
     db.commit()
 
     return StartProgramResponse(program_id=program_id, started=True, active=True)
+
+# ---------------------------------------------------------------------------
+# Readiness endpoints (Task 23)
+# ---------------------------------------------------------------------------
+
+@app.get("/readiness/today", response_model=Optional[DailyReadinessOut])
+def get_readiness_today(db: Session = Depends(get_session)):
+    today = datetime.now().date()
+    return db.exec(select(DailyReadiness).where(DailyReadiness.date == today)).first()
+
+@app.post("/readiness", response_model=DailyReadinessOut)
+def post_readiness(req: DailyReadinessIn, db: Session = Depends(get_session)):
+    today = datetime.now().date()
+    row = db.exec(select(DailyReadiness).where(DailyReadiness.date == today)).first()
+    
+    # exclude_unset ensures only explicitly provided fields overwrite existing data
+    update_data = req.dict(exclude_unset=True)
+    if row is None:
+        row = DailyReadiness(date=today, **update_data)
+        db.add(row)
+    else:
+        for key, value in update_data.items():
+            setattr(row, key, value)
+        db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+@app.post("/engine-state/confirm-phase")
+def confirm_phase(req: ConfirmPhaseRequest, db: Session = Depends(get_session)):
+    engine_state = db.exec(select(EngineState)).one()
+    if not engine_state.pending_phase_transition:
+        raise HTTPException(400, "No pending phase transition available")
+    
+    if req.to_phase != engine_state.pending_phase_transition:
+        raise HTTPException(
+            400,
+            f"Requested phase {req.to_phase} does not match pending transition {engine_state.pending_phase_transition}"
+        )
+    
+    engine_state.current_phase = Phase(req.to_phase)
+    engine_state.pending_phase_transition = None
+    db.add(engine_state)
+    db.commit()
+    return {"status": "confirmed", "current_phase": engine_state.current_phase.value}
