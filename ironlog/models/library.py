@@ -14,6 +14,12 @@ descriptive JSON.
 """
 
 from datetime import date, datetime
+from datetime import date as _Date  # pydantic rejects a field literally named `date`
+                                     # typed `date` with an assigned Field(...) --
+                                     # "field name clashing with a type annotation" --
+                                     # so DailyReadiness.date uses this local alias
+                                     # instead. Every other field here keeps the
+                                     # plain `date` import untouched.
 from typing import List, Optional
 
 from sqlalchemy import Column, JSON, UniqueConstraint, text
@@ -134,6 +140,20 @@ class EngineState(SQLModel, table=True):
     strength_bounce: bool = False
     subjective_ok: bool = False
     active_program_id: Optional[int] = Field(default=None, foreign_key="program.id")  # single-active pointer (Fork 3)
+
+
+class DailyReadiness(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date: _Date = Field(index=True, unique=True)
+    bodyweight: Optional[float] = None
+    bodyweight_source: str = "manual"
+    resting_hr: Optional[float] = None
+    resting_hr_source: str = "manual"
+    sleep_ok: Optional[bool] = None
+    subjective_ok: Optional[bool] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class MovementState(SQLModel, table=True):
     """Per-movement dynamic state."""
     __table_args__ = (UniqueConstraint("movement_id", "day_id", name="uq_movementstate_movement_day"),)
