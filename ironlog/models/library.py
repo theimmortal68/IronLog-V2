@@ -155,6 +155,19 @@ class DailyReadiness(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class WithingsCredentials(SQLModel, table=True):
+    """Singleton (id==1) holding the Withings OAuth2 token pair. access_token
+    and refresh_token both rotate automatically as the server calls the
+    Withings API, which is why this lives in the DB rather than .env (a
+    file would need scripted rewrites on every rotation)."""
+    id: Optional[int] = Field(default=1, primary_key=True)
+    access_token: str
+    refresh_token: str
+    token_expires_at: datetime
+    last_synced_at: Optional[datetime] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class MovementState(SQLModel, table=True):
     """Per-movement dynamic state."""
     __table_args__ = (UniqueConstraint("movement_id", "day_id", name="uq_movementstate_movement_day"),)
