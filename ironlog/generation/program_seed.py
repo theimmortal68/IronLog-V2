@@ -479,7 +479,7 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             knee_modality=KneeModality.NORDIC, rep_low=8, rep_high=8,
             scheme="ASSISTED")
     _add_te(db, t2.id, "d2_t2b", "Scout Reverse Hyper (180 cap)", lib, 2, "free",
-            pattern="reverse_hyper", rep_low=15, rep_high=15, scheme="REP_AT_CAP")
+            pattern="reverse_hyper", rep_low=8, rep_high=12, scheme="REP_AT_CAP")
 
     # T3 GS — ATG Split Squat / Cable Tib Raise (giant set; corrected 2026-07-14, was mistakenly PAIR)
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Adipower II")
