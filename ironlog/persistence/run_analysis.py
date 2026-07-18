@@ -35,10 +35,20 @@ from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal
 from ..generation.load_trust import load_field_for_mode
 from ..models.enums import CalibrationStatus, LiftCategory, Objective
-from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
+from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, DailyReadiness
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
 )
+from ..engine.readiness import (
+    DailyReadinessInput,
+    compute_bw_stable_2wk,
+    compute_rhr_down,
+    compute_sleep_ok,
+    compute_subjective_ok,
+    compute_no_rpe_creep,
+    compute_strength_bounce,
+)
+from datetime import timedelta
 from .apply import apply_analysis
 
 logger = logging.getLogger(__name__)
@@ -305,9 +315,68 @@ def run_analysis(
             logged_sets=logged,
         ))
 
+    today = date.today()
+    readiness_rows = db.exec(
+        select(DailyReadiness).where(DailyReadiness.date >= today - timedelta(days=90))
+    ).all()
+    
+    readiness_inputs = [
+        DailyReadinessInput(
+            date=r.date, bodyweight=r.bodyweight, resting_hr=r.resting_hr,
+            sleep_ok=r.sleep_ok, subjective_ok=r.subjective_ok
+        ) for r in readiness_rows
+    ]
+    
+    bw_stable_2wk = compute_bw_stable_2wk(readiness_inputs, as_of=today)
+    sleep_ok = compute_sleep_ok(readiness_inputs, as_of=today)
+    subjective_ok = compute_subjective_ok(readiness_inputs, as_of=today)
+    
+    # 60-90 day trailing window for RHR baseline (exclude last 7 days)
+    rhr_baseline_rows = [
+        r.resting_hr for r in readiness_inputs 
+        if today - timedelta(days=90) <= r.date <= today - timedelta(days=7) and r.resting_hr is not None
+    ]
+    baseline_rhr = sum(rhr_baseline_rows) / len(rhr_baseline_rows) if rhr_baseline_rows else None
+    rhr_down = compute_rhr_down(readiness_inputs, as_of=today, baseline=baseline_rhr)
+    
+    recent_bw = None
+    bw_rows = sorted([r for r in readiness_inputs if r.bodyweight is not None], key=lambda x: x.date)
+    if bw_rows:
+        recent_bw = bw_rows[-1].bodyweight
+
+    any_strength_bounce = False
+    valid_no_rpe_creeps = []
+    
+    for mid in movement_ids:
+        prior_rows = db.exec(
+            select(E1rmHistory).where(E1rmHistory.movement_id == mid)
+        ).all()
+        
+        progress_rows = sorted([r for r in prior_rows if r.objective == Objective.PROGRESS], key=lambda x: x.computed_at)
+        recent_progress = progress_rows[-STALL_WINDOW:]
+        recent_rpes = [r.anchor_rpe for r in recent_progress]
+        if len(recent_rpes) >= 3:
+            valid_no_rpe_creeps.append(compute_no_rpe_creep(recent_rpes))
+            
+        e1rm_history = [(r.computed_at.date(), r.e1rm) for r in prior_rows]
+        if compute_strength_bounce(e1rm_history, as_of=today):
+            any_strength_bounce = True
+
+    no_rpe_creep = all(valid_no_rpe_creeps) if valid_no_rpe_creeps else False
+    strength_bounce = any_strength_bounce
+
     ctx = AnalysisContext(
         movements=movements_inputs,
-        engine_state=EngineStateInput(current_phase=phase),
+        engine_state=EngineStateInput(
+            current_phase=phase,
+            bodyweight=recent_bw,
+            rhr_down=rhr_down,
+            sleep_ok=sleep_ok,
+            no_rpe_creep=no_rpe_creep,
+            bw_stable_2wk=bw_stable_2wk,
+            strength_bounce=strength_bounce,
+            subjective_ok=subjective_ok,
+        ),
     )
     result = analyze_session(ctx)
 

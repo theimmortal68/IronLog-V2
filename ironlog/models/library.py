@@ -140,6 +140,7 @@ class EngineState(SQLModel, table=True):
     strength_bounce: bool = False
     subjective_ok: bool = False
     active_program_id: Optional[int] = Field(default=None, foreign_key="program.id")  # single-active pointer (Fork 3)
+    pending_phase_transition: Optional[str] = None
 
 
 class DailyReadiness(SQLModel, table=True):

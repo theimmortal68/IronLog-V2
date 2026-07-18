@@ -48,6 +48,7 @@ class SubmitResponse(BaseModel):
     status: str
     set_logs_written: int
     already_completed: bool
+    phase_transition_available: Optional[str] = None
 
 
 class PlannedSetOut(BaseModel):
