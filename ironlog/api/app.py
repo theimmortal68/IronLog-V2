@@ -45,7 +45,8 @@ from .schemas_wizard import (
     WizardResolveResponse, WizardStateResponse,
 )
 from .schemas_readiness import DailyReadinessIn, DailyReadinessOut, ConfirmPhaseRequest
-from ..models.library import EngineState, DailyReadiness, WithingsCredentials
+from .schemas_goals import GoalSettingsIn, GoalSettingsOut
+from ..models.library import EngineState, DailyReadiness, GoalSettings, WithingsCredentials
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.assembler import build_finisher_payload, build_warmup_payload
@@ -1103,6 +1104,38 @@ def post_readiness(req: DailyReadinessIn, db: Session = Depends(get_session)):
     else:
         for key, value in update_data.items():
             setattr(row, key, value)
+        db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+@app.get("/goals", response_model=Optional[GoalSettingsOut])
+def get_goals(db: Session = Depends(get_session)):
+    """Return the current GoalSettings row, or None if never configured."""
+    return db.exec(select(GoalSettings)).first()
+
+@app.post("/goals", response_model=GoalSettingsOut)
+def post_goals(req: GoalSettingsIn, db: Session = Depends(get_session)):
+    row = db.exec(select(GoalSettings)).first()
+
+    # exclude_unset ensures only explicitly provided fields overwrite existing data
+    update_data = req.dict(exclude_unset=True)
+    if row is None:
+        missing = [
+            field for field in ("target_bodyweight", "target_bodyweight_tolerance")
+            if field not in update_data or update_data[field] is None
+        ]
+        if missing:
+            raise HTTPException(
+                400,
+                f"Missing required goal setting(s): {', '.join(missing)}",
+            )
+        row = GoalSettings(**update_data)
+        db.add(row)
+    else:
+        for key, value in update_data.items():
+            setattr(row, key, value)
+        row.updated_at = datetime.utcnow()
         db.add(row)
     db.commit()
     db.refresh(row)
