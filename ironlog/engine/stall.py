@@ -13,6 +13,7 @@ but NOT dip-and-recover (e.g. 100->95->102), which an endpoint comparison would
 false-flag.
 """
 
+import statistics
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -23,6 +24,8 @@ STALL_MIN_SESSIONS = 3
 STALL_EPSILON_PCT = 0.01
 STALL_FAILED_THRESHOLD = 2
 STALL_FAILED_HIGH_MULT = 2
+LAG_THRESHOLD_PCT = 0.05
+LAG_MIN_COMPARISON_MOVEMENTS = 3
 
 
 @dataclass
@@ -53,6 +56,43 @@ def detect_stall(
 
     failed_stalled = consecutive_failed >= STALL_FAILED_THRESHOLD
     return StallSignal(trend_stalled, failed_stalled, trend_stalled or failed_stalled)
+
+
+def compute_growth_rate(progress_anchor_e1rms: List[float]) -> Optional[float]:
+    """(latest - oldest) / oldest over the given e1RM window.
+
+    The caller selects the PROGRESS-anchor window. Returns None when fewer than
+    2 points are present or when the oldest value is <= 0.
+    """
+    if len(progress_anchor_e1rms) < 2:
+        return None
+
+    oldest = progress_anchor_e1rms[0]
+    if oldest <= 0:
+        return None
+
+    latest = progress_anchor_e1rms[-1]
+    return (latest - oldest) / oldest
+
+
+def compute_lagging(
+    this_movement_rate: Optional[float],
+    other_movement_rates: List[Optional[float]],
+) -> bool:
+    """True when this movement trails the comparison median by the lag threshold.
+
+    None comparison rates are ignored before checking the minimum comparison
+    count and before computing the median. Insufficient data returns False.
+    """
+    if this_movement_rate is None:
+        return False
+
+    comparison_rates = [rate for rate in other_movement_rates if rate is not None]
+    if len(comparison_rates) < LAG_MIN_COMPARISON_MOVEMENTS:
+        return False
+
+    comparison_median = statistics.median(comparison_rates)
+    return comparison_median - this_movement_rate >= LAG_THRESHOLD_PCT
 
 
 def _window_trend_pct(progress_e1rms: List[float]) -> float:
