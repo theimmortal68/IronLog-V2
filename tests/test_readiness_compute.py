@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from ironlog.engine.readiness import (
     DailyReadinessInput,
     compute_bw_stable_2wk,
+    compute_goal_stable,
     compute_no_rpe_creep,
     compute_rhr_down,
     compute_sleep_ok,
@@ -18,6 +19,7 @@ def readiness_row(
     days_ago: int,
     *,
     bodyweight=None,
+    body_fat_pct=None,
     resting_hr=None,
     sleep_ok=None,
     subjective_ok=None,
@@ -25,6 +27,7 @@ def readiness_row(
     return DailyReadinessInput(
         date=TODAY - timedelta(days=days_ago),
         bodyweight=bodyweight,
+        body_fat_pct=body_fat_pct,
         resting_hr=resting_hr,
         sleep_ok=sleep_ok,
         subjective_ok=subjective_ok,
@@ -38,6 +41,10 @@ def e1rm_history(values):
 
 def test_empty_inputs_return_false_for_every_readiness_signal():
     assert compute_bw_stable_2wk([], TODAY) is False
+    assert (
+        compute_goal_stable([], TODAY, "bodyweight", target=200.0, tolerance=2.0)
+        is False
+    )
     assert compute_rhr_down([], TODAY, baseline=60.0) is False
     assert (
         compute_rhr_down([readiness_row(0, resting_hr=55.0)], TODAY, baseline=None)
@@ -61,6 +68,10 @@ def test_single_day_input_is_insufficient_for_trend_signals():
     ]
 
     assert compute_bw_stable_2wk(rows, TODAY) is False
+    assert (
+        compute_goal_stable(rows, TODAY, "bodyweight", target=200.0, tolerance=2.0)
+        is False
+    )
     assert compute_rhr_down(rows, TODAY, baseline=60.0) is False
     assert compute_sleep_ok(rows, TODAY) is False
     assert compute_subjective_ok(rows, TODAY) is False
@@ -87,6 +98,66 @@ def test_bw_stable_2wk_false_with_fewer_than_ten_recent_readings():
     rows = [readiness_row(days_ago, bodyweight=200.0) for days_ago in range(9)]
 
     assert compute_bw_stable_2wk(rows, TODAY) is False
+
+
+def test_compute_goal_stable_sufficient_stable_week_returns_true():
+    rows = [
+        readiness_row(days_ago, bodyweight=value)
+        for days_ago, value in enumerate(
+            [199.5, 200.0, 201.0, 201.5, 198.0, 202.0, 199.0]
+        )
+    ]
+    rows.append(readiness_row(7, bodyweight=250.0))
+
+    assert (
+        compute_goal_stable(rows, TODAY, "bodyweight", target=200.0, tolerance=2.0)
+        is True
+    )
+
+
+def test_compute_goal_stable_rebound_day_fails_the_check():
+    rows = [readiness_row(days_ago, bodyweight=198.0) for days_ago in range(1, 7)]
+    rows.append(readiness_row(0, bodyweight=203.0))
+
+    assert (
+        compute_goal_stable(rows, TODAY, "bodyweight", target=200.0, tolerance=0.0)
+        is False
+    )
+
+
+def test_compute_goal_stable_false_with_insufficient_data():
+    rows = [
+        readiness_row(0, bodyweight=198.0),
+        readiness_row(1, bodyweight=None),
+        readiness_row(2, bodyweight=199.0),
+        readiness_row(3, bodyweight=200.0),
+    ]
+
+    assert (
+        compute_goal_stable(rows, TODAY, "bodyweight", target=200.0, tolerance=2.0)
+        is False
+    )
+
+
+def test_compute_goal_stable_true_at_target_plus_tolerance_boundary():
+    rows = [readiness_row(days_ago, bodyweight=202.0) for days_ago in range(4)]
+
+    assert (
+        compute_goal_stable(rows, TODAY, "bodyweight", target=200.0, tolerance=2.0)
+        is True
+    )
+
+
+def test_compute_goal_stable_body_fat_pct_uses_selected_field():
+    rows = [
+        readiness_row(days_ago, bodyweight=250.0, body_fat_pct=value)
+        for days_ago, value in enumerate([18.0, 18.3, 18.5, 18.4])
+    ]
+
+    assert (
+        compute_goal_stable(rows, TODAY, "body_fat_pct", target=18.0, tolerance=0.5)
+        is True
+    )
 
 
 def test_stale_daily_rows_are_insufficient_for_current_readiness():

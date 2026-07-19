@@ -33,6 +33,7 @@ class DailyReadinessInput:
     so this module stays testable without a database."""
     date: date
     bodyweight: Optional[float] = None
+    body_fat_pct: Optional[float] = None
     resting_hr: Optional[float] = None
     sleep_ok: Optional[bool] = None
     subjective_ok: Optional[bool] = None
@@ -76,6 +77,30 @@ def compute_bw_stable_2wk(
     if len(values) < BW_MIN_READINGS:
         return False
     return max(values) - min(values) <= tolerance
+
+
+def compute_goal_stable(
+    rows: List[DailyReadinessInput],
+    as_of: date,
+    field: str,
+    target: float,
+    tolerance: float,
+    window_days: int = 7,
+    min_readings: int = 4,
+) -> bool:
+    """True when enough recent readings for field are all at or below target + tolerance.
+
+    This is a sustained-state check: one reading above target + tolerance in
+    the as_of-anchored trailing window fails the goal gate, even if every other
+    reading is at or below target.
+    """
+    values = [
+        getattr(row, field) for row in _trailing_rows(rows, window_days, as_of)
+        if getattr(row, field) is not None
+    ]
+    if len(values) < min_readings:
+        return False
+    return all(value <= target + tolerance for value in values)
 
 
 def compute_rhr_down(
