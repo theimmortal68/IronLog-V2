@@ -1,0 +1,18 @@
+[Unit]
+Description=Withings body-scan reconciliation sync
+After=ironlogv2.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jstout
+Group=jstout
+WorkingDirectory=/home/jstout/projects/IronLog-V2
+EnvironmentFile=-/home/jstout/projects/IronLog-V2/.env
+ExecStart=/home/jstout/projects/IronLog-V2/.venv/bin/python scripts/sync_withings.py
+TimeoutStartSec=300
+Nice=10
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/jstout/projects/IronLog-V2
