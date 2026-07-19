@@ -169,6 +169,23 @@ class WithingsCredentials(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class GoalSettings(SQLModel, table=True):
+    """Singleton (id==1) holding athlete-settable phase-gate goals. No
+    row is seeded by migration -- this codebase's migrations never
+    seed data (no existing migration file contains an INSERT); the
+    historical cut_to_stab_target=213.0/tolerance=2.0 defaults are
+    preserved via a code-level fallback in the phase-gate wiring code
+    (a separate later spec), not a migration-time row insert. This
+    table starts empty until either that fallback path or an explicit
+    POST /goals call creates the row."""
+    id: Optional[int] = Field(default=1, primary_key=True)
+    target_bodyweight: float
+    target_bodyweight_tolerance: float
+    target_body_fat_pct: Optional[float] = None
+    target_body_fat_pct_tolerance: Optional[float] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class MovementState(SQLModel, table=True):
     """Per-movement dynamic state."""
     __table_args__ = (UniqueConstraint("movement_id", "day_id", name="uq_movementstate_movement_day"),)
