@@ -42,15 +42,16 @@ def make_movement_input(
 
 
 def make_engine_state(
-    *, current_phase=Phase.CUT, bodyweight=None,
-    cut_to_stab_target=213.0, cut_to_stab_tolerance=2.0,
+    *, current_phase=Phase.CUT,
+    weight_goal_stable=False, body_fat_goal_configured=False, body_fat_goal_stable=False,
     rhr_down=False, sleep_ok=False, no_rpe_creep=False,
     bw_stable_2wk=False, strength_bounce=False, subjective_ok=False,
 ) -> EngineStateInput:
     return EngineStateInput(
-        current_phase=current_phase, bodyweight=bodyweight,
-        cut_to_stab_target=cut_to_stab_target,
-        cut_to_stab_tolerance=cut_to_stab_tolerance,
+        current_phase=current_phase,
+        weight_goal_stable=weight_goal_stable,
+        body_fat_goal_configured=body_fat_goal_configured,
+        body_fat_goal_stable=body_fat_goal_stable,
         rhr_down=rhr_down, sleep_ok=sleep_ok, no_rpe_creep=no_rpe_creep,
         bw_stable_2wk=bw_stable_2wk, strength_bounce=strength_bounce,
         subjective_ok=subjective_ok,
@@ -262,23 +263,21 @@ def test_combined_too_hard_anchor_updates_e1rm_and_misses():
 # ---------------------------------------------------------------------------
 
 def test_cut_to_stab_gate_met():
-    es = make_engine_state(current_phase=Phase.CUT, bodyweight=214.0,
-                           cut_to_stab_target=213.0, cut_to_stab_tolerance=2.0)  # 214 <= 215
+    es = make_engine_state(current_phase=Phase.CUT, weight_goal_stable=True)
     result = analyze_session(make_context([], es))
     assert result.phase_transition_available == Phase.STAB
 
 
 def test_cut_to_stab_gate_not_met_when_too_heavy():
-    es = make_engine_state(current_phase=Phase.CUT, bodyweight=220.0,
-                           cut_to_stab_target=213.0, cut_to_stab_tolerance=2.0)  # 220 > 215
+    es = make_engine_state(current_phase=Phase.CUT, weight_goal_stable=False)
     result = analyze_session(make_context([], es))
     assert result.phase_transition_available is None
 
 
-def test_cut_to_stab_gate_none_bodyweight_is_not_satisfied():
-    es = make_engine_state(current_phase=Phase.CUT, bodyweight=None)
+def test_cut_to_stab_gate_neither_goal_configured_is_not_satisfied():
+    es = make_engine_state(current_phase=Phase.CUT)
     result = analyze_session(make_context([], es))
-    assert result.phase_transition_available is None  # missing data is "unavailable", never "met"
+    assert result.phase_transition_available is None
 
 
 def test_stab_to_rebuild_gate_all_six_true():
@@ -299,7 +298,7 @@ def test_stab_to_rebuild_gate_one_false_blocks():
 
 def test_no_gate_in_calibration_or_rebuild_phase():
     for ph in (Phase.CALIBRATION, Phase.REBUILD):
-        es = make_engine_state(current_phase=ph, bodyweight=100.0, rhr_down=True, sleep_ok=True,
+        es = make_engine_state(current_phase=ph, rhr_down=True, sleep_ok=True,
                                no_rpe_creep=True, bw_stable_2wk=True, strength_bounce=True,
                                subjective_ok=True)
         result = analyze_session(make_context([], es))

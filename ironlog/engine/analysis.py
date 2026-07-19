@@ -51,9 +51,9 @@ class MovementAnalysisInput:
 @dataclass
 class EngineStateInput:
     current_phase: Phase = Phase.CUT
-    bodyweight: Optional[float] = None
-    cut_to_stab_target: float = 213.0
-    cut_to_stab_tolerance: float = 2.0
+    weight_goal_stable: bool = False
+    body_fat_goal_configured: bool = False
+    body_fat_goal_stable: bool = False
     rhr_down: bool = False
     sleep_ok: bool = False
     no_rpe_creep: bool = False
@@ -129,7 +129,7 @@ def _best_e1rm_set(logged_sets: List[LoggedSet]) -> Optional[Tuple[LoggedSet, fl
 def _evaluate_phase_gate(es: EngineStateInput) -> Optional[Phase]:
     """Report (never apply) an available phase transition. None = no gate met."""
     if es.current_phase == Phase.CUT:
-        if es.bodyweight is not None and es.bodyweight <= es.cut_to_stab_target + es.cut_to_stab_tolerance:
+        if es.weight_goal_stable or (es.body_fat_goal_configured and es.body_fat_goal_stable):
             return Phase.STAB
         return None
     if es.current_phase == Phase.STAB:

@@ -5,7 +5,7 @@ from sqlmodel import Session as DbSession, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from ironlog.models.library import (
-    DailyReadiness, E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
+    DailyReadiness, E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, GoalSettings
 )
 from ironlog.models.session import (
     Session as WorkoutSession, SessionStatus, SetLog, PlannedSet, ExerciseGroup, PlannedExercise
@@ -153,4 +153,87 @@ def test_phase_gate_stays_closed_insufficient_data():
     with DbSession(engine) as db:
         result = run_analysis(1, db, _week_keyer)
     
+    assert result.phase_transition_available is None
+
+def _setup_db_cut():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+    with DbSession(engine) as db:
+        db.add(PhasePolicy(
+            phase=Phase.CUT,
+            default_objective=Objective.MAINTAIN,
+            rpe_band_low=7.0,
+            rpe_band_high=9.0,
+            hard_cap=100.0,
+            top_set_rpe=8.0,
+            progression_attempted=False,
+            volume_posture="reduce",
+        ))
+        db.add(EngineState(id=1, current_phase=Phase.CUT))
+        db.add(Movement(id=1, name="Squat", base_name="Squat", progression_rule="test"))
+        db.add(MovementState(id=1, movement_id=1, day_id="dayA"))
+        db.commit()
+    return engine
+
+def test_cut_gate_no_goal_settings_fallback_met():
+    engine = _setup_db_cut()
+    today = date.today()
+    with DbSession(engine) as db:
+        for i in range(14):
+            db.add(DailyReadiness(date=today - timedelta(days=i), bodyweight=214.0))
+        db.add(WorkoutSession(id=1, date=today, day_role="dayA", phase=Phase.CUT, status=SessionStatus.COMPLETED))
+        db.commit()
+
+    with DbSession(engine) as db:
+        result = run_analysis(1, db, _week_keyer)
+    assert result.phase_transition_available == Phase.STAB
+
+def test_cut_gate_configured_weight_goal_met():
+    engine = _setup_db_cut()
+    today = date.today()
+    with DbSession(engine) as db:
+        db.add(GoalSettings(id=1, target_bodyweight=200.0, target_bodyweight_tolerance=1.0))
+        for i in range(14):
+            db.add(DailyReadiness(date=today - timedelta(days=i), bodyweight=201.0))
+        db.add(WorkoutSession(id=1, date=today, day_role="dayA", phase=Phase.CUT, status=SessionStatus.COMPLETED))
+        db.commit()
+
+    with DbSession(engine) as db:
+        result = run_analysis(1, db, _week_keyer)
+    assert result.phase_transition_available == Phase.STAB
+
+def test_cut_gate_configured_body_fat_goal_met_alone():
+    engine = _setup_db_cut()
+    today = date.today()
+    with DbSession(engine) as db:
+        db.add(GoalSettings(
+            id=1,
+            target_bodyweight=200.0, target_bodyweight_tolerance=1.0,
+            target_body_fat_pct=15.0, target_body_fat_pct_tolerance=0.5
+        ))
+        for i in range(14):
+            db.add(DailyReadiness(date=today - timedelta(days=i), bodyweight=210.0, body_fat_pct=15.5))
+        db.add(WorkoutSession(id=1, date=today, day_role="dayA", phase=Phase.CUT, status=SessionStatus.COMPLETED))
+        db.commit()
+
+    with DbSession(engine) as db:
+        result = run_analysis(1, db, _week_keyer)
+    assert result.phase_transition_available == Phase.STAB
+
+def test_cut_gate_neither_clears():
+    engine = _setup_db_cut()
+    today = date.today()
+    with DbSession(engine) as db:
+        db.add(GoalSettings(
+            id=1,
+            target_bodyweight=200.0, target_bodyweight_tolerance=1.0,
+            target_body_fat_pct=15.0, target_body_fat_pct_tolerance=0.5
+        ))
+        for i in range(14):
+            db.add(DailyReadiness(date=today - timedelta(days=i), bodyweight=210.0, body_fat_pct=16.0))
+        db.add(WorkoutSession(id=1, date=today, day_role="dayA", phase=Phase.CUT, status=SessionStatus.COMPLETED))
+        db.commit()
+
+    with DbSession(engine) as db:
+        result = run_analysis(1, db, _week_keyer)
     assert result.phase_transition_available is None
