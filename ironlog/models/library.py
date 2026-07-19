@@ -250,6 +250,21 @@ class E1rmHistory(SQLModel, table=True):
     computed_at: datetime
 
 
+class MovementWeaknessSignal(SQLModel, table=True):
+    """One row per movement per computation (append-only history, not
+    a singleton -- the athlete's weak points change over time and a
+    trend view is plausible future value, even though the first
+    read-endpoint spec only surfaces the latest state)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    movement_id: int = Field(foreign_key="movement.id", index=True)
+    session_id: int = Field(foreign_key="session.id")
+    computed_at: datetime = Field(default_factory=datetime.utcnow)
+    stalled: bool
+    growth_rate: Optional[float] = None
+    lagging: bool
+    is_weak: bool
+
+
 class GenerationLog(SQLModel, table=True):
     """Full provenance of a generation (Fork 7d): the injected prompt, the
     model's selections, any clamps/repairs, the approval mode, and whether a
