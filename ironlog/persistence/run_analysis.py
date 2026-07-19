@@ -35,7 +35,7 @@ from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal
 from ..generation.load_trust import load_field_for_mode
 from ..models.enums import CalibrationStatus, LiftCategory, Objective
-from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, DailyReadiness
+from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, DailyReadiness, GoalSettings
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
 )
@@ -47,6 +47,7 @@ from ..engine.readiness import (
     compute_subjective_ok,
     compute_no_rpe_creep,
     compute_strength_bounce,
+    compute_goal_stable,
 )
 from datetime import timedelta
 from .apply import apply_analysis
@@ -323,7 +324,8 @@ def run_analysis(
     readiness_inputs = [
         DailyReadinessInput(
             date=r.date, bodyweight=r.bodyweight, resting_hr=r.resting_hr,
-            sleep_ok=r.sleep_ok, subjective_ok=r.subjective_ok
+            sleep_ok=r.sleep_ok, subjective_ok=r.subjective_ok,
+            body_fat_pct=r.body_fat_pct
         ) for r in readiness_rows
     ]
     
@@ -339,11 +341,6 @@ def run_analysis(
     baseline_rhr = sum(rhr_baseline_rows) / len(rhr_baseline_rows) if rhr_baseline_rows else None
     rhr_down = compute_rhr_down(readiness_inputs, as_of=today, baseline=baseline_rhr)
     
-    recent_bw = None
-    bw_rows = sorted([r for r in readiness_inputs if r.bodyweight is not None], key=lambda x: x.date)
-    if bw_rows:
-        recent_bw = bw_rows[-1].bodyweight
-
     any_strength_bounce = False
     valid_no_rpe_creeps = []
     
@@ -365,11 +362,36 @@ def run_analysis(
     no_rpe_creep = all(valid_no_rpe_creeps) if valid_no_rpe_creeps else False
     strength_bounce = any_strength_bounce
 
+    goals = db.exec(select(GoalSettings).where(GoalSettings.id == 1)).one_or_none()
+    if goals is None:
+        target_bodyweight, target_bodyweight_tolerance = 213.0, 2.0
+        target_body_fat_pct, target_body_fat_pct_tolerance = None, None
+    else:
+        target_bodyweight = goals.target_bodyweight
+        target_bodyweight_tolerance = goals.target_bodyweight_tolerance
+        target_body_fat_pct = goals.target_body_fat_pct
+        target_body_fat_pct_tolerance = goals.target_body_fat_pct_tolerance
+
+    weight_goal_stable = compute_goal_stable(
+        readiness_inputs, as_of=today, field="bodyweight",
+        target=target_bodyweight, tolerance=target_bodyweight_tolerance,
+    )
+
+    body_fat_goal_configured = target_body_fat_pct is not None
+    body_fat_goal_stable = False
+    if body_fat_goal_configured:
+        body_fat_goal_stable = compute_goal_stable(
+            readiness_inputs, as_of=today, field="body_fat_pct",
+            target=target_body_fat_pct, tolerance=target_body_fat_pct_tolerance or 0.0,
+        )
+
     ctx = AnalysisContext(
         movements=movements_inputs,
         engine_state=EngineStateInput(
             current_phase=phase,
-            bodyweight=recent_bw,
+            weight_goal_stable=weight_goal_stable,
+            body_fat_goal_configured=body_fat_goal_configured,
+            body_fat_goal_stable=body_fat_goal_stable,
             rhr_down=rhr_down,
             sleep_ok=sleep_ok,
             no_rpe_creep=no_rpe_creep,
