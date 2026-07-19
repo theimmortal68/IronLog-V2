@@ -1,7 +1,7 @@
 http:
   routers:
     ironlog-withings:
-      rule: Host(`withings.myflix.media`) && Path(`/integrations/withings/webhook`)
+      rule: Host(`withings.myflix.media`) && (Path(`/integrations/withings/webhook`) || Path(`/integrations/withings/authorize`) || Path(`/integrations/withings/callback`))
       entryPoints:
         - websecure
       service: ironlog-withings
