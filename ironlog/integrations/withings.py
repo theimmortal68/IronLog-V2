@@ -41,8 +41,7 @@ async def sync_withings_measurements(db: Session) -> dict:
         creds.token_expires_at = now + timedelta(seconds=int(tokens["expires_in"]))
         creds.updated_at = now
         db.add(creds)
-        # We can commit the token refresh early, or let it ride with the sync commit.
-        # Let it ride with the sync commit.
+        db.commit()
 
     # Lookback window
     if creds.last_synced_at:
@@ -119,6 +118,6 @@ async def sync_withings_measurements(db: Session) -> dict:
     db.commit()
 
     return {
-        "days_updated": len(daily_updates),
+        "days_updated": sum(1 for v in daily_updates.values() if v),
         "measurements_fetched": total_measurements,
     }
