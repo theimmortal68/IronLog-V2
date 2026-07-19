@@ -6,7 +6,13 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from ironlog.models import WithingsCredentials, DailyReadiness
-from ironlog.integrations.withings import sync_withings_measurements, httpx, DEFAULT_LOOKBACK_HOURS
+from ironlog.integrations.withings import (
+    DEFAULT_LOOKBACK_HOURS,
+    WithingsAPIError,
+    WithingsNotAuthorizedError,
+    httpx,
+    sync_withings_measurements,
+)
 
 
 @pytest.fixture(name="engine")
@@ -58,7 +64,7 @@ def _mock_measure_response(monkeypatch, payload, status_code=200):
 
 
 def test_no_credentials_raises_error(db):
-    with pytest.raises(RuntimeError, match="Withings not yet authorized"):
+    with pytest.raises(WithingsNotAuthorizedError, match="Withings not yet authorized"):
         asyncio.run(sync_withings_measurements(db))
 
 
@@ -207,7 +213,7 @@ def test_sync_api_failure_does_not_advance_last_synced_at(db, monkeypatch):
         {"status": 293, "error": "Invalid auth token"}
     )
     
-    with pytest.raises(RuntimeError, match="status 293"):
+    with pytest.raises(WithingsAPIError, match="status 293"):
         asyncio.run(sync_withings_measurements(db))
         
     updated_creds = db.exec(select(WithingsCredentials)).first()
@@ -231,7 +237,7 @@ def test_sync_http_failure_does_not_advance_last_synced_at(db, monkeypatch):
     
     _mock_measure_response(monkeypatch, {}, status_code=500)
     
-    with pytest.raises(RuntimeError, match="HTTP 500"):
+    with pytest.raises(WithingsAPIError, match="HTTP 500"):
         asyncio.run(sync_withings_measurements(db))
         
     updated_creds = db.exec(select(WithingsCredentials)).first()
@@ -328,7 +334,7 @@ def test_token_refresh_persists_even_if_measure_fails(db, monkeypatch):
     fake_client = FakeAsyncClient()
     monkeypatch.setattr(httpx, "AsyncClient", lambda *args, **kwargs: fake_client)
     
-    with pytest.raises(RuntimeError, match="status 293"):
+    with pytest.raises(WithingsAPIError, match="status 293"):
         asyncio.run(sync_withings_measurements(db))
         
     db.rollback()
@@ -336,4 +342,3 @@ def test_token_refresh_persists_even_if_measure_fails(db, monkeypatch):
     updated_creds = db.exec(select(WithingsCredentials)).first()
     assert updated_creds.access_token == "new_acc"
     assert updated_creds.refresh_token == "new_ref"
-

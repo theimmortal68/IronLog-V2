@@ -1,10 +1,27 @@
 from urllib.parse import urlencode
+from typing import Optional
 
 import httpx
 
 
 WITHINGS_AUTHORIZE_URL = "https://account.withings.com/oauth2_user/authorize2"
 WITHINGS_TOKEN_URL = "https://wbsapi.withings.net/v2/oauth2"
+_pending_oauth_state: Optional[str] = None
+
+
+def set_pending_state(state: str) -> None:
+    global _pending_oauth_state
+    _pending_oauth_state = state
+
+
+def consume_pending_state(state: str) -> bool:
+    """Returns True and clears the stored state iff it matches. Always
+    clears on a successful match (one-time use, prevents replay)."""
+    global _pending_oauth_state
+    if _pending_oauth_state is not None and _pending_oauth_state == state:
+        _pending_oauth_state = None
+        return True
+    return False
 
 
 def build_authorize_url(client_id: str, redirect_uri: str, state: str) -> str:

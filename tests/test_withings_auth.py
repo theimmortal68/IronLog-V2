@@ -15,8 +15,10 @@ from ironlog.models import WithingsCredentials
 
 @pytest.fixture(autouse=True)
 def _clear_dependency_overrides():
+    withings_auth._pending_oauth_state = None
     yield
     api_app.app.dependency_overrides.clear()
+    withings_auth._pending_oauth_state = None
 
 
 def _client():
@@ -88,6 +90,20 @@ def test_build_authorize_url_contains_expected_query_params():
     assert params["redirect_uri"] == ["http://localhost/callback"]
     assert params["state"] == ["state-token"]
     assert params["scope"] == ["user.metrics"]
+
+
+def test_pending_oauth_state_round_trip_consumes_once():
+    withings_auth.set_pending_state("state-token")
+
+    assert withings_auth.consume_pending_state("state-token") is True
+    assert withings_auth.consume_pending_state("state-token") is False
+
+
+def test_pending_oauth_state_mismatch_does_not_clear():
+    withings_auth.set_pending_state("expected-state")
+
+    assert withings_auth.consume_pending_state("wrong-state") is False
+    assert withings_auth.consume_pending_state("expected-state") is True
 
 
 def test_exchange_code_for_tokens_parses_success_body(monkeypatch):
@@ -212,6 +228,8 @@ def test_withings_authorize_fails_loudly_without_client_id(monkeypatch):
 def test_withings_callback_inserts_credentials(monkeypatch):
     client, engine = _client()
     _set_withings_env(monkeypatch)
+    state = "oauth-state"
+    withings_auth.set_pending_state(state)
     captured = {}
 
     async def fake_exchange(client_id, client_secret, code, redirect_uri):
@@ -225,11 +243,15 @@ def test_withings_callback_inserts_credentials(monkeypatch):
     monkeypatch.setattr(api_app, "exchange_code_for_tokens", fake_exchange)
     before = datetime.utcnow()
 
-    response = client.get("/integrations/withings/callback?code=auth-code")
+    response = client.get(
+        "/integrations/withings/callback",
+        params={"code": "auth-code", "state": state},
+    )
 
     after = datetime.utcnow()
     assert response.status_code == 200
     assert response.json() == {"status": "authorized"}
+    assert withings_auth.consume_pending_state(state) is False
     assert captured["args"] == (
         "client-id",
         "client-secret",
@@ -248,6 +270,7 @@ def test_withings_callback_inserts_credentials(monkeypatch):
 def test_withings_callback_updates_existing_credentials(monkeypatch):
     client, engine = _client()
     _set_withings_env(monkeypatch)
+    state = "update-state"
     last_synced_at = datetime(2026, 7, 18, 10, 0, 0)
     with DbSession(engine) as db:
         db.add(
@@ -270,8 +293,12 @@ def test_withings_callback_updates_existing_credentials(monkeypatch):
         }
 
     monkeypatch.setattr(api_app, "exchange_code_for_tokens", fake_exchange)
+    withings_auth.set_pending_state(state)
 
-    response = client.get("/integrations/withings/callback?code=new-code")
+    response = client.get(
+        "/integrations/withings/callback",
+        params={"code": "new-code", "state": state},
+    )
 
     assert response.status_code == 200
     with DbSession(engine) as db:
@@ -283,3 +310,49 @@ def test_withings_callback_updates_existing_credentials(monkeypatch):
         assert credentials.refresh_token == "new-refresh"
         assert credentials.last_synced_at == last_synced_at
         assert credentials.token_expires_at > datetime.utcnow()
+
+
+def test_withings_callback_rejects_missing_state_before_token_exchange(monkeypatch):
+    client, _ = _client()
+    _set_withings_env(monkeypatch)
+    exchange_called = False
+
+    async def fake_exchange(client_id, client_secret, code, redirect_uri):
+        nonlocal exchange_called
+        exchange_called = True
+        return {}
+
+    monkeypatch.setattr(api_app, "exchange_code_for_tokens", fake_exchange)
+
+    response = client.get(
+        "/integrations/withings/callback",
+        params={"code": "auth-code"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired OAuth state"
+    assert exchange_called is False
+
+
+def test_withings_callback_rejects_wrong_state_without_consuming_expected(monkeypatch):
+    client, _ = _client()
+    _set_withings_env(monkeypatch)
+    withings_auth.set_pending_state("expected-state")
+    exchange_called = False
+
+    async def fake_exchange(client_id, client_secret, code, redirect_uri):
+        nonlocal exchange_called
+        exchange_called = True
+        return {}
+
+    monkeypatch.setattr(api_app, "exchange_code_for_tokens", fake_exchange)
+
+    response = client.get(
+        "/integrations/withings/callback",
+        params={"code": "auth-code", "state": "wrong-state"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired OAuth state"
+    assert exchange_called is False
+    assert withings_auth.consume_pending_state("expected-state") is True

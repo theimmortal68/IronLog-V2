@@ -31,8 +31,17 @@ from sqlmodel import Session, col, select
 
 from ..db import engine
 from ..engine import next_set_load
-from ..integrations.withings import sync_withings_measurements
-from ..integrations.withings_auth import build_authorize_url, exchange_code_for_tokens
+from ..integrations.withings import (
+    WithingsAPIError,
+    WithingsNotAuthorizedError,
+    sync_withings_measurements,
+)
+from ..integrations.withings_auth import (
+    build_authorize_url,
+    consume_pending_state,
+    exchange_code_for_tokens,
+    set_pending_state,
+)
 from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
     SessionStatus, SetLog, ExerciseSurvey, Note, SetRole,
@@ -100,9 +109,14 @@ async def withings_sync_now(db: Session = Depends(get_session)):
     """Manual on-demand Withings sync. Returns the sync summary directly."""
     try:
         return await sync_withings_measurements(db)
+    except WithingsNotAuthorizedError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except WithingsAPIError as exc:
+        raise HTTPException(502, str(exc)) from exc
     except RuntimeError as exc:
-        status_code = 400 if "not yet authorized" in str(exc) else 502
-        raise HTTPException(status_code, str(exc)) from exc
+        # refresh_access_token still raises bare RuntimeError; keep the prior
+        # endpoint fallback behavior without introducing a circular import.
+        raise HTTPException(502, str(exc)) from exc
 
 
 @app.get("/integrations/withings/authorize")
@@ -113,12 +127,17 @@ def withings_authorize():
         raise HTTPException(500, "WITHINGS_CLIENT_ID is not configured")
     if not redirect_uri:
         raise HTTPException(500, "WITHINGS_REDIRECT_URI is not configured")
-    url = build_authorize_url(client_id, redirect_uri, _uuid.uuid4().hex)
+    state = _uuid.uuid4().hex
+    set_pending_state(state)
+    url = build_authorize_url(client_id, redirect_uri, state)
     return RedirectResponse(url)
 
 
 @app.get("/integrations/withings/callback")
-async def withings_callback(code: str, db: Session = Depends(get_session)):
+async def withings_callback(code: str, state: Optional[str] = None, db: Session = Depends(get_session)):
+    if not state or not consume_pending_state(state):
+        raise HTTPException(400, "Invalid or expired OAuth state")
+
     client_id = os.environ.get("WITHINGS_CLIENT_ID")
     client_secret = os.environ.get("WITHINGS_CLIENT_SECRET")
     redirect_uri = os.environ.get("WITHINGS_REDIRECT_URI")
