@@ -1,6 +1,11 @@
 """Tests for engine.stall — pure stall detection. The dip-and-recover case is
 the keystone: it passes a naive monotonic test but fails on real noisy e1RM."""
-from ironlog.engine.stall import detect_stall, StallSignal
+from ironlog.engine.stall import (
+    compute_growth_rate,
+    compute_lagging,
+    detect_stall,
+    StallSignal,
+)
 from ironlog.models.enums import Objective
 
 PROGRESS = Objective.PROGRESS
@@ -62,3 +67,45 @@ def test_non_progress_objective_all_false():
     assert sig.trend_stalled is False
     assert sig.failed_stalled is False
     assert sig.stalled is False
+
+
+def test_compute_growth_rate_normal_window():
+    assert compute_growth_rate([100.0, 105.0, 110.0]) == 0.10
+
+
+def test_compute_growth_rate_requires_two_points():
+    assert compute_growth_rate([]) is None
+    assert compute_growth_rate([100.0]) is None
+
+
+def test_compute_growth_rate_oldest_must_be_positive():
+    assert compute_growth_rate([0.0, 100.0]) is None
+    assert compute_growth_rate([-100.0, 100.0]) is None
+
+
+def test_compute_lagging_false_when_this_rate_missing():
+    class ExplodingRates:
+        def __iter__(self):
+            raise AssertionError("other rates should not be inspected")
+
+    assert compute_lagging(None, ExplodingRates()) is False
+
+
+def test_compute_lagging_requires_three_non_none_comparisons():
+    assert compute_lagging(-0.02, [None, 0.08, None, 0.12]) is False
+
+
+def test_compute_lagging_true_at_exact_threshold_boundary():
+    assert compute_lagging(0.05, [0.08, 0.10, 0.12]) is True
+
+
+def test_compute_lagging_true_for_realistic_lagging_population():
+    assert compute_lagging(-0.02, [0.07, 0.10, 0.12, 0.15]) is True
+
+
+def test_compute_lagging_false_when_non_lagging():
+    assert compute_lagging(0.12, [0.07, 0.10, 0.12, 0.15]) is False
+
+
+def test_compute_lagging_false_when_above_median():
+    assert compute_lagging(0.16, [0.07, 0.10, 0.12, 0.15]) is False
