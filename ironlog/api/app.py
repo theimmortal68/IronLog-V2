@@ -20,15 +20,17 @@ not yet in-app".
 """
 import os
 import uuid as _uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
 from ..db import engine
 from ..engine import next_set_load
+from ..integrations.withings_auth import build_authorize_url, exchange_code_for_tokens
 from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
     SessionStatus, SetLog, ExerciseSurvey, Note, SetRole,
@@ -41,7 +43,7 @@ from .schemas_wizard import (
     WizardResolveResponse, WizardStateResponse,
 )
 from .schemas_readiness import DailyReadinessIn, DailyReadinessOut, ConfirmPhaseRequest
-from ..models.library import EngineState, DailyReadiness
+from ..models.library import EngineState, DailyReadiness, WithingsCredentials
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.assembler import build_finisher_payload, build_warmup_payload
@@ -63,6 +65,69 @@ _candidates: Dict[str, RepairOutcome] = {}
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+@app.get("/integrations/withings/authorize")
+def withings_authorize():
+    client_id = os.environ.get("WITHINGS_CLIENT_ID")
+    redirect_uri = os.environ.get("WITHINGS_REDIRECT_URI")
+    if not client_id:
+        raise HTTPException(500, "WITHINGS_CLIENT_ID is not configured")
+    if not redirect_uri:
+        raise HTTPException(500, "WITHINGS_REDIRECT_URI is not configured")
+    url = build_authorize_url(client_id, redirect_uri, _uuid.uuid4().hex)
+    return RedirectResponse(url)
+
+
+@app.get("/integrations/withings/callback")
+async def withings_callback(code: str, db: Session = Depends(get_session)):
+    client_id = os.environ.get("WITHINGS_CLIENT_ID")
+    client_secret = os.environ.get("WITHINGS_CLIENT_SECRET")
+    redirect_uri = os.environ.get("WITHINGS_REDIRECT_URI")
+    missing = [
+        name for name, value in (
+            ("WITHINGS_CLIENT_ID", client_id),
+            ("WITHINGS_CLIENT_SECRET", client_secret),
+            ("WITHINGS_REDIRECT_URI", redirect_uri),
+        )
+        if not value
+    ]
+    if missing:
+        raise HTTPException(
+            500,
+            "Withings OAuth is not configured: " + ", ".join(missing),
+        )
+
+    try:
+        tokens = await exchange_code_for_tokens(
+            client_id,
+            client_secret,
+            code,
+            redirect_uri,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+    now = datetime.utcnow()
+    token_expires_at = now + timedelta(seconds=int(tokens["expires_in"]))
+    credentials = db.get(WithingsCredentials, 1)
+    if credentials is None:
+        credentials = WithingsCredentials(
+            id=1,
+            access_token=tokens["access_token"],
+            refresh_token=tokens["refresh_token"],
+            token_expires_at=token_expires_at,
+            updated_at=now,
+        )
+    else:
+        credentials.access_token = tokens["access_token"]
+        credentials.refresh_token = tokens["refresh_token"]
+        credentials.token_expires_at = token_expires_at
+        credentials.updated_at = now
+
+    db.add(credentials)
+    db.commit()
+    return {"status": "authorized"}
 
 
 @app.get("/movements", response_model=List[Movement])
