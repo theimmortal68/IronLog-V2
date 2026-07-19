@@ -36,6 +36,21 @@ def test_daily_readiness_round_trips_nullable_values_and_sources():
     assert saved.created_at is not None
 
 
+def test_daily_readiness_body_fat_pct_round_trips_and_defaults_to_none():
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        db.add(DailyReadiness(date=date(2026, 7, 18), body_fat_pct=18.5))
+        db.add(DailyReadiness(date=date(2026, 7, 19)))
+        db.commit()
+
+        rows = db.exec(select(DailyReadiness).order_by(DailyReadiness.date)).all()
+
+    assert rows[0].body_fat_pct == 18.5
+    assert rows[1].body_fat_pct is None
+
+
 def test_daily_readiness_date_is_unique():
     engine = create_engine("sqlite://")
     SQLModel.metadata.create_all(engine)
