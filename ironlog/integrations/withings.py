@@ -14,6 +14,14 @@ WITHINGS_MEASURE_URL = "https://wbsapi.withings.net/measure"
 KG_TO_LB = 2.20462
 
 
+class WithingsNotAuthorizedError(RuntimeError):
+    """Raised when no WithingsCredentials row exists yet."""
+
+
+class WithingsAPIError(RuntimeError):
+    """Raised when a Withings API call fails (non-2xx or non-zero status)."""
+
+
 async def sync_withings_measurements(db: Session) -> dict:
     """Fetches new weight (type 1) and fat-ratio (type 6) measurements
     from Withings since WithingsCredentials.last_synced_at, upserts each
@@ -21,7 +29,7 @@ async def sync_withings_measurements(db: Session) -> dict:
     dict (e.g. {"days_updated": N, "measurements_fetched": N})."""
     creds = db.exec(select(WithingsCredentials).where(WithingsCredentials.id == 1)).one_or_none()
     if creds is None:
-        raise RuntimeError("Withings not yet authorized — run /integrations/withings/authorize first")
+        raise WithingsNotAuthorizedError("Withings not yet authorized — run /integrations/withings/authorize first")
 
     now = datetime.utcnow()
     
@@ -64,13 +72,13 @@ async def sync_withings_measurements(db: Session) -> dict:
         response = await client.post(WITHINGS_MEASURE_URL, data=data, headers=headers)
     
     if response.status_code >= 400:
-        raise RuntimeError(f"Withings measure request failed with HTTP {response.status_code}")
+        raise WithingsAPIError(f"Withings measure request failed with HTTP {response.status_code}")
     
     payload = response.json()
     status = payload.get("status")
     if status != 0:
         error = payload.get("error", "Unknown error")
-        raise RuntimeError(f"Withings measure request failed with status {status}: {error}")
+        raise WithingsAPIError(f"Withings measure request failed with status {status}: {error}")
     
     body = payload.get("body", {})
     measuregrps = body.get("measuregrps", [])

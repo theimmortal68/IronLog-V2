@@ -5,6 +5,7 @@ from sqlmodel.pool import StaticPool
 
 import ironlog.api.app as api_app
 import ironlog.models  # noqa: F401
+from ironlog.integrations.withings import WithingsAPIError, WithingsNotAuthorizedError
 
 
 @pytest.fixture(autouse=True)
@@ -68,11 +69,7 @@ def test_withings_sync_now_returns_sync_summary(monkeypatch):
 
 def test_withings_sync_now_maps_not_authorized_runtime_error(monkeypatch):
     async def fake_sync(db):
-        # Exact production message from sync_withings_measurements (not a
-        # fabricated stand-in) -- the 400/502 split is a substring match on
-        # this wording, so this test must track the real string or a wording
-        # change could silently flip the status code with no test failure.
-        raise RuntimeError("Withings not yet authorized — run /integrations/withings/authorize first")
+        raise WithingsNotAuthorizedError("Withings not yet authorized — run /integrations/withings/authorize first")
 
     monkeypatch.setattr(api_app, "sync_withings_measurements", fake_sync)
     client, _ = _client()
@@ -85,7 +82,7 @@ def test_withings_sync_now_maps_not_authorized_runtime_error(monkeypatch):
 
 def test_withings_sync_now_maps_api_runtime_error(monkeypatch):
     async def fake_sync(db):
-        raise RuntimeError("Withings measure request failed with HTTP 500")
+        raise WithingsAPIError("Withings measure request failed with HTTP 500")
 
     monkeypatch.setattr(api_app, "sync_withings_measurements", fake_sync)
     client, _ = _client()
@@ -94,3 +91,17 @@ def test_withings_sync_now_maps_api_runtime_error(monkeypatch):
 
     assert response.status_code == 502
     assert response.json()["detail"] == "Withings measure request failed with HTTP 500"
+
+
+def test_withings_sync_now_maps_untyped_runtime_error_to_502(monkeypatch):
+    async def fake_sync(db):
+        # Covers refresh_access_token's bare-RuntimeError path.
+        raise RuntimeError("Withings token response missing access_token")
+
+    monkeypatch.setattr(api_app, "sync_withings_measurements", fake_sync)
+    client, _ = _client()
+
+    response = client.post("/integrations/withings/sync-now")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Withings token response missing access_token"
