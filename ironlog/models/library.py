@@ -148,6 +148,7 @@ class DailyReadiness(SQLModel, table=True):
     date: _Date = Field(index=True, unique=True)
     bodyweight: Optional[float] = None
     bodyweight_source: str = "manual"
+    body_fat_pct: Optional[float] = None
     resting_hr: Optional[float] = None
     resting_hr_source: str = "manual"
     sleep_ok: Optional[bool] = None
