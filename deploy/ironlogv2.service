@@ -5,6 +5,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+EnvironmentFile=-/home/jstout/projects/IronLog-V2/.env
 Type=exec
 User=jstout
 Group=jstout
