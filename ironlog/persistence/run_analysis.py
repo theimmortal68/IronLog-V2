@@ -6,10 +6,9 @@ history into weekly estimates via a CALLER-SUPPLIED week_keyer (no calendar math
 here beyond applying the callable), evaluates calibration flips, and calls the
 single-write-point applier once. Writes nothing itself.
 
-No HTTP. v0.6 generation calls this seam. detect_stall is NOT called here (it's
-a v0.6 consumer); select_progress_window is the pure helper v0.6 will use to
-feed it. Cold-start is expected: until ~3 PROGRESS sessions log, the analyzers
-are data-starved — this is correct, not broken.
+No HTTP. v0.6 generation calls this seam. select_progress_window is the pure helper
+v0.6 will use to feed it. Cold-start is expected: until ~3 PROGRESS sessions log,
+the analyzers are data-starved — this is correct, not broken.
 """
 
 import logging
@@ -32,10 +31,10 @@ from ..engine.analysis import (
 from ..engine.calibration import evaluate_calibration_flip
 from ..engine.e1rm import implied_rir
 from ..engine.progression import resolve_objective
-from ..engine.stall import STALL_WINDOW, build_stall_signal
+from ..engine.stall import STALL_WINDOW, build_stall_signal, detect_stall, compute_growth_rate, compute_lagging
 from ..generation.load_trust import load_field_for_mode
 from ..models.enums import CalibrationStatus, LiftCategory, Objective
-from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, DailyReadiness, GoalSettings
+from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, DailyReadiness, GoalSettings, MovementWeaknessSignal
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
 )
@@ -344,6 +343,9 @@ def run_analysis(
     any_strength_bounce = False
     valid_no_rpe_creeps = []
     
+    rates = {}
+    stall_signals = {}
+    
     for mid in movement_ids:
         prior_rows = db.exec(
             select(E1rmHistory).where(E1rmHistory.movement_id == mid)
@@ -358,6 +360,15 @@ def run_analysis(
         e1rm_history = [(r.computed_at.date(), r.e1rm) for r in prior_rows]
         if compute_strength_bounce(e1rm_history, as_of=today):
             any_strength_bounce = True
+
+        recent_e1rms = [r.e1rm for r in recent_progress]
+        obj = resolve_objective(movement_by_mv[mid].objective_override, phase_default)
+        stall_signals[mid] = detect_stall(
+            progress_anchor_e1rms=recent_e1rms,
+            consecutive_failed=state_by_mv[mid].consecutive_failed_progressions,
+            objective=obj,
+        )
+        rates[mid] = compute_growth_rate(recent_e1rms)
 
     no_rpe_creep = all(valid_no_rpe_creeps) if valid_no_rpe_creeps else False
     strength_bounce = any_strength_bounce
@@ -535,6 +546,22 @@ def run_analysis(
     # on any subsequent call for this session_id.
     workout.analyzed_at = datetime.now(timezone.utc)
     db.add(workout)
+
+    for mid in movement_ids:
+        this_rate = rates[mid]
+        other_rates = [r for m, r in rates.items() if m != mid]
+        is_lagging = compute_lagging(this_movement_rate=this_rate, other_movement_rates=other_rates)
+        stalled = stall_signals[mid].stalled
+        
+        weak_signal = MovementWeaknessSignal(
+            movement_id=mid,
+            session_id=workout.id,
+            stalled=stalled,
+            growth_rate=this_rate,
+            lagging=is_lagging,
+            is_weak=(stalled or is_lagging),
+        )
+        db.add(weak_signal)
 
     apply_analysis(
         result, db,
