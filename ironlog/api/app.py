@@ -44,7 +44,7 @@ from ..integrations.withings_auth import (
 )
 from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
-    SessionStatus, SetLog, ExerciseSurvey, Note, SetRole,
+    SessionStatus, SetLog, ExerciseSurvey, Note, SetRole, MovementWeaknessSignal,
 )
 from ..notes.classify import classify_session_notes
 from .schemas_capture import (SubmitRequest, SubmitResponse,
@@ -55,6 +55,9 @@ from .schemas_wizard import (
 )
 from .schemas_readiness import DailyReadinessIn, DailyReadinessOut, ConfirmPhaseRequest
 from .schemas_goals import GoalSettingsIn, GoalSettingsOut
+from .schemas_weakpoints import (
+    MuscleGroupSummaryOut, WeakMovementOut, WeakPointAssessmentOut,
+)
 from ..models.library import EngineState, DailyReadiness, GoalSettings, WithingsCredentials
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
@@ -1132,6 +1135,71 @@ def post_readiness(req: DailyReadinessIn, db: Session = Depends(get_session)):
 def get_goals(db: Session = Depends(get_session)):
     """Return the current GoalSettings row, or None if never configured."""
     return db.exec(select(GoalSettings)).first()
+
+@app.get("/weak-points", response_model=WeakPointAssessmentOut)
+def get_weak_points(db: Session = Depends(get_session)):
+    """Returns the latest weak-point assessment: the most recent
+    MovementWeaknessSignal row per movement (by computed_at), plus a
+    muscle-group rollup computed live over those rows (primary muscle
+    only -- Movement.secondary_muscles do NOT count toward the
+    rollup)."""
+    signal_rows = db.exec(select(MovementWeaknessSignal)).all()
+    latest_by_movement: Dict[int, MovementWeaknessSignal] = {}
+    for row in signal_rows:
+        current = latest_by_movement.get(row.movement_id)
+        if current is None or row.computed_at > current.computed_at:
+            latest_by_movement[row.movement_id] = row
+
+    if not latest_by_movement:
+        return WeakPointAssessmentOut(muscle_groups=[], movements=[])
+
+    movement_ids = list(latest_by_movement)
+    movement_rows = db.exec(
+        select(Movement).where(col(Movement.id).in_(movement_ids))
+    ).all()
+    movements_by_id = {movement.id: movement for movement in movement_rows}
+
+    movements = []
+    groups_by_muscle: Dict[str, Dict[str, Any]] = {}
+    for movement_id in sorted(latest_by_movement):
+        signal = latest_by_movement[movement_id]
+        movement = movements_by_id[movement_id]
+        movement_out = WeakMovementOut(
+            movement_id=movement_id,
+            name=movement.name,
+            stalled=signal.stalled,
+            lagging=signal.lagging,
+            growth_rate=signal.growth_rate,
+        )
+        movements.append(movement_out)
+
+        if movement.primary_muscle is None:
+            continue
+
+        muscle = movement.primary_muscle.value
+        group = groups_by_muscle.setdefault(
+            muscle,
+            {"weak_count": 0, "total_count": 0, "weak_movements": []},
+        )
+        group["total_count"] += 1
+        if signal.is_weak:
+            group["weak_count"] += 1
+            group["weak_movements"].append(movement_out)
+
+    muscle_groups = [
+        MuscleGroupSummaryOut(
+            muscle=muscle,
+            weak_count=group["weak_count"],
+            total_count=group["total_count"],
+            weak_movements=group["weak_movements"],
+        )
+        for muscle, group in sorted(groups_by_muscle.items())
+    ]
+
+    return WeakPointAssessmentOut(
+        muscle_groups=muscle_groups,
+        movements=movements,
+    )
 
 @app.post("/goals", response_model=GoalSettingsOut)
 def post_goals(req: GoalSettingsIn, db: Session = Depends(get_session)):
