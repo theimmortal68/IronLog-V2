@@ -1,0 +1,15 @@
+http:
+  routers:
+    ironlog-withings:
+      rule: Host(`withings.myflix.media`) && Path(`/integrations/withings/webhook`)
+      entryPoints:
+        - websecure
+      service: ironlog-withings
+      tls:
+        certResolver: cloudflare
+
+  services:
+    ironlog-withings:
+      loadBalancer:
+        servers:
+          - url: http://192.168.1.7:8000

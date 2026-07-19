@@ -18,18 +18,20 @@ Candidates are stored in a module-level dict (_candidates); cleared on restart.
 scope marker on /generate: "main-work-only; warmups/Z2 per program doc,
 not yet in-app".
 """
+import logging
 import os
 import uuid as _uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlmodel import Session, col, select
 
 from ..db import engine
 from ..engine import next_set_load
+from ..integrations.withings import sync_withings_measurements
 from ..integrations.withings_auth import build_authorize_url, exchange_code_for_tokens
 from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
@@ -56,6 +58,7 @@ from ..generation.repair import RepairOutcome
 from ..notes.resolver import resolve_note
 
 app = FastAPI(title="IronLog V2", version="0.1.0")
+logger = logging.getLogger(__name__)
 
 # In-memory candidate store (single-server MVP; not shared across restarts).
 # Key: candidate_id (UUID str). Value: RepairOutcome from generate_session.
@@ -65,6 +68,40 @@ _candidates: Dict[str, RepairOutcome] = {}
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+async def _sync_withings_measurements_background():
+    try:
+        from ..db import engine as db_engine
+
+        with Session(db_engine) as db:
+            await sync_withings_measurements(db)
+    except Exception:
+        logger.exception("Withings background sync failed")
+
+
+@app.post("/integrations/withings/webhook")
+async def withings_webhook(
+    background_tasks: BackgroundTasks,
+    userid: str = Form(...),
+    appli: str = Form(...),
+):
+    """Withings POSTs application/x-www-form-urlencoded {userid, appli}
+    on a measurement notification. The payload is only a change signal;
+    it is not trusted as data. Schedule a sync and acknowledge
+    immediately."""
+    background_tasks.add_task(_sync_withings_measurements_background)
+    return {"status": "accepted"}
+
+
+@app.post("/integrations/withings/sync-now")
+async def withings_sync_now(db: Session = Depends(get_session)):
+    """Manual on-demand Withings sync. Returns the sync summary directly."""
+    try:
+        return await sync_withings_measurements(db)
+    except RuntimeError as exc:
+        status_code = 400 if "not yet authorized" in str(exc) else 502
+        raise HTTPException(status_code, str(exc)) from exc
 
 
 @app.get("/integrations/withings/authorize")
