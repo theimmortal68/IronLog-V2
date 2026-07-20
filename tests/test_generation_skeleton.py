@@ -54,7 +54,40 @@ def test_invalid_day_role_raises(gen_db):
         lay_skeleton("X Nonexistent", gen_db)
 
 
-def test_d6_has_anchor(gen_db):
-    """D6 Weak Points has a Pull-up anchor in GS1."""
+def test_d6_gs1_anchor_folds_into_giant_tier(gen_db):
+    """D6 Weak Points folds GS1's Pull-up anchor into the giant tier."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
-    assert sk.anchor_movement_ids, "D6 must have a Pull-up anchor"
+    slots = {s.slot_id: s for s in sk.adaptive_slots}
+
+    assert sk.anchor_movement_ids == []
+    assert slots["d6_g1a"].program_movement_id == 18
+    assert slots["d6_g1a"].is_giant_tier is True
+    assert slots["d6_g1a"].group_key == "GS1"
+    assert slots["d6_g1a"].kind == "accessory"
+    assert slots["d6_g1a"].tier_role == "anchor"
+
+
+def test_d6_gs1_slots_share_giant_tier_group(gen_db):
+    """All D6 GS1 slots assemble into the same GIANT_SET tier group."""
+    sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
+    slots = {s.slot_id: s for s in sk.adaptive_slots}
+
+    for slot_id in ("d6_g1a", "d6_g1b", "d6_g1c"):
+        assert slots[slot_id].is_giant_tier is True
+        assert slots[slot_id].group_key == "GS1"
+
+
+def test_d6_gs1_anchor_kind_is_accessory(gen_db):
+    """GS1's fixed Pull-up anchor is not candidate-menu eligible."""
+    sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
+    slots = {s.slot_id: s for s in sk.adaptive_slots}
+
+    assert slots["d6_g1a"].kind == "accessory"
+
+
+def test_d6_gs1_slot_order_preserves_pullup_first(gen_db):
+    """D6 GS1 keeps Pull-up first in the shared giant set."""
+    sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
+    gs1_slots = [s.slot_id for s in sk.adaptive_slots if s.group_key == "GS1"]
+
+    assert gs1_slots == ["d6_g1a", "d6_g1b", "d6_g1c"]
