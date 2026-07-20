@@ -9,7 +9,7 @@ These are seeded once per training block and read by the generation layer
 
 NO from __future__ import annotations (project-wide constraint).
 """
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
@@ -44,6 +44,18 @@ class ProgramDay(SQLModel, table=True):
     day_role: str         # "D1 Upper Push", "D2 Lower A", "" for rest days
     is_rest: bool = False
     warmup_config: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+
+
+class MissedDayRecord(SQLModel, table=True):
+    """One row per detected missed training day (append-only history,
+    NOT a singleton). status is mutated in place as the athlete acts
+    on it."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    program_day_id: int = Field(foreign_key="programday.id", index=True)
+    week_start_date: date       # Monday of the missed week
+    detected_at: datetime = Field(default_factory=datetime.utcnow)
+    status: str = "PENDING"     # PENDING | ACKNOWLEDGED | RESCHEDULED | RESOLVED
+    resolved_at: Optional[datetime] = None
 
 
 class DayFinisher(SQLModel, table=True):
