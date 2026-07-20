@@ -29,7 +29,8 @@ class SlotSpec:
     knee_modality: Optional[str]
     program_movement_id: Optional[int]   # the program prior for this slot
     is_giant_tier: bool = False     # True when the source Tier is GIANT_SET,
-                                    # independent of kind/knee_modality.
+                                    # independent of kind/knee_modality or
+                                    # anchor role.
     group_key: str = ""             # tier_label of the source Tier; used by the
                                     # assembler to group giant slots into one
                                     # ExerciseGroup per tier (e.g. "T2 GS").
@@ -89,21 +90,24 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
     day_role alone (back-compat for existing single-program callers/tests).
 
     anchor_movement_ids:
-        Movement ids for all TierExercises with tier_role=="anchor".
+        Movement ids for TierExercises with tier_role=="anchor" outside
+        GIANT_SET tiers.
         Resolved via _effective_movement_id: an active SlotMovementOverride
         takes precedence, then the matching MesoRotation row for meso_number,
         then te.movement_id.
 
     adaptive_slots:
-        SlotSpec for every non-anchor TierExercise, with
+        SlotSpec for every non-anchor TierExercise, plus anchor exercises
+        inside GIANT_SET tiers, with
         program_movement_id resolved via the same _effective_movement_id
         precedence (SlotMovementOverride > MesoRotation(meso_number) >
         te.movement_id).
         kind = "knee" if knee_modality set,
-               "giant" if tier is GIANT_SET,
+               "giant" if tier is GIANT_SET and tier_role is not anchor,
                "accessory" otherwise.
         is_giant_tier is set directly from the source Tier so knee-priority
-        slots inside GIANT_SET tiers still assemble into the shared tier group.
+        slots and anchor-role slots inside GIANT_SET tiers still assemble into
+        the shared tier group.
     """
     if program_id is None:
         from ironlog.models.library import EngineState
@@ -136,7 +140,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         exercises = sorted(exercises, key=lambda te: _effective_exercise_order(db, te))
 
         for te in exercises:
-            if te.tier_role == "anchor":
+            if te.tier_role == "anchor" and tier.tier_kind != TierKind.GIANT_SET:
                 movement_id = _effective_movement_id(db, te, meso_number)
                 anchor_movement_ids.append(movement_id)
                 anchor_meta.append(AnchorSpec(
@@ -204,9 +208,10 @@ def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> i
 
 
 def _slot_kind(te: TierExercise, tier: Tier) -> str:
-    """Compute the slot kind for a non-anchor TierExercise."""
+    """Compute the slot kind for a TierExercise routed into adaptive_slots
+    (non-anchor, or an anchor whose tier is GIANT_SET)."""
     if te.knee_modality is not None:
         return "knee"
-    if tier.tier_kind == TierKind.GIANT_SET:
+    if tier.tier_kind == TierKind.GIANT_SET and te.tier_role != "anchor":
         return "giant"
     return "accessory"
