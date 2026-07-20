@@ -55,10 +55,12 @@ from .schemas_wizard import (
 )
 from .schemas_readiness import DailyReadinessIn, DailyReadinessOut, ConfirmPhaseRequest
 from .schemas_goals import GoalSettingsIn, GoalSettingsOut
+from .schemas_missed_days import MissedDayRecordOut
 from .schemas_weakpoints import (
     MuscleGroupSummaryOut, WeakMovementOut, WeakPointAssessmentOut,
 )
 from ..models.library import EngineState, DailyReadiness, GoalSettings, WithingsCredentials
+from ..models.program import MissedDayRecord, ProgramDay
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.assembler import build_finisher_payload, build_warmup_payload
@@ -1135,6 +1137,87 @@ def post_readiness(req: DailyReadinessIn, db: Session = Depends(get_session)):
 def get_goals(db: Session = Depends(get_session)):
     """Return the current GoalSettings row, or None if never configured."""
     return db.exec(select(GoalSettings)).first()
+
+def _missed_day_record_out(record: MissedDayRecord, program_day: ProgramDay) -> MissedDayRecordOut:
+    return MissedDayRecordOut(
+        id=record.id,
+        program_day_id=record.program_day_id,
+        day_role=program_day.day_role,
+        week_start_date=record.week_start_date,
+        detected_at=record.detected_at,
+        status=record.status,
+    )
+
+@app.get("/missed-days", response_model=List[MissedDayRecordOut])
+def get_missed_days(db: Session = Depends(get_session)):
+    """Returns current PENDING/RESCHEDULED MissedDayRecord rows joined
+    to ProgramDay for day_role (ACKNOWLEDGED/RESOLVED are settled, not
+    surfaced). If a record's program_day_id somehow doesn't resolve to
+    an existing ProgramDay, skip that record rather than 500ing the
+    whole list."""
+    records = db.exec(
+        select(MissedDayRecord).where(
+            MissedDayRecord.status.in_(("PENDING", "RESCHEDULED"))
+        )
+    ).all()
+    program_day_ids = {record.program_day_id for record in records}
+    if not program_day_ids:
+        return []
+
+    program_days = db.exec(
+        select(ProgramDay).where(col(ProgramDay.id).in_(program_day_ids))
+    ).all()
+    program_days_by_id = {program_day.id: program_day for program_day in program_days}
+
+    missed_days = []
+    for record in records:
+        program_day = program_days_by_id.get(record.program_day_id)
+        if program_day is None:
+            continue
+        missed_days.append(_missed_day_record_out(record, program_day))
+    return missed_days
+
+@app.post("/missed-days/{record_id}/acknowledge", response_model=MissedDayRecordOut)
+def acknowledge_missed_day(record_id: int, db: Session = Depends(get_session)):
+    """Sets status=ACKNOWLEDGED. 404 if record_id doesn't exist.
+    Allowed even on an already-RESOLVED record (harmless churn -- the
+    nightly resolution pass is the source of truth and will flip it
+    back to RESOLVED on its next run if a session genuinely exists)."""
+    record = db.get(MissedDayRecord, record_id)
+    if not record:
+        raise HTTPException(404, "missed day record not found")
+
+    # ProgramDay is looked up (and 404'd if missing) BEFORE the status
+    # mutation/commit, so a missing ProgramDay never leaves a persisted
+    # status change masked behind an error response.
+    program_day = db.get(ProgramDay, record.program_day_id)
+    if not program_day:
+        raise HTTPException(404, "program day not found")
+
+    record.status = "ACKNOWLEDGED"
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return _missed_day_record_out(record, program_day)
+
+@app.post("/missed-days/{record_id}/reschedule", response_model=MissedDayRecordOut)
+def reschedule_missed_day(record_id: int, db: Session = Depends(get_session)):
+    """Sets status=RESCHEDULED. 404 if record_id doesn't exist. Same
+    allow-even-if-resolved behavior as acknowledge."""
+    record = db.get(MissedDayRecord, record_id)
+    if not record:
+        raise HTTPException(404, "missed day record not found")
+
+    # See acknowledge_missed_day: ProgramDay checked before mutating.
+    program_day = db.get(ProgramDay, record.program_day_id)
+    if not program_day:
+        raise HTTPException(404, "program day not found")
+
+    record.status = "RESCHEDULED"
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return _missed_day_record_out(record, program_day)
 
 @app.get("/weak-points", response_model=WeakPointAssessmentOut)
 def get_weak_points(db: Session = Depends(get_session)):
