@@ -184,3 +184,19 @@ Three items deferred earlier this session (see memory: `ironlog-v2-dips-progress
 
 Delegation ratio: 1/1 (100%)
 Merge order: wt-43 standalone.
+
+## 2026-07-20 batch: standalone cardio/interval day-type (design approved via brainstorming, docs/superpowers/specs/2026-07-20-cardio-interval-day-design.md)
+
+Third and final Phase-1 roadmap item (real weak-point assessment and missed-workout handling both already shipped). Log-only, no generation, no progression engine, no ProgramDay/day_role involvement, not tracked by missed-workout-handling (falls out for free since `check_missed_days()` already excludes `is_rest=true` days, and the two candidate slots — day_index 3/7 — already are).
+
+- `.specs/44-cardio-log-model.md` → codex, worktree wt-44, depends on: none. New standalone `CardioLog` table + migration 036, added to `ironlog/models/library.py` (280 lines, already home to similar standalone tables — GoalSettings, WithingsCredentials — no FK dependencies for this table either). **DB SCHEMA CHANGE — HUMAN GATE at dispatch AND at merge.**
+- `.specs/45-cardio-log-endpoints.md` → codex, worktree wt-45, depends on: 44 merged. `POST/GET /cardio-log` + `GET /cardio-log/weekly-summary`, mirrors the established `GET/POST /goals` pattern (simple CRUD, no join complexity — CardioLog has no FKs). Reuses missed-workout-handling's exact Monday-start week-boundary formula.
+
+Delegation ratio: 2/2 (100%)
+Merge order: 44 → 45.
+
+Notes:
+- **Only spec 44 requires a HUMAN GATE** (DB schema change) — spec 45 hits no Forbidden-list item and can proceed on standing autonomous authorization once its dependency clears.
+- **Deliberately decoupled from ProgramDay/day_role** — unlike every other program-generation feature this session, this one has zero interaction with `lay_skeleton`, `/generate`, `MovementState`, or the progression engine. The two empty `ProgramDay` slots (day_index 3/7, `is_rest=true`) that map conceptually to the athlete's real 2x/week Z2 rhythm are left completely untouched — this feature doesn't read or write them at all.
+- **Client-side follow-on** (IronLog-V2-Client, separate repo, own `.specs/`): Today-screen weekly rollup + tappable log-entry form + a history list reusing the existing `history` screen pattern. Not specced yet — verify the real endpoint shapes (`CardioLogOut`, `CardioWeeklySummaryOut`) via a live curl before dispatching, matching this session's established pattern for client follow-ons on server-first features.
+- No client interval-timer involvement — this is Z2 steady-state, not interval work; `IntervalTimerService` stays scoped to finishers.
