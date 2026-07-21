@@ -21,7 +21,7 @@ not yet in-app".
 import logging
 import os
 import uuid as _uuid
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException
@@ -55,11 +55,12 @@ from .schemas_wizard import (
 )
 from .schemas_readiness import DailyReadinessIn, DailyReadinessOut, ConfirmPhaseRequest
 from .schemas_goals import GoalSettingsIn, GoalSettingsOut
+from .schemas_cardio_log import CardioLogCreate, CardioLogOut, CardioWeeklySummaryOut
 from .schemas_missed_days import MissedDayRecordOut
 from .schemas_weakpoints import (
     MuscleGroupSummaryOut, WeakMovementOut, WeakPointAssessmentOut,
 )
-from ..models.library import EngineState, DailyReadiness, GoalSettings, WithingsCredentials
+from ..models.library import CardioLog, EngineState, DailyReadiness, GoalSettings, WithingsCredentials
 from ..models.program import MissedDayRecord, ProgramDay
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
@@ -1310,6 +1311,25 @@ def post_goals(req: GoalSettingsIn, db: Session = Depends(get_session)):
     db.commit()
     db.refresh(row)
     return row
+
+@app.post("/cardio-log", response_model=CardioLogOut)
+def create_cardio_log(payload: CardioLogCreate, db: Session = Depends(get_session)):
+    log = CardioLog(**payload.model_dump())
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
+@app.get("/cardio-log", response_model=List[CardioLogOut])
+def get_cardio_log(db: Session = Depends(get_session)):
+    return db.exec(select(CardioLog).order_by(CardioLog.date.desc(), CardioLog.id.desc())).all()
+
+@app.get("/cardio-log/weekly-summary", response_model=CardioWeeklySummaryOut)
+def get_cardio_weekly_summary(db: Session = Depends(get_session)):
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
+    count = len(db.exec(select(CardioLog).where(CardioLog.date >= week_start)).all())
+    return CardioWeeklySummaryOut(count=count, target=2, week_start=week_start)
 
 @app.post("/engine-state/confirm-phase")
 def confirm_phase(req: ConfirmPhaseRequest, db: Session = Depends(get_session)):
