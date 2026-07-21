@@ -278,3 +278,18 @@ class GenerationLog(SQLModel, table=True):
     approval_mode: str = "auto"            # "human" | "auto"
     fallback_used: bool = False
     committed_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CardioLog(SQLModel, table=True):
+    """One row per logged Z2 cardio session (neighborhood walk or treadmill).
+    Fully standalone -- NOT tied to ProgramDay/day_role, no generation, no
+    progression engine involvement. Multiple rows per date are legitimate
+    (e.g. a walk AND a treadmill session same day)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    date: date
+    duration_minutes: int
+    avg_hr: Optional[int] = None
+    modality: str  # "WALK" | "TREADMILL"
+    incline_pct: Optional[float] = None
+    backward_walk_done: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
