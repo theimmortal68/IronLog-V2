@@ -204,3 +204,18 @@ Notes:
 - **Deliberately decoupled from ProgramDay/day_role** — unlike every other program-generation feature this session, this one has zero interaction with `lay_skeleton`, `/generate`, `MovementState`, or the progression engine. The two empty `ProgramDay` slots (day_index 3/7, `is_rest=true`) that map conceptually to the athlete's real 2x/week Z2 rhythm are left completely untouched — this feature doesn't read or write them at all.
 - **Client-side follow-on** (IronLog-V2-Client, separate repo, own `.specs/`): Today-screen weekly rollup + tappable log-entry form + a history list reusing the existing `history` screen pattern. Not specced yet — verify the real endpoint shapes (`CardioLogOut`, `CardioWeeklySummaryOut`) via a live curl before dispatching, matching this session's established pattern for client follow-ons on server-first features.
 - No client interval-timer involvement — this is Z2 steady-state, not interval work; `IntervalTimerService` stays scoped to finishers.
+
+## 2026-07-22 batch: HT performed-floor reconciliation (design approved via brainstorming, docs/superpowers/specs/2026-07-22-ht-performed-floor-reconciliation-design.md)
+
+Real code fix for the third occurrence tonight of "self-selected deviation from prescription gets silently ignored" — this time for HT (band-composite Hip Thrust), fixable using data already captured (`SetLog.felt_peak`), no new client capture needed. The parallel assist-ladder case (Nordic Curl/Knee Raise) needs a genuinely new capture field and is explicitly deferred to a separate design.
+
+- `.specs/47-ht-performed-floor-reconciliation.md` → codex, worktree wt-47, depends on: none. Touches `ironlog/engine/band_composite.py` (new `resolved_band_config`/`ht_performed_floor`), `ironlog/persistence/ht_refine.py` (behavior-preserving refactor to use the shared helper), `ironlog/generation/assembler.py` (the reconciliation point). No schema change, no Forbidden-list hit.
+
+Delegation ratio: 1/1 (100%)
+Merge order: wt-47 standalone.
+
+Notes:
+- No HUMAN GATE — pure code fix, no schema/auth/API-surface change. Class 1 restart at deploy.
+- **Opus review mandatory regardless of diff cleanliness** — touches HT's generation-time setup resolution, a real invariant this codebase has been burned by before (the HT-override compounding bug, the calibration guidelines' own standing caution about HT changes). Same standard as the note-resolver and Withings-sync-logic specs earlier this session.
+- `ht_refine.py`'s `_resolved_band_config` refactor must be verified as behavior-preserving (every existing `test_ht_refine.py` test passes unchanged) — this is a refactor-while-fixing-something-else, worth explicit scrutiny at review since it's easy to accidentally change the 3-tier fallback priority while "simplifying" it.
+- Out of scope, deferred to a future design: assist-ladder reconciliation (Nordic Curl, Face-Up Incline Knee Raise, Reverse Nordic Curl) — needs new client capture (an "actual assist level used" field), a materially bigger lift than this spec.
