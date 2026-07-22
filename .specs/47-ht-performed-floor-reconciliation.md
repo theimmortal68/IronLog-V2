@@ -62,13 +62,30 @@ def _resolved_band_config(sl: SetLog, ps: Optional[PlannedSet]) -> Optional[List
 (Keep the function name `_resolved_band_config` and its call sites in this file completely unchanged -- only its internal implementation changes to delegate. Every existing test in `tests/test_ht_refine.py` must still pass unchanged, since behavior is identical, just re-implemented.)
 
 ### 3. `ironlog/generation/assembler.py`
-In `_build_exercise`, find the HT block (`if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:`) where `cur_plates, cur_config = _resolve_ht_current_setup(state, load)` is computed. Immediately after that line, add the reconciliation:
+**Confirmed (do not re-derive): `GenerationContext` (`context.py`) has NO `day_role` field, and `_build_exercise` does not currently receive `day_role` at all.** Only `assemble()` has it, via `skeleton.day_role` (the `Skeleton` dataclass parameter already in scope in `assemble()`). This requires threading a new `day_role: str` parameter through `_build_exercise`'s signature and all three of its call sites inside `assemble()`.
+
+**Step 3a**: add `day_role: str` as a new parameter to `_build_exercise`'s signature (after `ctx: GenerationContext` is a reasonable place, but match this file's existing parameter-ordering style — keyword-capable params can go anywhere after the required positional ones):
+```python
+def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
+                    db: DBSession, prospective: Dict[int, float],
+                    day_role: str,
+                    is_anchor: bool = False,
+                    ...  # rest unchanged
+```
+
+**Step 3b**: update all THREE call sites inside `assemble()` (the anchor loop around line 492, the giant-tier loop around line 536, the straight-group loop around line 552 — read the current file to confirm exact line numbers, they may have shifted slightly) to pass `day_role=skeleton.day_role`:
+```python
+ex = _build_exercise(m, 0, ctx, db, prospective, day_role=skeleton.day_role, is_anchor=True, ...)
+```
+(and the same `day_role=skeleton.day_role` addition to the other two call sites — `skeleton` is already the parameter name in `assemble()`'s own signature, confirm this by reading `assemble()`'s signature directly rather than assuming.)
+
+**Step 3c**: inside `_build_exercise`, find the HT block (`if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:`) where `cur_plates, cur_config = _resolve_ht_current_setup(state, load)` is computed. Immediately after that line, add the reconciliation:
 
 ```python
 if state is not None:
-    cur_plates = _reconcile_ht_performed_floor(db, movement.id, ctx.day_role, cur_plates, cur_config, by_id)
+    cur_plates = _reconcile_ht_performed_floor(db, movement.id, day_role, cur_plates, cur_config, by_id)
 ```
-(`by_id` is already computed a few lines below in the existing code as `by_id = {b.id: b for b in band_inventory}` -- move that line UP so it's available before this new reconciliation call, since `by_id` is needed by the new function. Check `ctx`'s exact attribute name for day_role -- read `GenerationContext`'s definition in `context.py` to confirm whether it's `ctx.day_role`, or if day_role needs to come from elsewhere in `_build_exercise`'s available scope; use whatever's actually correct, don't guess the name.)
+(`by_id` is already computed a few lines below in the existing code as `by_id = {b.id: b for b in band_inventory}` — move that line UP so it's available before this new reconciliation call, since `by_id` is needed by the new function.)
 
 Add a new private helper function in `assembler.py` (near `_resolve_ht_current_setup`):
 ```python
