@@ -122,6 +122,40 @@ def test_t1_clean_session_advances_and_sets_active_rule():
         assert st.day_id == "Upper A"
 
 
+def test_clean_advance_at_self_selected_heavier_load_stacks_floor_and_earned_step():
+    engine = _make_engine()
+    with Session(engine) as db:
+        _seed_common(db)
+        _seed_movement(db, 1, progression_rule=ProgressionRule.RPE_8_STANDARD.value,
+                       increment_ladder=[2.5])
+        db.add(MovementState(movement_id=1, calibration_status=CalibrationStatus.MEASURED,
+                              current_load=25.0))
+        db.commit()
+        _seed_session(db, 1, 1, label="T1", actual_load=30.0)
+
+        run_analysis(1, db, WEEK_KEYER)
+
+        st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
+        assert st.pending_load_delta == 7.5
+
+
+def test_non_advancing_session_at_heavier_load_gets_floor_only_no_earned_credit():
+    engine = _make_engine()
+    with Session(engine) as db:
+        _seed_common(db)
+        _seed_movement(db, 1, progression_rule=ProgressionRule.RPE_8_STANDARD.value,
+                       increment_ladder=[2.5])
+        db.add(MovementState(movement_id=1, calibration_status=CalibrationStatus.MEASURED,
+                              current_load=25.0))
+        db.commit()
+        _seed_session(db, 1, 1, label="T1", actual_load=30.0, actual_reps=7)
+
+        run_analysis(1, db, WEEK_KEYER)
+
+        st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
+        assert st.pending_load_delta == 5.0
+
+
 # ---------------------------------------------------------------------------
 # (b) accessory (T2 GS, confirmation_window=2) needs two clean sessions
 # ---------------------------------------------------------------------------
