@@ -461,14 +461,14 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 
 def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T1 — Belt Squat (anchor; meso-2 rotation → Back Squat)
-    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Adipower II")
+    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=150, shoe="Adipower II")
     d2_t1 = _add_te(db, t1.id, "d2_t1", "Belt Squat", lib, 1, "anchor",
                     pattern="squat", rep_low=6, rep_high=8, rpe_cap=8.0,
                     scheme="STRAIGHT")
     _add_mr(db, d2_t1, 2, "Back Squat", lib)
 
     # T1b — Barbell Hip Thrust (anchor)
-    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=150, shoe="Adipower II")
+    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=120, shoe="Adipower II")
     _add_te(db, t1b.id, "d2_t1b", "Barbell Hip Thrust (220 cap)", lib, 1, "anchor",
             pattern="hip_thrust", rep_low=8, rep_high=8, rpe_cap=8.0,
             scheme="COMPOSITE")
