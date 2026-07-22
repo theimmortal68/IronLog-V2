@@ -488,9 +488,11 @@ def run_analysis(
             if adv.earned_load_step is not None or floor_delta > 0.0:
                 # K2: stage the earned load step (never current_load). commit_session
                 # applies it to current_load and clears the marker (apply-once).
-                # The staged delta is whichever is larger: the rule-driven clean-advance
-                # step, or the floor needed to not regress below a performed weight.
-                d.pending_load_delta = max(adv.earned_load_step or 0.0, floor_delta)
+                # The staged delta stacks additively: the floor needed to not regress
+                # below a performed weight, PLUS the rule-driven clean-advance step on
+                # top (a self-selected-heavier-than-prescribed session that also earns
+                # a clean advance must get credit for both, not just whichever is larger).
+                d.pending_load_delta = floor_delta + (adv.earned_load_step or 0.0)
             if new_unassisted_max_rolling is not None:
                 d.new_unassisted_max_rolling = new_unassisted_max_rolling
             d.stall_signal_computed = True
