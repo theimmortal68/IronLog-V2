@@ -27,9 +27,9 @@ days:
       {m: cross_body_rear_delt_fly_d1, reps: [10,15], rule: rpe_8_standard, load: 10, unilateral: true}]}
 
   d2:  # Lower A — shoe: Adipower II (all tiers; corrected 2026-07-14, was mistakenly Metcon 9)
-    T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Adipower II", anchor: true, ex: [
+    T1_STRAIGHT: {group_key: "T1", rest: 150, shoe: "Adipower II", anchor: true, ex: [
       {m: belt_squat, reps: [6,8], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
-    T1b: {group_key: "T1b", rest: 150, shoe: "Adipower II", anchor: true, ex: [
+    T1b: {group_key: "T1b", rest: 120, shoe: "Adipower II", anchor: true, ex: [
       {m: hip_thrust_d2, reps: [8,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223 (<225 clamp)
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [
       {m: assisted_nordic_curl_d2, reps: [8,8], rule: incline_reduction, assist_level: 20, assist_ladder: [20,15,10,5,0]},
