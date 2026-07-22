@@ -37,6 +37,7 @@ from typing import List, Optional
 from sqlmodel import Session as DBSession
 from sqlmodel import col, select
 
+from ..engine.band_composite import resolved_band_config as _shared_resolved_band_config
 from ..models.enums import BandCalStatus
 from ..models.library import BandPair
 from ..models.session import PlannedSet, SetLog
@@ -48,13 +49,11 @@ CONSISTENCY_TOLERANCE = 0.15
 def _resolved_band_config(sl: SetLog, ps: Optional[PlannedSet]) -> Optional[List[int]]:
     """The set's band configuration, PlannedSet.band_config first, falling
     back to the older singular band_pair_id fields. None if unresolvable."""
-    if ps is not None and ps.band_config:
-        return ps.band_config
-    if ps is not None and ps.band_pair_id is not None:
-        return [ps.band_pair_id]
-    if sl.band_pair_id is not None:
-        return [sl.band_pair_id]
-    return None
+    if ps is not None:
+        result = _shared_resolved_band_config(ps.band_config, ps.band_pair_id)
+        if result is not None:
+            return result
+    return _shared_resolved_band_config(None, sl.band_pair_id)
 
 
 def _load_planned_sets(db: DBSession, set_logs: List[SetLog]) -> dict:

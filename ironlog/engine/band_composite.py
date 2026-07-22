@@ -14,7 +14,7 @@ accepts.
 """
 from collections import namedtuple
 from itertools import combinations
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 Band = namedtuple("Band", "id rest peak usable", defaults=(True,))
 
@@ -25,6 +25,27 @@ def config_bottom(plates, config, by_id):
 
 def config_peak(plates, config, by_id):
     return plates + sum(by_id[b].peak for b in config)
+
+
+def resolved_band_config(band_config: Optional[list], band_pair_id: Optional[int]) -> Optional[List[int]]:
+    """A logged set's band configuration: band_config first, falling back to
+    the older singular band_pair_id field. None if unresolvable.
+
+    Pure -- takes plain values, not ORM objects, so it works for both a
+    PlannedSet-then-SetLog fallback chain and a plain (band_config,
+    band_pair_id) pair."""
+    if band_config:
+        return list(band_config)
+    if band_pair_id is not None:
+        return [band_pair_id]
+    return None
+
+
+def ht_performed_floor(plates: float, config: list, felt_peak: float, by_id: dict) -> float:
+    """Floor plates up to what's needed to explain a logged felt_peak for the
+    same config. Never regresses below the stored plates."""
+    implied_plates = felt_peak - sum(by_id[b].peak for b in config)
+    return max(plates, implied_plates)
 
 
 def _all_configs(inventory):
