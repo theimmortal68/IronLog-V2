@@ -17,7 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlmodel import Session as DBSession, select
 
-from ..engine.band_composite import Band, config_peak, ht_next_setup
+from ..engine.band_composite import (
+    Band, config_peak, ht_next_setup, ht_performed_floor, resolved_band_config,
+)
 from ..engine.loading import clamp_to_cap, round_to_achievable
 from ..engine.progression import resolve_objective
 from ..models.enums import (
@@ -26,7 +28,7 @@ from ..models.enums import (
 )
 from ..models.library import BandPair, EngineState, Equipment, Movement, MovementState
 from ..models.program import DayFinisher, ProgramDay, Tier, TierExercise
-from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet
+from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet, SetLog
 from ..models.session import Session as WorkoutSession
 from .context import GenerationContext
 from .load_trust import LoadTrust, compute_load_trust
@@ -349,8 +351,51 @@ def _resolve_ht_current_setup(state: Optional[MovementState], load: Optional[flo
     return plates, config
 
 
+def _reconcile_ht_performed_floor(db: DBSession, movement_id: int, day_role: str,
+                                   cur_plates: float, cur_config: list, by_id: dict) -> float:
+    """Floor cur_plates to the last completed same-role felt_peak when the
+    logged set used the same band config. Falls through for cold-start,
+    mismatch, or no-data cases."""
+    prior = db.exec(
+        select(WorkoutSession)
+        .where(
+            WorkoutSession.day_role == day_role,
+            WorkoutSession.status == SessionStatus.COMPLETED,
+        )
+        .order_by(WorkoutSession.date.desc())
+    ).first()
+    if prior is None:
+        return cur_plates
+
+    last_set = db.exec(
+        select(SetLog)
+        .where(
+            SetLog.session_id == prior.id,
+            SetLog.movement_id == movement_id,
+            SetLog.is_warmup == False,  # noqa: E712
+            SetLog.felt_peak.is_not(None),
+        )
+        .order_by(SetLog.set_index.desc())
+    ).first()
+    if last_set is None:
+        return cur_plates
+
+    logged_config = None
+    if last_set.planned_set_id is not None:
+        ps = db.get(PlannedSet, last_set.planned_set_id)
+        if ps is not None:
+            logged_config = resolved_band_config(ps.band_config, ps.band_pair_id)
+    if logged_config is None:
+        logged_config = resolved_band_config(None, last_set.band_pair_id)
+    if logged_config is None or set(logged_config) != set(cur_config):
+        return cur_plates
+
+    return ht_performed_floor(cur_plates, cur_config, last_set.felt_peak, by_id)
+
+
 def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                     db: DBSession, prospective: Dict[int, float],
+                    day_role: str,
                     is_anchor: bool = False,
                     rep_low: Optional[int] = None, rep_high: Optional[int] = None,
                     rpe_cap: Optional[float] = None,
@@ -408,6 +453,10 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:
         cur_plates, cur_config = _resolve_ht_current_setup(state, load)
         by_id = {b.id: b for b in band_inventory}
+        if state is not None:
+            cur_plates = _reconcile_ht_performed_floor(
+                db, movement.id, day_role, cur_plates, cur_config, by_id
+            )
         if prospective_ht is not None:
             # Stage the NEXT setup from the REAL (pre-override) current state, so
             # commit_session advances MovementState AFTER this session is logged —
@@ -489,7 +538,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
             label=meta.tier_label,
             shoe=meta.shoe,
         )
-        ex = _build_exercise(m, 0, ctx, db, prospective, is_anchor=True,
+        ex = _build_exercise(m, 0, ctx, db, prospective,
+                             day_role=skeleton.day_role, is_anchor=True,
                              rep_low=meta.rep_low, rep_high=meta.rep_high,
                              rpe_cap=meta.rpe_cap,
                              band_inventory=band_inventory, prospective_ht=prospective_ht,
@@ -534,6 +584,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                 )
             gg = giant_groups[gk]
             ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective,
+                                 day_role=skeleton.day_role,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
                                  band_inventory=band_inventory, prospective_ht=prospective_ht,
@@ -550,6 +601,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                 shoe=slot.shoe,
             )
             ex = _build_exercise(m, 0, ctx, db, prospective,
+                                 day_role=skeleton.day_role,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
                                  band_inventory=band_inventory, prospective_ht=prospective_ht,

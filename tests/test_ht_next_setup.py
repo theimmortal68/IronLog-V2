@@ -1,5 +1,5 @@
 from ironlog.engine.band_composite import (
-    Band, _all_configs, config_bottom, config_peak, ht_next_setup,
+    Band, _all_configs, config_bottom, config_peak, ht_next_setup, ht_performed_floor,
 )
 
 INV = [Band(0,18,45), Band(1,36,90), Band(2,60,150), Band(3,80,200), Band(4,130,325), Band(5,190,475)]
@@ -74,3 +74,18 @@ def test_all_bands_retired_falls_back_to_plates_only():
     plates, config = ht_next_setup(100, [0], inv, 5, 220)
     assert config == []          # no retired band prescribed
     assert plates >= 100
+
+
+def test_performed_floor_raises_to_implied_plates():
+    by_id = {b.id: b for b in INV}
+    assert ht_performed_floor(170, [1], 265, by_id) == 175
+
+
+def test_performed_floor_never_regresses_when_felt_peak_lower():
+    by_id = {b.id: b for b in INV}
+    assert ht_performed_floor(175, [1], 260, by_id) == 175
+
+
+def test_performed_floor_is_idempotent_when_felt_peak_matches():
+    by_id = {b.id: b for b in INV}
+    assert ht_performed_floor(170, [1], 260, by_id) == 170
