@@ -20,6 +20,9 @@ from ironlog.models.session import (
 
 # slot_id -> ("load"|"assist"|"ht", value, band_label_or_None)
 #
+# d2_t2a (Leg Curl [GHR]) has NO entry -- intentionally needs-calibration at
+# go-live (2026-07-22 Nordic Curl -> Leg Curl swap), not a completeness gap.
+#
 # d1_t2c / d4_t2c (Face-Up Incline Knee Raise) are seeded "assist" (degrees),
 # not "load": the movement is bodyweight/incline (progression_mode=ASSISTED,
 # ironlog/seed.py), so resolve_start_load reads assist_level, not current_load.
@@ -35,8 +38,9 @@ BASELINES = {
     "d1_t3b": ("load", 12.5, None), "d1_t3c": ("load", 60, None),
     "d1_t4a": ("load", 100, None), "d1_t4c": ("load", 10, None),
     "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 205, "#0 Orange"),
-    "d2_t2a": ("assist", 20, None), "d2_t2b": ("load", 180, None),
+    "d2_t2b": ("load", 180, None),
     "d2_t3a": ("load", 25, None), "d2_t3b": ("load", 25, None),
+    "d2_t3c": ("assist", 20, None),
     "d4_t2a": ("load", 35, None), "d4_t2b": ("load", 40, None),
     "d4_t2c": ("assist", 10, None), "d4_t3a": ("load", 10, None),
     "d4_t3b": ("load", 70, None),

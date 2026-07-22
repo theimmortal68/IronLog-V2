@@ -47,7 +47,15 @@ def test_knee_raise_is_assisted_with_full_incline_ladder(gen_db):
 
 def test_nordic_and_reverse_nordic_unchanged(gen_db):
     """Assert-don't-change: the two already-correct ASSISTED movements this
-    task uses as its template must be untouched."""
+    task uses as its template must be untouched on progression_mode/load field.
+
+    Nordic Curl's progression_rule is NOT asserted here as unchanged: as of
+    2026-07-22 its one remaining program slot (D5) is fixed at 15deg with no
+    further progression (the athlete's genuine trained level was harder than
+    the prescribed baseline; D2's slot was replaced with Leg Curl), so
+    derive_movement_rules() now correctly resolves it to FIXED_LOAD, not
+    INCLINE_REDUCTION -- a deliberate program-design change, not a regression.
+    """
     nordic = gen_db.exec(
         select(Movement).where(Movement.name == "Nordic Curl [GHR]")
     ).one()
@@ -58,7 +66,7 @@ def test_nordic_and_reverse_nordic_unchanged(gen_db):
     assert rev_nordic.progression_mode == ProgressionMode.ASSISTED
     assert load_field_for_mode(nordic.progression_mode) == "assist_level"
     assert load_field_for_mode(rev_nordic.progression_mode) == "assist_level"
-    assert nordic.progression_rule == ProgressionRule.INCLINE_REDUCTION.value
+    assert nordic.progression_rule == ProgressionRule.FIXED_LOAD.value
     assert rev_nordic.progression_rule == ProgressionRule.ASSISTANCE_REDUCTION.value
 
 

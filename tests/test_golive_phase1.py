@@ -12,13 +12,24 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 """
 
 
+# Movements intentionally shipped with no baseline (needs-calibration is the
+# correct starting state, not a seed-completeness gap): Leg Curl [GHR]
+# (2026-07-22 Nordic Curl -> Leg Curl swap, D2 d2_t2a) has no prior training
+# history to seed a starting load from.
+EXPECTED_NEEDS_CAL = {
+    "D2 Lower A": {"Leg Curl [GHR]"},
+}
+
+
 def test_golive_all_days_generate_clean(gen_db):
     from scripts.golive_phase1 import verify_all_days
     from ironlog.generation.baseline_seed import seed_movement_baselines
     seed_movement_baselines(gen_db)
     report = verify_all_days(gen_db)   # returns {day_role: {"loaded_slots": int, "needs_cal": [..]}}
     for role in ("D1 Upper Push", "D2 Lower A", "D4 Upper Pull", "D5 Lower B", "D6 Weak Points"):
-        assert report[role]["needs_cal"] == [], f"{role} has needs-calibration slots: {report[role]['needs_cal']}"
+        expected = EXPECTED_NEEDS_CAL.get(role, set())
+        unexpected = set(report[role]["needs_cal"]) - expected
+        assert not unexpected, f"{role} has unexpected needs-calibration slots: {unexpected}"
         assert report[role]["loaded_slots"] > 0
 
 

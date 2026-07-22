@@ -473,15 +473,17 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="hip_thrust", rep_low=8, rep_high=8, rpe_cap=8.0,
             scheme="COMPOSITE")
 
-    # T2 GS — Assisted Nordic / Scout Reverse Hyper
+    # T2 GS — Leg Curl / Scout Reverse Hyper
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
-    _add_te(db, t2.id, "d2_t2a", "Assisted Nordic", lib, 1, "free",
-            knee_modality=KneeModality.NORDIC, rep_low=8, rep_high=8,
-            scheme="ASSISTED")
+    _add_te(db, t2.id, "d2_t2a", "Leg Curl [GHR]", lib, 1, "free",
+            rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d2_t2b", "Scout Reverse Hyper (180 cap)", lib, 2, "free",
             pattern="reverse_hyper", rep_low=8, rep_high=12, scheme="REP_AT_CAP")
 
-    # T3 GS — ATG Split Squat / Cable Tib Raise (giant set; corrected 2026-07-14, was mistakenly PAIR)
+    # T3 GS — ATG Split Squat / Cable Tib Raise / Reverse Nordic (assisted)
+    # (2026-07-22: Reverse Nordic added as D2's 3rd knee-modality slot,
+    # replacing the knee-slot count lost when d2_t2a became Leg Curl.)
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Adipower II")
     _add_te(db, t3.id, "d2_t3a", "ATG Split Squat", lib, 1, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
@@ -489,6 +491,9 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t3.id, "d2_t3b", "Cable Tib Raise", lib, 2, "free",
             knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t3.id, "d2_t3c", "Reverse Nordic (assisted)", lib, 3, "free",
+            knee_modality=KneeModality.KOT, rep_low=8, rep_high=10,
+            scheme="ASSISTED")
 
 
 # ---------------------------------------------------------------------------
