@@ -78,6 +78,26 @@ def performed_floor_delta(current_load: Optional[float], performed_loads: List[f
     return max(heaviest - current_load, 0.0)
 
 
+def performed_assist_floor(current: Optional[float], ladder: List[float],
+                            clean_performed_values: List[float]) -> Optional[float]:
+    """The most advanced (highest ladder-index) value demonstrated by a clean
+    (rep-target-hit) set this session, if more advanced than `current`.
+    Returns `current` unchanged if no clean value is more advanced, or if
+    `current`/ladder is unusable (current is None, or off-ladder). Never
+    regresses backward on the ladder. Direction-agnostic: 'more advanced'
+    means a higher ladder index, regardless of whether the ladder ascends or
+    descends numerically.
+    """
+    if current is None or not ladder or current not in ladder:
+        return current
+    current_idx = ladder.index(current)
+    candidate_indices = [ladder.index(v) for v in clean_performed_values if v in ladder]
+    if not candidate_indices:
+        return current
+    best_idx = max(candidate_indices)
+    return ladder[best_idx] if best_idx > current_idx else current
+
+
 def _rpe8(state, perf, movement, window) -> AdvanceResult:
     rule = ProgressionRule.RPE_8_STANDARD.value
     if not _clean(perf):

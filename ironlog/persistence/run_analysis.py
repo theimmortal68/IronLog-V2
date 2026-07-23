@@ -19,7 +19,7 @@ from typing import Callable, Hashable, List
 from sqlmodel import Session as DBSession
 from sqlmodel import col, select
 
-from ..engine.advance import SessionPerf, advance, performed_floor_delta, roll_unassisted_max
+from ..engine.advance import SessionPerf, advance, performed_assist_floor, performed_floor_delta, roll_unassisted_max
 from ..engine.analysis import (
     AnalysisContext,
     AnalysisResult,
@@ -33,7 +33,7 @@ from ..engine.e1rm import implied_rir
 from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal, detect_stall, compute_growth_rate, compute_lagging
 from ..generation.load_trust import load_field_for_mode
-from ..models.enums import CalibrationStatus, LiftCategory, Objective
+from ..models.enums import CalibrationStatus, LiftCategory, Objective, ProgressionRule
 from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, DailyReadiness, GoalSettings, MovementWeaknessSignal
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
@@ -208,6 +208,42 @@ def _build_session_perf(mid: int, movement: Movement, set_logs: List[SetLog],
         last_set_hit_target=last_set_hit_target,
         unassisted_set1_reps=unassisted_set1_reps,
     )
+
+
+def _clean_performed_assist_values(mid: int, set_logs: List[SetLog], planned_sets: dict) -> List[float]:
+    """actual_load (falling back to the PlannedSet's target_load when
+    actual_load is None -- no signal logged means assume the prescribed
+    value was used, the same default as today) for every set-group that
+    individually hit its rep target this session. Duplicates
+    _build_session_perf's grouping/clean-check logic deliberately -- kept
+    standalone rather than threaded through SessionPerf's existing shape, to
+    avoid touching that function's other call sites.
+    """
+    groups: dict = defaultdict(list)
+    for sl in set_logs:
+        if sl.movement_id != mid or sl.is_warmup:
+            continue
+        groups[sl.set_index].append(sl)
+
+    def _group_hits(rows) -> bool:
+        for sl in rows:
+            ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
+            if ps is None or ps.target_reps_high is None:
+                return False
+            if sl.actual_reps is None or sl.actual_reps < ps.target_reps_high:
+                return False
+        return True
+
+    values = []
+    for rows in groups.values():
+        if not rows or not _group_hits(rows):
+            continue
+        for sl in rows:
+            ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
+            value = sl.actual_load if sl.actual_load is not None else (ps.target_load if ps else None)
+            if value is not None:
+                values.append(value)
+    return values
 
 
 def _confirmation_window(db: DBSession, mid: int, set_logs: List[SetLog],
@@ -430,6 +466,12 @@ def run_analysis(
         movement = movement_by_mv[mid]
         try:
             perf = _build_session_perf(mid, movement, set_logs, planned_sets)
+            if (movement.progression_rule in (ProgressionRule.INCLINE_REDUCTION.value, ProgressionRule.ASSISTANCE_REDUCTION.value)
+                    and movement.assist_ladder):
+                clean_values = _clean_performed_assist_values(mid, set_logs, planned_sets)
+                reconciled = performed_assist_floor(state.assist_level, movement.assist_ladder, clean_values)
+                if reconciled != state.assist_level:
+                    state.assist_level = reconciled
             window = _confirmation_window(db, mid, set_logs, planned_sets)
             adv = advance(movement.progression_rule, state, perf, movement, window)
 
