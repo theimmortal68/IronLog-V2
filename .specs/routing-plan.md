@@ -218,3 +218,12 @@ Merge order: wt-47 standalone.
 Notes:
 - No HUMAN GATE — pure code fix, no schema/auth/API-surface change. Class 1 restart at deploy — **not yet deployed as of this merge**.
 - Out of scope, deferred to a future design: assist-ladder reconciliation (Nordic Curl, Face-Up Incline Knee Raise, Reverse Nordic Curl) — needs new client capture (an "actual assist level used" field), a materially bigger lift than this spec.
+
+## 2026-07-22 batch #2: assist-ladder performed-floor reconciliation (design approved via brainstorming, docs/superpowers/specs/2026-07-22-assist-ladder-performed-floor-reconciliation-design.md)
+
+The deferred sibling to spec 47, picked back up now: turned out NOT to need new client capture after all — investigation during brainstorming found `SetLog.actual_load` already captures the assist-level-actually-used signal for ASSISTED-mode movements (client's existing "Load" field submits into the same generic column), the gap was purely that `run_analysis.py`'s existing performed-floor mechanism is scoped to `current_load` only, excluding `ASSISTED` mode. Diverges from that scalar-load floor in two ways confirmed with the user: clean-sets-only (not any-attempt) scoping, and ladder-index comparison (not raw magnitude) since assist ladders aren't uniformly ascending/descending.
+
+- `.specs/48-assist-ladder-performed-floor-reconciliation.md` → codex, worktree wt-48, depends on: none. Single self-contained fix, `ironlog/engine/advance.py` (new `performed_assist_floor` pure function) + `ironlog/persistence/run_analysis.py` (new `_clean_performed_assist_values` helper + scoped wiring, mirroring spec 46's existing scalar-load floor pattern). No schema change, no client change, no API surface change. **Opus review mandatory regardless of diff cleanliness** — non-trivial new logic touching progression-engine dispatch, same standard as spec 47 (HT) and every other invariant-touching spec this session.
+
+Delegation ratio: 1/1 (100%)
+Merge order: wt-48 standalone.
