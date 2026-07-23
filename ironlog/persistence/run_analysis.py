@@ -465,6 +465,7 @@ def run_analysis(
         state = state_by_mv[mid]
         movement = movement_by_mv[mid]
         try:
+            original_assist_level = state.assist_level
             perf = _build_session_perf(mid, movement, set_logs, planned_sets)
             if (movement.progression_rule in (ProgressionRule.INCLINE_REDUCTION.value, ProgressionRule.ASSISTANCE_REDUCTION.value)
                     and movement.assist_ladder):
@@ -540,6 +541,7 @@ def run_analysis(
             d.stall_signal_computed = True
             d.stall_signal = stall
         except Exception:
+            state.assist_level = original_assist_level
             logger.exception(
                 "progression-engine advance step failed for movement_id=%s session_id=%s",
                 mid, session_id,
