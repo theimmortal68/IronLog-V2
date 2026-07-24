@@ -55,6 +55,7 @@ YAML_M_TO_LIBRARY = {
     "reverse_nordic_assisted_d2":        "Reverse Nordic Curl [GHR]",
     # ── d4 Upper Pull ────────────────────────────────────────────────────────
     "pull_up_d4":                       "Pull-up [TOWER + TUBES]",
+    "standing_ohp_d4":                  "Standing OHP [PB]",
     "meadows_row_bruno_bar":            "Meadows Row [OB + LM]",
     "single_arm_db_row":                "Single-Arm DB Row [DB]",
     "face_up_incline_knee_raise_d4":    "Face-Up Incline Knee Raise",

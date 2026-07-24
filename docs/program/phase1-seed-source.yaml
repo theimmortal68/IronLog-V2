@@ -40,8 +40,10 @@ days:
       {m: reverse_nordic_assisted_d2, reps: [8,10], rule: assistance_reduction, assist_level: 20, assist_ladder: [20,15,10,5,0]}]}  # 2026-07-22: added to restore D2's 3rd knee-modality slot
 
   d4:  # Upper B / Pull — shoe: Metcon 9 (no swap). T2/T3 swap applied (SA-DB-Row->T2, Andreoni->T3).
-    T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
-      {m: pull_up_d4, reps: [6,8], rule: pull_up_rolling_max}]}  # 2-phase; milestone (6->all-unassisted Wk2) MANUAL
+    T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
+      {m: standing_ohp_d4, reps: [6,8], rule: rpe_8_standard}]}  # 2026-07-23: closes the program's overhead-press gap. Placed before Pull-up (not after, athlete's original request) -- Movement.is_primary=True lifts must precede all non-primary movements session-wide (validator's PRIMARY_NOT_FIRST), and Pull-up is is_primary=False, so "Pull-up then OHP" is structurally unassemblable regardless of tier naming. Needs-calibration start -- no baseline seeded, no prior history (mirrors the Leg Curl D2 swap's precedent).
+    T1b: {group_key: "T1b", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
+      {m: pull_up_d4, reps: [6,8], rule: pull_up_rolling_max}]}  # 2-phase; milestone (6->all-unassisted Wk2) MANUAL. Moved from T1 to T1b 2026-07-23 (see T1's OHP note); slot_id stays "d4_t1" (see program_seed.py comment) -- this movement's identity, not the tier label, is what's stable.
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: meadows_row_bruno_bar, reps: [8,12], rule: rpe_8_standard, load: 35, unilateral: true, meso: {2: pendlay_row}},
       {m: face_up_incline_knee_raise_d4, reps: [10,15], rule: incline_reduction, assist_level: 10, assist_ladder: [10,5,0]},

@@ -15,9 +15,12 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # Movements intentionally shipped with no baseline (needs-calibration is the
 # correct starting state, not a seed-completeness gap): Leg Curl [GHR]
 # (2026-07-22 Nordic Curl -> Leg Curl swap, D2 d2_t2a) has no prior training
-# history to seed a starting load from.
+# history to seed a starting load from. Standing OHP [PB] (2026-07-23, new
+# D4 d4_t1_ohp slot closing the program's overhead-press gap) is a brand new
+# program movement with zero prior training history either.
 EXPECTED_NEEDS_CAL = {
     "D2 Lower A": {"Leg Curl [GHR]"},
+    "D4 Upper Pull": {"Standing OHP [PB]"},
 }
 
 

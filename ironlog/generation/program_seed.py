@@ -501,9 +501,27 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — Assisted Pull-up (anchor)
-    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=180, shoe="Metcon 9")
-    _add_te(db, t1.id, "d4_t1", "Assisted Pull-up (2-phase)", lib, 1, "anchor",
+    # T1 — Standing Barbell OHP (anchor; 2026-07-23, closes the program's
+    # overhead-pressing gap -- no vertical press existed anywhere in the split
+    # before this, only horizontal pressing (Bench/Incline) and lateral-raise
+    # side-delt work. Placed BEFORE Pull-up (not after, athlete's original
+    # request) because Movement.is_primary=True lifts must precede all
+    # non-primary movements in session order (validator's PRIMARY_NOT_FIRST
+    # rule, session-wide, not tier-label-scoped) -- Pull-up is is_primary=False
+    # (assistance-based), so "Pull-up then OHP" is structurally unassemblable
+    # regardless of tier naming. Athlete confirmed OHP-first for this phase,
+    # intends to revisit ordering (Pull-up first) in a future phase.
+    # slot_id "d4_t1b" (not "d4_t1") is intentional: Pull-up keeps its ORIGINAL
+    # stable slot_id below despite moving to the T1b tier label -- slot_id must
+    # never be reassigned to a different movement (see the T2 GS comment
+    # further down for the same convention applied to an exercise_order swap).
+    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
+    _add_te(db, t1.id, "d4_t1_ohp", "Standing OHP [PB]", lib, 1, "anchor",
+            pattern="vertical_push", rep_low=6, rep_high=8, scheme="STRAIGHT")
+
+    # T1b — Assisted Pull-up (anchor)
+    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=180, shoe="Metcon 9")
+    _add_te(db, t1b.id, "d4_t1", "Assisted Pull-up (2-phase)", lib, 1, "anchor",
             pattern="vertical_pull", rep_low=6, rep_high=8, scheme="REP_RATIO")
 
     # T2 GS — Meadows Row / Face-Up Incline Knee Raise / Single-Arm DB Row
@@ -512,7 +530,7 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # Row's slot, d4_t2c is still Face-Up Knee's slot -- only the exercise_order
     # values are swapped, since slot_id is a stable key elsewhere (overrides,
     # rep-scheme lookups) and shouldn't be reassigned to a different movement.)
-    t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     d4_t2a = _add_te(db, t2.id, "d4_t2a", "Meadows Row", lib, 1, "semi",
                      pattern="horizontal_pull", rep_low=8, rep_high=12,
                      scheme="DOUBLE_PROGRESSION")
@@ -524,7 +542,7 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="core", rep_low=10, rep_high=15)
 
     # T3 GS — DB Rear Delt Fly / Andreoni Cable Pullover / Dragon Flag
-    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
+    t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d4_t3a", "DB Rear Delt Fly", lib, 1, "free",
             pattern="rear_delt", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
