@@ -31,6 +31,43 @@ MINI_SESSIONS = [
     (date(2026, 7, 29), "D5 Lower B", ["Nordic Curl [GHR]"]),
 ]
 
+
+def _copy_planned_exercise(
+    db: Session,
+    group: ExerciseGroup,
+    movement: Movement,
+    source_ex: PlannedExercise,
+    order_index: int,
+) -> None:
+    new_ex = PlannedExercise(
+        group_id=group.id,
+        movement_id=movement.id,
+        order_index=order_index,
+        scheme=source_ex.scheme,
+        objective=source_ex.objective,
+    )
+    db.add(new_ex)
+    db.flush()
+
+    for pset in source_ex.planned_sets:
+        new_pset = PlannedSet(
+            planned_exercise_id=new_ex.id,
+            set_index=pset.set_index,
+            set_role=pset.set_role,
+            is_warmup=pset.is_warmup,
+            target_load=pset.target_load,
+            target_reps_low=pset.target_reps_low,
+            target_reps_high=pset.target_reps_high,
+            target_rpe=pset.target_rpe,
+            target_unassisted_reps=pset.target_unassisted_reps,
+            target_assisted_reps=pset.target_assisted_reps,
+            target_plates=pset.target_plates,
+            band_pair_id=pset.band_pair_id,
+            target_felt_peak=pset.target_felt_peak,
+            band_config=pset.band_config,
+        )
+        db.add(new_pset)
+
 def apply(db: Session, dry_run: bool = False) -> None:
     # Get current phase
     engine_state = db.exec(select(EngineState)).first()
@@ -89,18 +126,9 @@ def apply(db: Session, dry_run: bool = False) -> None:
         db.add(session)
         db.flush()
 
-        group = ExerciseGroup(
-            session_id=session.id,
-            order_index=1,
-            group_type=GroupType.STRAIGHT,
-            rounds=1,
-            rest_seconds=120,
-        )
-        db.add(group)
-        db.flush()
-
         source_session = generated_sources[day_role]
-        
+
+        selected = []
         for p_idx, m_name in enumerate(m_names, 1):
             m = db.exec(select(Movement).where(Movement.name == m_name)).first()
             if not m:
@@ -108,10 +136,12 @@ def apply(db: Session, dry_run: bool = False) -> None:
                 raise ValueError(f"Movement '{m_name}' not found. Did you mean: {fuzzies}?")
             
             source_ex = None
-            for g in source_session.groups:
-                for ex in g.exercises:
+            source_group = None
+            for g in sorted(source_session.groups, key=lambda group: group.order_index):
+                for ex in sorted(g.exercises, key=lambda exercise: exercise.order_index):
                     if ex.movement_id == m.id:
                         source_ex = ex
+                        source_group = g
                         break
                 if source_ex:
                     break
@@ -125,34 +155,78 @@ def apply(db: Session, dry_run: bool = False) -> None:
                             present_names.append(mex.name)
                 raise ValueError(f"Movement '{m_name}' not found in generated source for {day_role}. Present: {present_names}")
 
-            new_ex = PlannedExercise(
-                group_id=group.id,
-                movement_id=m.id,
-                order_index=p_idx,
-                scheme=source_ex.scheme,
-                objective=source_ex.objective,
+            selected.append(
+                {
+                    "movement": m,
+                    "source_ex": source_ex,
+                    "source_group": source_group,
+                    "selected_order": p_idx,
+                }
             )
-            db.add(new_ex)
-            db.flush()
 
-            for pset in source_ex.planned_sets:
-                new_pset = PlannedSet(
-                    planned_exercise_id=new_ex.id,
-                    set_index=pset.set_index,
-                    set_role=pset.set_role,
-                    is_warmup=pset.is_warmup,
-                    target_load=pset.target_load,
-                    target_reps_low=pset.target_reps_low,
-                    target_reps_high=pset.target_reps_high,
-                    target_rpe=pset.target_rpe,
-                    target_unassisted_reps=pset.target_unassisted_reps,
-                    target_assisted_reps=pset.target_assisted_reps,
-                    target_plates=pset.target_plates,
-                    band_pair_id=pset.band_pair_id,
-                    target_felt_peak=pset.target_felt_peak,
-                    band_config=pset.band_config,
+        clusters = {}
+        cluster_order = []
+        for item in selected:
+            cluster_key = id(item["source_group"])
+            if cluster_key not in clusters:
+                clusters[cluster_key] = {
+                    "source_group": item["source_group"],
+                    "items": [],
+                }
+                cluster_order.append(cluster_key)
+            clusters[cluster_key]["items"].append(item)
+
+        group_order = 1
+        for cluster_key in cluster_order:
+            cluster = clusters[cluster_key]
+            source_group = cluster["source_group"]
+            items = cluster["items"]
+
+            if len(items) >= 2 and source_group.group_type == GroupType.GIANT_SET:
+                group = ExerciseGroup(
+                    session_id=session.id,
+                    order_index=group_order,
+                    group_type=GroupType.GIANT_SET,
+                    rounds=source_group.rounds,
+                    rest_seconds=source_group.rest_seconds,
                 )
-                db.add(new_pset)
+                db.add(group)
+                db.flush()
+                for ex_order, item in enumerate(
+                    sorted(items, key=lambda x: x["source_ex"].order_index),
+                    1,
+                ):
+                    _copy_planned_exercise(
+                        db,
+                        group,
+                        item["movement"],
+                        item["source_ex"],
+                        ex_order,
+                    )
+                group_order += 1
+                continue
+
+            for item in sorted(items, key=lambda x: x["selected_order"]):
+                rest_seconds = source_group.rest_seconds
+                if rest_seconds is None:
+                    rest_seconds = 120
+                group = ExerciseGroup(
+                    session_id=session.id,
+                    order_index=group_order,
+                    group_type=GroupType.STRAIGHT,
+                    rounds=1,
+                    rest_seconds=rest_seconds,
+                )
+                db.add(group)
+                db.flush()
+                _copy_planned_exercise(
+                    db,
+                    group,
+                    item["movement"],
+                    item["source_ex"],
+                    1,
+                )
+                group_order += 1
 
         print(f"[{idx}/{len(MINI_SESSIONS)}] created session {session.id} for {day_role} on {sess_date} ({len(m_names)} exercises).")
 
