@@ -119,6 +119,8 @@ def commit_session(
             plates, config = assembled.prospective_ht_setups[mid]
             st.ht_plates = plates             # THE ONLY PLACE generation writes ht_plates
             st.ht_band_config = list(config)  # THE ONLY PLACE generation writes ht_band_config
+            st.pending_ht_plates = None
+            st.pending_ht_band_config = None
         db.add(st)
 
     # Provenance row (Fork 7d)

@@ -214,6 +214,8 @@ class MovementState(SQLModel, table=True):
     ht_plates: Optional[float] = None
     ht_band_pair_id: Optional[int] = Field(default=None, foreign_key="bandpair.id")
     ht_felt_peak: Optional[float] = None
+    pending_ht_plates: Optional[float] = None
+    pending_ht_band_config: Optional[list] = Field(default=None, sa_column=Column(JSON))
 
     # progression engine (v0.6+)
     consecutive_advance_count: int = Field(default=0, sa_column_kwargs={"server_default": text("0")})

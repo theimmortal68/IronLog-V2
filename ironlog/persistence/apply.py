@@ -106,6 +106,9 @@ def apply_analysis(
             # current_load (commit_session remains its sole writer) — it is the
             # additive marker commit_session reads, applies once, and clears.
             state.pending_load_delta = d.pending_load_delta
+        if d.pending_ht_plates is not None:
+            state.pending_ht_plates = d.pending_ht_plates
+            state.pending_ht_band_config = d.pending_ht_band_config
         if d.stall_signal_computed:
             # None is a valid WRITE here (clears the signal on advance) —
             # distinct from every other new_* field's "None = don't touch".

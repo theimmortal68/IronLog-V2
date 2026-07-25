@@ -140,7 +140,7 @@ def test_same_config_felt_peak_floors_next_setup_from_performed_plates(gen_db):
 
     assembled = _assemble_d2(gen_db)
 
-    assert assembled.prospective_ht_setups[hip_thrust.id] == reconciled_next
+    assert assembled.prospective_ht_setups[hip_thrust.id] == (170.0, [red.id])
     ht_sets = _ht_sets(assembled, hip_thrust.id)
     assert ht_sets
     assert all(ps.target_plates == 170.0 for ps in ht_sets)
@@ -161,10 +161,9 @@ def test_different_logged_config_does_not_reconcile(gen_db):
         felt_peak=260.0,
     )
 
-    expected_next = ht_next_setup(165.0, [red.id], _inventory(gen_db))
     assembled = _assemble_d2(gen_db)
 
-    assert assembled.prospective_ht_setups[hip_thrust.id] == expected_next
+    assert assembled.prospective_ht_setups[hip_thrust.id] == (165.0, [red.id])
     ht_sets = _ht_sets(assembled, hip_thrust.id)
     assert ht_sets
     assert all(ps.target_plates == 165.0 for ps in ht_sets)
@@ -177,10 +176,9 @@ def test_no_prior_completed_session_leaves_ht_setup_unchanged(gen_db):
     red = _band(gen_db, "#1 Red")
     _set_current_ht_setup(gen_db, hip_thrust.id, 165.0, [red.id])
 
-    expected_next = ht_next_setup(165.0, [red.id], _inventory(gen_db))
     assembled = _assemble_d2(gen_db)
 
-    assert assembled.prospective_ht_setups[hip_thrust.id] == expected_next
+    assert assembled.prospective_ht_setups[hip_thrust.id] == (165.0, [red.id])
     ht_sets = _ht_sets(assembled, hip_thrust.id)
     assert ht_sets
     assert all(ps.target_plates == 165.0 for ps in ht_sets)

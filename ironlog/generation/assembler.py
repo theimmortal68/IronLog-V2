@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlmodel import Session as DBSession, select
 
 from ..engine.band_composite import (
-    Band, config_peak, ht_next_setup, ht_performed_floor, resolved_band_config,
+    Band, config_peak, ht_performed_floor, resolved_band_config,
 )
 from ..engine.loading import clamp_to_cap, round_to_achievable
 from ..engine.progression import resolve_objective
@@ -458,16 +458,14 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                 db, movement.id, day_role, cur_plates, cur_config, by_id
             )
         if prospective_ht is not None:
-            # Stage the NEXT setup from the REAL (pre-override) current state, so
-            # commit_session advances MovementState AFTER this session is logged —
-            # session N prescribes current, commit moves the state to next, session
-            # N+1 prescribes that next, and so on. A LOAD override is a
-            # prescription-only tweak (Option-C, mirrors _apply_slot_override's own
-            # prospective-captured-before-override pattern above) and must NEVER
-            # leak into the trajectory commit_session persists — applying it here
-            # would compound the override into ht_plates every regeneration cycle,
-            # since an active override has no auto-expiry.
-            next_plates, next_config = ht_next_setup(cur_plates, cur_config, band_inventory)
+            # Use the clean-gated setup staged by run_analysis, if one exists.
+            # Otherwise hold at the current setup; generation no longer computes
+            # unconditional HT advancement.
+            if state is not None and state.pending_ht_plates is not None:
+                next_plates = state.pending_ht_plates
+                next_config = state.pending_ht_band_config or cur_config
+            else:
+                next_plates, next_config = cur_plates, cur_config
             prospective_ht[movement.id] = (next_plates, list(next_config))
         # A LOAD override on this slot bumps HT's PRESCRIBED plates only (the
         # scalar `load` override above was already discarded by

@@ -44,6 +44,8 @@ class AdvanceResult:
     new_duration_seconds: Optional[int] = None
     new_rope: Optional[str] = None
     earned_load_step: Optional[float] = None   # K2: scalar load step earned on a clean advance
+    earned_ht_plates: Optional[float] = None
+    earned_ht_band_config: Optional[list] = None
 
 
 def _clean(perf: SessionPerf) -> bool:
@@ -121,16 +123,22 @@ def _is_ht_composite(movement) -> bool:
             or getattr(movement, "progression_mode", None) == ProgressionMode.COMPOSITE)
 
 
-def _rule_driven(state, perf, movement, window) -> AdvanceResult:
+def _rule_driven(state, perf, movement, window, band_inventory=None) -> AdvanceResult:
     rule = ProgressionRule.RULE_DRIVEN.value
     if _is_ht_composite(movement):
-        # Band-composite HT: the assembler (ht_next_setup, Task 4) resolves the
-        # next (plates, band_config) setup at generation time from ht_plates/
-        # ht_band_config, not from current_load/tier — this rule always no-ops
-        # for COMPOSITE/HIP_THRUST movements, at-cap or not, preserving the
-        # streak rather than resetting or switching rules. One progression
-        # path, not two.
-        return AdvanceResult(False, rule, state.consecutive_advance_count)
+        if not perf.session_performed or not _clean(perf) or band_inventory is None:
+            return AdvanceResult(False, rule, state.consecutive_advance_count)
+        from .band_composite import ht_next_setup
+        next_plates, next_config = ht_next_setup(
+            state.ht_plates, state.ht_band_config or [], band_inventory,
+        )
+        return AdvanceResult(
+            True,
+            rule,
+            0,
+            earned_ht_plates=next_plates,
+            earned_ht_band_config=list(next_config),
+        )
     if _at_cap(state, movement):
         # ceiling reached: hand off to the rep-ladder rule (rep_target seeds
         # to rep_ladder[0] via _rep_ladder's own None-current-target branch);
@@ -296,7 +304,7 @@ _DISPATCH = {
 }
 
 
-def advance(rule, state, perf, movement, confirmation_window) -> AdvanceResult:
+def advance(rule, state, perf, movement, confirmation_window, band_inventory=None) -> AdvanceResult:
     fn = _DISPATCH.get(rule)
     if fn is None:
         # fallback invariant: unknown/unhandled rule -> no change (spec §9).
@@ -305,4 +313,6 @@ def advance(rule, state, perf, movement, confirmation_window) -> AdvanceResult:
         # deferred follow-on), and the apply layer's `if d.active_rule is not
         # None` guard depends on this to correctly skip the write.
         return AdvanceResult(False, None, state.consecutive_advance_count)
+    if rule == ProgressionRule.RULE_DRIVEN:
+        return fn(state, perf, movement, confirmation_window, band_inventory)
     return fn(state, perf, movement, confirmation_window)

@@ -39,10 +39,73 @@ from ironlog.generation.context import resolve_context
 from ironlog.generation.fallback import program_selections
 from ironlog.generation.loop import commit_session
 from ironlog.generation.skeleton import lay_skeleton
+from ironlog.models.enums import (
+    FeedbackTap, GroupType, Objective, Scheme, SessionStatus, SetRole,
+)
 from ironlog.models.library import Movement, MovementState
 from ironlog.models.session import Session as IronSession
+from ironlog.models.session import (
+    ExerciseGroup, PlannedExercise, PlannedSet, SetLog,
+)
+from ironlog.persistence.run_analysis import run_analysis
 
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
+
+
+def _stage_clean_ht_advance(db, movement_id, day_role, plates, config):
+    session = IronSession(
+        date=date(2026, 7, 20),
+        day_role=day_role,
+        phase="CUT",
+        status=SessionStatus.COMPLETED,
+    )
+    db.add(session)
+    db.flush()
+
+    group = ExerciseGroup(
+        session_id=session.id,
+        order_index=0,
+        group_type=GroupType.STRAIGHT,
+        label="T1",
+    )
+    db.add(group)
+    db.flush()
+
+    exercise = PlannedExercise(
+        group_id=group.id,
+        movement_id=movement_id,
+        order_index=0,
+        scheme=Scheme.STRAIGHT,
+        objective=Objective.PROGRESS,
+    )
+    db.add(exercise)
+    db.flush()
+
+    for i in range(3):
+        planned_set = PlannedSet(
+            planned_exercise_id=exercise.id,
+            set_index=i,
+            set_role=SetRole.WORKING,
+            target_reps_low=8,
+            target_reps_high=8,
+            target_rpe=8.0,
+            target_plates=plates,
+            band_config=list(config),
+        )
+        db.add(planned_set)
+        db.flush()
+        db.add(SetLog(
+            planned_set_id=planned_set.id,
+            session_id=session.id,
+            movement_id=movement_id,
+            set_index=i,
+            actual_reps=8,
+            feedback_tap=FeedbackTap.ON_TARGET,
+            actual_plates=plates,
+            is_warmup=False,
+        ))
+    db.commit()
+    run_analysis(session.id, db, WEEK_KEYER)
 
 
 def test_commit_advances_only_the_committing_days_ht_row(gen_db):
@@ -66,6 +129,8 @@ def test_commit_advances_only_the_committing_days_ht_row(gen_db):
         "D5 Lower B": (205.0, [1]),
         "D6 Weak Points": (155.0, [1]),
     }
+
+    _stage_clean_ht_advance(gen_db, ht_mv.id, "D6 Weak Points", 155.0, [1])
 
     sk = lay_skeleton("D6 Weak Points", gen_db)
     ctx = resolve_context("D6 Weak Points", sk, gen_db, WEEK_KEYER)

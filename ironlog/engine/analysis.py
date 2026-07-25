@@ -98,6 +98,8 @@ class MovementStateDelta:
     # from a clean advance. Carried to apply_analysis, which writes it to
     # MovementState.pending_load_delta — NEVER current_load (two-writer boundary).
     pending_load_delta: Optional[float] = None
+    pending_ht_plates: Optional[float] = None
+    pending_ht_band_config: Optional[list] = None
     stall_signal: Optional[dict] = None
     stall_signal_computed: bool = False
 

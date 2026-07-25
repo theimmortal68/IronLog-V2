@@ -25,18 +25,83 @@ at assembler.py:209) without tripping that unrelated, pre-existing gap.
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
 """
+from datetime import date
+
 from sqlmodel import select
 
+from ironlog.engine.band_composite import Band
 from ironlog.generation.assembler import assemble
 from ironlog.generation.baseline_seed import seed_movement_baselines
 from ironlog.generation.context import resolve_context
 from ironlog.generation.fallback import program_selections
 from ironlog.generation.skeleton import lay_skeleton
-from ironlog.engine.band_composite import Band
+from ironlog.models.enums import (
+    FeedbackTap, GroupType, Objective, Scheme, SessionStatus, SetRole,
+)
 from ironlog.models.library import BandPair, Movement, MovementState
 from ironlog.models.program import TierExercise
+from ironlog.models.session import (
+    ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog,
+)
+from ironlog.persistence.run_analysis import run_analysis
 
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
+
+
+def _stage_clean_ht_advance(db, movement_id, day_role, plates, config):
+    session = IronSession(
+        date=date(2026, 7, 20),
+        day_role=day_role,
+        phase="CUT",
+        status=SessionStatus.COMPLETED,
+    )
+    db.add(session)
+    db.flush()
+
+    group = ExerciseGroup(
+        session_id=session.id,
+        order_index=0,
+        group_type=GroupType.STRAIGHT,
+        label="T1",
+    )
+    db.add(group)
+    db.flush()
+
+    exercise = PlannedExercise(
+        group_id=group.id,
+        movement_id=movement_id,
+        order_index=0,
+        scheme=Scheme.STRAIGHT,
+        objective=Objective.PROGRESS,
+    )
+    db.add(exercise)
+    db.flush()
+
+    for i in range(3):
+        planned_set = PlannedSet(
+            planned_exercise_id=exercise.id,
+            set_index=i,
+            set_role=SetRole.WORKING,
+            target_reps_low=8,
+            target_reps_high=8,
+            target_rpe=8.0,
+            target_plates=plates,
+            band_config=list(config),
+        )
+        db.add(planned_set)
+        db.flush()
+        db.add(SetLog(
+            planned_set_id=planned_set.id,
+            session_id=session.id,
+            movement_id=movement_id,
+            set_index=i,
+            actual_reps=8,
+            feedback_tap=FeedbackTap.ON_TARGET,
+            actual_plates=plates,
+            is_warmup=False,
+        ))
+    db.commit()
+    run_analysis(session.id, db, WEEK_KEYER)
 
 
 def test_ht_load_is_day_scoped(gen_db):
@@ -67,8 +132,9 @@ def test_ht_load_is_day_scoped(gen_db):
     # planned sets — no auto-advance at prescription (2026-07-06 athlete
     # directive: Week 1 shows exactly the seeded setup). So the prescribed plates
     # equal the seeded baselines verbatim: D2=205, D5=205, D6=155, all still on
-    # Orange. Advancement is STAGED for commit in prospective_ht_setups (the
-    # ht_next_setup values), checked separately below.
+    # Orange. A clean analyzed session for the same day STAGES the next setup
+    # for commit in prospective_ht_setups (the ht_next_setup values), checked
+    # separately below.
     #
     # The prospective (next) setup is NOT a flat +5: ht_next_setup first tries
     # raising plates by one plate_step (5 lb) within the current band config, but
@@ -92,6 +158,7 @@ def test_ht_load_is_day_scoped(gen_db):
         ("D5 Lower B", 205, 165),
         ("D6 Weak Points", 155, 160),
     ]:
+        _stage_clean_ht_advance(gen_db, ht_movement.id, role, cur_plates, [1])
         sk = lay_skeleton(role, gen_db)
         ctx = resolve_context(role, sk, gen_db, WEEK_KEYER)
         sel = program_selections(sk)

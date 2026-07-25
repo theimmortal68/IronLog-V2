@@ -20,6 +20,7 @@ from sqlmodel import Session as DBSession
 from sqlmodel import col, select
 
 from ..engine.advance import SessionPerf, advance, performed_assist_floor, performed_floor_delta, roll_unassisted_max
+from ..engine.band_composite import Band
 from ..engine.analysis import (
     AnalysisContext,
     AnalysisResult,
@@ -34,7 +35,10 @@ from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal, detect_stall, compute_growth_rate, compute_lagging
 from ..generation.load_trust import load_field_for_mode
 from ..models.enums import CalibrationStatus, LiftCategory, Objective, ProgressionRule
-from ..models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy, DailyReadiness, GoalSettings, MovementWeaknessSignal
+from ..models.library import (
+    BandPair, DailyReadiness, E1rmHistory, EngineState, GoalSettings, Movement,
+    MovementState, MovementWeaknessSignal, PhasePolicy,
+)
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
 )
@@ -300,6 +304,8 @@ def run_analysis(
     phase_default = db.exec(
         select(PhasePolicy).where(PhasePolicy.phase == phase)
     ).one().default_objective
+    band_inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
+                      for bp in db.exec(select(BandPair)).all()]
 
     set_logs = db.exec(
         select(SetLog).where(SetLog.session_id == session_id)
@@ -474,7 +480,14 @@ def run_analysis(
                 if reconciled != state.assist_level:
                     state.assist_level = reconciled
             window = _confirmation_window(db, mid, set_logs, planned_sets)
-            adv = advance(movement.progression_rule, state, perf, movement, window)
+            adv = advance(
+                movement.progression_rule,
+                state,
+                perf,
+                movement,
+                window,
+                band_inventory=band_inventory,
+            )
 
             new_unassisted_max_rolling = None
             if perf.unassisted_set1_reps is not None:
@@ -513,6 +526,9 @@ def run_analysis(
                 d.new_rep_target = adv.new_rep_target
             if adv.new_body_position is not None:
                 d.new_body_position = adv.new_body_position
+            if adv.earned_ht_plates is not None:
+                d.pending_ht_plates = adv.earned_ht_plates
+                d.pending_ht_band_config = adv.earned_ht_band_config
             # L: never let the next prescription regress below what was actually
             # performed this session. Scoped to movements whose load field is
             # current_load (review finding: progression_mode == LADDER alone let a

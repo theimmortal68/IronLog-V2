@@ -33,11 +33,68 @@ from ironlog.generation.proposer import StubProposer
 from ironlog.generation.repair import build_validation_context
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.engine.validator import RuleCode, validate
-from ironlog.models.enums import GroupType, Objective, Scheme, SetRole
+from ironlog.models.enums import FeedbackTap, GroupType, Objective, Scheme, SessionStatus, SetRole
 from ironlog.models.library import BandPair, Movement
-from ironlog.models.session import ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession
+from ironlog.models.session import ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog
+from ironlog.persistence.run_analysis import run_analysis
 
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
+
+
+def _stage_clean_ht_advance(db, movement_id, day_role, plates, config, week_keyer):
+    session = IronSession(
+        date=date(2026, 7, 20),
+        day_role=day_role,
+        phase="CUT",
+        status=SessionStatus.COMPLETED,
+    )
+    db.add(session)
+    db.flush()
+
+    group = ExerciseGroup(
+        session_id=session.id,
+        order_index=0,
+        group_type=GroupType.STRAIGHT,
+        label="T1",
+    )
+    db.add(group)
+    db.flush()
+
+    exercise = PlannedExercise(
+        group_id=group.id,
+        movement_id=movement_id,
+        order_index=0,
+        scheme=Scheme.STRAIGHT,
+        objective=Objective.PROGRESS,
+    )
+    db.add(exercise)
+    db.flush()
+
+    for i in range(3):
+        planned_set = PlannedSet(
+            planned_exercise_id=exercise.id,
+            set_index=i,
+            set_role=SetRole.WORKING,
+            target_reps_low=8,
+            target_reps_high=8,
+            target_rpe=8.0,
+            target_plates=plates,
+            band_config=list(config),
+        )
+        db.add(planned_set)
+        db.flush()
+        db.add(SetLog(
+            planned_set_id=planned_set.id,
+            session_id=session.id,
+            movement_id=movement_id,
+            set_index=i,
+            actual_reps=8,
+            feedback_tap=FeedbackTap.ON_TARGET,
+            actual_plates=plates,
+            is_warmup=False,
+        ))
+    db.commit()
+    run_analysis(session.id, db, week_keyer)
 
 
 def test_banded_ht_generates_valid_all_days(gen_db):
@@ -129,7 +186,7 @@ def test_week1_prescribes_seeded_current_setup(gen_db):
 
 
 def test_commit_advances_ht_state(gen_db):
-    """Advancement happens at COMMIT, not at prescription: for a generated Week-1
+    """Advancement is gated on a clean analyzed session (staged via pending_ht_plates), then persisted at commit — not unconditional at every commit: for a generated Week-1
     banded-HT session, the assembler STAGES ht_next_setup(seeded) as the
     prospective HT setup, and commit_session persists exactly that staged next
     setup — so the state moves forward one step and the NEXT session prescribes
@@ -155,14 +212,16 @@ def test_commit_advances_ht_state(gen_db):
                  for bp in gen_db.exec(select(BandPair)).all()]
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
 
+    ht_mv = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+
+    _stage_clean_ht_advance(gen_db, ht_mv.id, "D2 Lower A", 205.0, [orange.id], WEEK_KEYER)
+
     sk = lay_skeleton("D2 Lower A", gen_db)
     stub = StubProposer(program_selections(sk))
     outcome = generate_session("D2 Lower A", gen_db, stub, WEEK_KEYER)
     assert outcome.assembled is not None, "D2 Lower A: no assembled session"
-
-    ht_mv = gen_db.exec(
-        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
-    ).one()
 
     # The assembler STAGES the advanced (next) setup as prospective, even though
     # it PRESCRIBED the current seeded setup on the planned sets.
@@ -342,6 +401,8 @@ def test_load_override_does_not_compound_into_committed_ht_plates(gen_db):
 
     ht_mv = gen_db.exec(select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")).one()
 
+    _stage_clean_ht_advance(gen_db, ht_mv.id, "D5 Lower B", 205.0, [orange.id], WEEK_KEYER)
+
     # Cycle 1: generate + commit D5 (override active throughout).
     sk = lay_skeleton("D5 Lower B", gen_db)
     stub = StubProposer(program_selections(sk))
@@ -366,6 +427,7 @@ def test_load_override_does_not_compound_into_committed_ht_plates(gen_db):
     )
 
     # Cycle 2: generate + commit D5 AGAIN, override STILL active (no auto-expiry).
+    _stage_clean_ht_advance(gen_db, ht_mv.id, "D5 Lower B", true_step1_plates, true_step1_config, WEEK_KEYER)
     sk2 = lay_skeleton("D5 Lower B", gen_db)
     stub2 = StubProposer(program_selections(sk2))
     outcome2 = generate_session("D5 Lower B", gen_db, stub2, WEEK_KEYER)

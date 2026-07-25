@@ -19,6 +19,8 @@ Named tests:
 NO from __future__ import annotations (project-wide constraint).
 gen_db / gen_db_calibrated fixtures auto-discovered from conftest.py.
 """
+from datetime import date
+
 from sqlmodel import select
 
 from ironlog.engine.advance import advance, SessionPerf
@@ -28,9 +30,15 @@ from ironlog.generation.context import resolve_context
 from ironlog.generation.fallback import program_selections
 from ironlog.generation.loop import commit_session
 from ironlog.generation.skeleton import lay_skeleton
-from ironlog.models.enums import LiftCategory, ProgressionMode, ProgressionRule
+from ironlog.models.enums import (
+    FeedbackTap, GroupType, LiftCategory, Objective, ProgressionMode,
+    ProgressionRule, Scheme, SessionStatus, SetRole,
+)
 from ironlog.models.library import BandPair, Movement, MovementState
-from ironlog.models.session import PlannedSet
+from ironlog.models.session import (
+    ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog,
+)
+from ironlog.persistence.run_analysis import run_analysis
 
 
 def _first_ht_working_set(assembled) -> PlannedSet:
@@ -55,6 +63,62 @@ def _planned_sets_for_movement(assembled, movement_id):
     return out
 
 
+def _stage_clean_ht_advance(db, movement_id, day_role, plates, config, week_keyer):
+    session = IronSession(
+        date=date(2026, 7, 20),
+        day_role=day_role,
+        phase="CUT",
+        status=SessionStatus.COMPLETED,
+    )
+    db.add(session)
+    db.flush()
+
+    group = ExerciseGroup(
+        session_id=session.id,
+        order_index=0,
+        group_type=GroupType.STRAIGHT,
+        label="T1",
+    )
+    db.add(group)
+    db.flush()
+
+    exercise = PlannedExercise(
+        group_id=group.id,
+        movement_id=movement_id,
+        order_index=0,
+        scheme=Scheme.STRAIGHT,
+        objective=Objective.PROGRESS,
+    )
+    db.add(exercise)
+    db.flush()
+
+    for i in range(3):
+        planned_set = PlannedSet(
+            planned_exercise_id=exercise.id,
+            set_index=i,
+            set_role=SetRole.WORKING,
+            target_reps_low=8,
+            target_reps_high=8,
+            target_rpe=8.0,
+            target_plates=plates,
+            band_config=list(config),
+        )
+        db.add(planned_set)
+        db.flush()
+        db.add(SetLog(
+            planned_set_id=planned_set.id,
+            session_id=session.id,
+            movement_id=movement_id,
+            set_index=i,
+            actual_reps=8,
+            feedback_tap=FeedbackTap.ON_TARGET,
+            actual_plates=plates,
+            is_warmup=False,
+        ))
+    db.commit()
+    run_analysis(session.id, db, week_keyer)
+
+
 # ---------------------------------------------------------------------------
 # 1. assembler HT slot
 # ---------------------------------------------------------------------------
@@ -62,6 +126,20 @@ def _planned_sets_for_movement(assembled, movement_id):
 def test_assembled_ht_carries_plates_and_config(gen_db_calibrated):
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    ht_mv = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+    st = gen_db.exec(
+        select(MovementState).where(MovementState.movement_id == ht_mv.id)
+    ).one()
+    st.ht_plates = st.ht_plates if st.ht_plates is not None else st.current_load
+    st.ht_band_config = st.ht_band_config if st.ht_band_config is not None else []
+    gen_db.add(st)
+    gen_db.commit()
+    _stage_clean_ht_advance(
+        gen_db, ht_mv.id, "D2 Lower A", st.ht_plates, st.ht_band_config, wk,
+    )
+
     sk = lay_skeleton("D2 Lower A", gen_db)
     ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
     sel = program_selections(sk)
@@ -83,14 +161,8 @@ def test_assembled_ht_carries_plates_and_config(gen_db_calibrated):
         peak_by_id[b] for b in ht_set.band_config
     )
 
-    # Prescribe-current semantics (2026-07-06 athlete directive): the planned set
-    # carries the CURRENT setup, while the prospective staged for commit is the
-    # NEXT setup (ht_next_setup of the prescribed current) — advancement is timed
-    # at commit, not prescription. So prospective == ht_next_setup(current) and
-    # strictly advances past the prescribed current.
-    ht_mv = gen_db.exec(
-        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
-    ).one()
+    # Prescribe-current semantics: the planned set carries the CURRENT setup,
+    # while the clean analyzed prior session staged the NEXT setup for commit.
     inv = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
            for bp in gen_db.exec(select(BandPair)).all()]
     expected_next = ht_next_setup(ht_set.target_plates, list(ht_set.band_config), inv)
@@ -278,6 +350,10 @@ def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
     gen_db.commit()
 
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    _stage_clean_ht_advance(
+        gen_db, ht_mv.id, "D2 Lower A", 180.0, [orange.id], wk,
+    )
+
     sk = lay_skeleton("D2 Lower A", gen_db)
     ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
     sel = program_selections(sk)
