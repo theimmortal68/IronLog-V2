@@ -26,7 +26,10 @@ from ..models.enums import (
     GroupType, LiftCategory, ProgressionMode, ProgressionRule, Scheme,
     SessionStatus, SetRole,
 )
-from ..models.library import BandPair, EngineState, Equipment, Movement, MovementState
+from ..models.library import (
+    BandPair, EngineState, Equipment, HtProgressionState, Movement,
+    MovementState,
+)
 from ..models.program import DayFinisher, ProgramDay, Tier, TierExercise
 from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet, SetLog
 from ..models.session import Session as WorkoutSession
@@ -45,6 +48,8 @@ class AssembledSession:
     # Mirrors prospective_current_loads: computed here, written only by
     # commit_session at approval (Option-C two-writer boundary).
     prospective_ht_setups: Dict[int, Tuple[float, list]] = field(default_factory=dict)
+    # Unified HT prospective setup — (movement_id, unified_ht_group) -> (plates, config).
+    prospective_ht_unified: Dict[Tuple[int, str], Tuple[float, list]] = field(default_factory=dict)
     warmup: Optional[Dict[str, Any]] = None
     finisher: Optional[Dict[str, Any]] = None
 
@@ -351,6 +356,25 @@ def _resolve_ht_current_setup(state: Optional[MovementState], load: Optional[flo
     return plates, config
 
 
+def _resolve_unified_ht_state(
+    db: DBSession,
+    movement_id: int,
+    unified_ht_group: str,
+) -> HtProgressionState:
+    state = db.exec(
+        select(HtProgressionState).where(
+            HtProgressionState.movement_id == movement_id,
+            HtProgressionState.unified_ht_group == unified_ht_group,
+        )
+    ).first()
+    if state is None:
+        raise ValueError(
+            "missing HtProgressionState for unified HT slot "
+            f"movement_id={movement_id} unified_ht_group={unified_ht_group!r}"
+        )
+    return state
+
+
 def _reconcile_ht_performed_floor(db: DBSession, movement_id: int, day_role: str,
                                    cur_plates: float, cur_config: list, by_id: dict) -> float:
     """Floor cur_plates to the last completed same-role felt_peak when the
@@ -401,6 +425,7 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                     rpe_cap: Optional[float] = None,
                     band_inventory: Optional[List[Band]] = None,
                     prospective_ht: Optional[Dict[int, Tuple[float, list]]] = None,
+                    prospective_ht_unified: Optional[Dict[Tuple[int, str], Tuple[float, list]]] = None,
                     tier_exercise_id: Optional[int] = None) -> PlannedExercise:
     """Resolve load, compute sets, collect prospective load. Does NOT write DB."""
     state = ctx.movement_states.get(movement.id)
@@ -449,24 +474,54 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
         ]
         sets = ramp_sets + sets
 
-    has_current_ht_setup = base is not None or (state is not None and state.ht_plates is not None)
+    tier_exercise = db.get(TierExercise, tier_exercise_id) if tier_exercise_id is not None else None
+    unified_ht_group = (
+        tier_exercise.unified_ht_group
+        if tier_exercise is not None and tier_exercise.unified_ht_group is not None
+        else None
+    )
+    has_current_ht_setup = (
+        unified_ht_group is not None
+        or base is not None
+        or (state is not None and state.ht_plates is not None)
+    )
     if _is_ht_movement(movement) and band_inventory is not None and has_current_ht_setup:
-        cur_plates, cur_config = _resolve_ht_current_setup(state, load)
         by_id = {b.id: b for b in band_inventory}
-        if state is not None:
+        if unified_ht_group is not None:
+            ht_state = _resolve_unified_ht_state(db, movement.id, unified_ht_group)
+            cur_plates = ht_state.ht_plates
+            cur_config = list(ht_state.ht_band_config or [])
             cur_plates = _reconcile_ht_performed_floor(
                 db, movement.id, day_role, cur_plates, cur_config, by_id
             )
-        if prospective_ht is not None:
-            # Use the clean-gated setup staged by run_analysis, if one exists.
-            # Otherwise hold at the current setup; generation no longer computes
-            # unconditional HT advancement.
-            if state is not None and state.pending_ht_plates is not None:
-                next_plates = state.pending_ht_plates
-                next_config = state.pending_ht_band_config or cur_config
-            else:
-                next_plates, next_config = cur_plates, cur_config
-            prospective_ht[movement.id] = (next_plates, list(next_config))
+            if prospective_ht_unified is not None:
+                # Use the clean-gated setup staged on the unified row, if one
+                # exists. Otherwise hold at the current unified setup.
+                if ht_state.pending_ht_plates is not None:
+                    next_plates = ht_state.pending_ht_plates
+                    next_config = ht_state.pending_ht_band_config or cur_config
+                else:
+                    next_plates, next_config = cur_plates, cur_config
+                prospective_ht_unified[(movement.id, unified_ht_group)] = (
+                    next_plates,
+                    list(next_config),
+                )
+        else:
+            cur_plates, cur_config = _resolve_ht_current_setup(state, load)
+            if state is not None:
+                cur_plates = _reconcile_ht_performed_floor(
+                    db, movement.id, day_role, cur_plates, cur_config, by_id
+                )
+            if prospective_ht is not None:
+                # Use the clean-gated setup staged by run_analysis, if one exists.
+                # Otherwise hold at the current setup; generation no longer computes
+                # unconditional HT advancement.
+                if state is not None and state.pending_ht_plates is not None:
+                    next_plates = state.pending_ht_plates
+                    next_config = state.pending_ht_band_config or cur_config
+                else:
+                    next_plates, next_config = cur_plates, cur_config
+                prospective_ht[movement.id] = (next_plates, list(next_config))
         # A LOAD override on this slot bumps HT's PRESCRIBED plates only (the
         # scalar `load` override above was already discarded by
         # _resolve_ht_current_setup once ht_plates was set -- apply it exactly
@@ -523,6 +578,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
     )
     prospective: Dict[int, float] = {}
     prospective_ht: Dict[int, Tuple[float, list]] = {}
+    prospective_ht_unified: Dict[Tuple[int, str], Tuple[float, list]] = {}
     order = 0
 
     # 1) Anchor movements — STRAIGHT groups, T1 ordering
@@ -541,6 +597,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                              rep_low=meta.rep_low, rep_high=meta.rep_high,
                              rpe_cap=meta.rpe_cap,
                              band_inventory=band_inventory, prospective_ht=prospective_ht,
+                             prospective_ht_unified=prospective_ht_unified,
                              tier_exercise_id=meta.tier_exercise_id)
         group.exercises.append(ex)
         session.groups.append(group)
@@ -586,6 +643,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
                                  band_inventory=band_inventory, prospective_ht=prospective_ht,
+                                 prospective_ht_unified=prospective_ht_unified,
                                  tier_exercise_id=slot.tier_exercise_id)
             gg.exercises.append(ex)
         else:
@@ -603,6 +661,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
                                  band_inventory=band_inventory, prospective_ht=prospective_ht,
+                                 prospective_ht_unified=prospective_ht_unified,
                                  tier_exercise_id=slot.tier_exercise_id)
             group.exercises.append(ex)
             straight_groups.append(group)
@@ -630,5 +689,6 @@ def assemble(selections: Selections, skeleton: Skeleton,
 
     return AssembledSession(session=session, prospective_current_loads=prospective,
                             prospective_ht_setups=prospective_ht,
+                            prospective_ht_unified=prospective_ht_unified,
                             warmup=warmup,
                             finisher=finisher)

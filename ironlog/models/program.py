@@ -93,6 +93,7 @@ class TierExercise(SQLModel, table=True):
     rep_high: Optional[int] = None
     rpe_cap: Optional[float] = None
     scheme: Optional[str] = None   # e.g. "TOPSET_BACKOFF", "DOUBLE_PROGRESSION"
+    unified_ht_group: Optional[str] = None
 
 
 class MesoRotation(SQLModel, table=True):

@@ -14,6 +14,7 @@ the analyzers are data-starved — this is correct, not broken.
 import logging
 from collections import defaultdict
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 from typing import Callable, Hashable, List
 
 from sqlmodel import Session as DBSession
@@ -34,11 +35,14 @@ from ..engine.e1rm import implied_rir
 from ..engine.progression import resolve_objective
 from ..engine.stall import STALL_WINDOW, build_stall_signal, detect_stall, compute_growth_rate, compute_lagging
 from ..generation.load_trust import load_field_for_mode
-from ..models.enums import CalibrationStatus, LiftCategory, Objective, ProgressionRule
+from ..models.enums import (
+    CalibrationStatus, LiftCategory, Objective, ProgressionMode, ProgressionRule,
+)
 from ..models.library import (
     BandPair, DailyReadiness, E1rmHistory, EngineState, GoalSettings, Movement,
-    MovementState, MovementWeaknessSignal, PhasePolicy,
+    HtProgressionState, MovementState, MovementWeaknessSignal, PhasePolicy,
 )
+from ..models.program import ProgramDay, Tier, TierExercise
 from ..models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
 )
@@ -147,6 +151,76 @@ def _resolve_movement_state(db: DBSession, movement_id: int, day_id: str) -> Mov
     db.add(fresh)
     db.flush()
     return fresh
+
+
+def _is_ht_movement(movement: Movement) -> bool:
+    return (
+        movement.lift_category == LiftCategory.HIP_THRUST
+        or movement.progression_mode == ProgressionMode.COMPOSITE
+    )
+
+
+def _tier_exercise_for_session_movement(
+    db: DBSession,
+    workout: WorkoutSession,
+    movement_id: int,
+) -> Optional[TierExercise]:
+    program_day_id = (workout.signature or {}).get("program_day_id")
+    stmt = select(TierExercise).join(Tier)
+    if program_day_id is not None:
+        stmt = stmt.where(Tier.program_day_id == program_day_id)
+    else:
+        stmt = (
+            stmt.join(ProgramDay, ProgramDay.id == Tier.program_day_id)
+            .where(ProgramDay.day_role == workout.day_role)
+        )
+    rows = db.exec(
+        stmt.where(TierExercise.movement_id == movement_id)
+        .order_by(Tier.tier_order, TierExercise.exercise_order)
+    ).all()
+    unified_rows = [te for te in rows if te.unified_ht_group is not None]
+    if unified_rows:
+        return unified_rows[0]
+    return rows[0] if rows else None
+
+
+def _resolve_unified_ht_progression_state(
+    db: DBSession,
+    workout: WorkoutSession,
+    movement: Movement,
+) -> Tuple[Optional[str], Optional[HtProgressionState]]:
+    if not _is_ht_movement(movement):
+        return None, None
+    tier_exercise = _tier_exercise_for_session_movement(db, workout, movement.id)
+    if tier_exercise is None or tier_exercise.unified_ht_group is None:
+        return None, None
+    unified_ht_group = tier_exercise.unified_ht_group
+    ht_state = db.exec(
+        select(HtProgressionState).where(
+            HtProgressionState.movement_id == movement.id,
+            HtProgressionState.unified_ht_group == unified_ht_group,
+        )
+    ).first()
+    if ht_state is None:
+        raise ValueError(
+            "missing HtProgressionState for unified HT analysis "
+            f"session_id={workout.id} day_role={workout.day_role!r} "
+            f"movement_id={movement.id} unified_ht_group={unified_ht_group!r}"
+        )
+    return unified_ht_group, ht_state
+
+
+def _state_for_ht_advance(
+    movement_state: MovementState,
+    ht_state: Optional[HtProgressionState],
+):
+    if ht_state is None:
+        return movement_state
+    return SimpleNamespace(
+        consecutive_advance_count=movement_state.consecutive_advance_count,
+        ht_plates=ht_state.ht_plates,
+        ht_band_config=list(ht_state.ht_band_config or []),
+    )
 
 
 def _build_session_perf(mid: int, movement: Movement, set_logs: List[SetLog],
@@ -473,6 +547,8 @@ def run_analysis(
         try:
             original_assist_level = state.assist_level
             perf = _build_session_perf(mid, movement, set_logs, planned_sets)
+            unified_group, ht_state = _resolve_unified_ht_progression_state(db, workout, movement)
+            advance_state = _state_for_ht_advance(state, ht_state)
             if (movement.progression_rule in (ProgressionRule.INCLINE_REDUCTION.value, ProgressionRule.ASSISTANCE_REDUCTION.value)
                     and movement.assist_ladder):
                 clean_values = _clean_performed_assist_values(mid, set_logs, planned_sets)
@@ -482,7 +558,7 @@ def run_analysis(
             window = _confirmation_window(db, mid, set_logs, planned_sets)
             adv = advance(
                 movement.progression_rule,
-                state,
+                advance_state,
                 perf,
                 movement,
                 window,
@@ -529,6 +605,7 @@ def run_analysis(
             if adv.earned_ht_plates is not None:
                 d.pending_ht_plates = adv.earned_ht_plates
                 d.pending_ht_band_config = adv.earned_ht_band_config
+                d.pending_ht_unified_group = unified_group
             # L: never let the next prescription regress below what was actually
             # performed this session. Scoped to movements whose load field is
             # current_load (review finding: progression_mode == LADDER alone let a

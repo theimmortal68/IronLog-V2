@@ -22,7 +22,7 @@ from sqlmodel import Session, select
 
 from ..engine.analysis import AnalysisResult
 from ..models.enums import CalibrationStatus, Phase
-from ..models.library import E1rmHistory, MovementState
+from ..models.library import E1rmHistory, HtProgressionState, MovementState
 
 
 def apply_analysis(
@@ -107,8 +107,19 @@ def apply_analysis(
             # additive marker commit_session reads, applies once, and clears.
             state.pending_load_delta = d.pending_load_delta
         if d.pending_ht_plates is not None:
-            state.pending_ht_plates = d.pending_ht_plates
-            state.pending_ht_band_config = d.pending_ht_band_config
+            if d.pending_ht_unified_group is not None:
+                ht_row = db.exec(
+                    select(HtProgressionState).where(
+                        HtProgressionState.movement_id == d.movement_id,
+                        HtProgressionState.unified_ht_group == d.pending_ht_unified_group,
+                    )
+                ).one()
+                ht_row.pending_ht_plates = d.pending_ht_plates
+                ht_row.pending_ht_band_config = d.pending_ht_band_config
+                db.add(ht_row)
+            else:
+                state.pending_ht_plates = d.pending_ht_plates
+                state.pending_ht_band_config = d.pending_ht_band_config
         if d.stall_signal_computed:
             # None is a valid WRITE here (clears the signal on advance) —
             # distinct from every other new_* field's "None = don't touch".

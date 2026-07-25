@@ -186,6 +186,27 @@ class GoalSettings(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class HtProgressionState(SQLModel, table=True):
+    """Day-independent Hip Thrust progression, decoupled from the (movement_id,
+    day_id) composite key every other MovementState field uses. One row per
+    (movement_id, unified_ht_group) -- NOT one row per HT movement_id alone,
+    so a future second unified group (if ever needed) has a place to live
+    without colliding with this one. D6's Hip Thrust slot is a deliberately-
+    scaled, different-rep-scheme variant and is NEVER represented here --
+    its TierExercise.unified_ht_group stays NULL, and it keeps using its own
+    day-scoped MovementState.ht_plates row exactly as today."""
+    __table_args__ = (UniqueConstraint("movement_id", "unified_ht_group"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    movement_id: int = Field(foreign_key="movement.id")
+    unified_ht_group: str
+    ht_plates: float
+    ht_band_config: list = Field(sa_column=Column(JSON, nullable=False))
+    pending_ht_plates: Optional[float] = None
+    pending_ht_band_config: Optional[list] = Field(default=None, sa_column=Column(JSON))
+    calibration_status: CalibrationStatus = CalibrationStatus.MEASURED
+
+
 class MovementState(SQLModel, table=True):
     """Per-movement dynamic state."""
     __table_args__ = (UniqueConstraint("movement_id", "day_id", name="uq_movementstate_movement_day"),)

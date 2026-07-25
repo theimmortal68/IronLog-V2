@@ -100,6 +100,7 @@ class MovementStateDelta:
     pending_load_delta: Optional[float] = None
     pending_ht_plates: Optional[float] = None
     pending_ht_band_config: Optional[list] = None
+    pending_ht_unified_group: Optional[str] = None
     stall_signal: Optional[dict] = None
     stall_signal_computed: bool = False
 

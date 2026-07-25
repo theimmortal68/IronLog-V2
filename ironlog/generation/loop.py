@@ -17,10 +17,10 @@ NO from __future__ import annotations (project-wide constraint).
 from datetime import datetime
 from typing import Callable, List
 
-from sqlmodel import Session as DBSession
+from sqlmodel import Session as DBSession, select
 
 from ..models.enums import SessionStatus
-from ..models.library import GenerationLog
+from ..models.library import GenerationLog, HtProgressionState
 from ..models.session import Session
 from ..persistence.run_analysis import _resolve_movement_state
 from .assembler import AssembledSession, assemble
@@ -122,6 +122,19 @@ def commit_session(
             st.pending_ht_plates = None
             st.pending_ht_band_config = None
         db.add(st)
+
+    for (mid, group), (plates, config) in assembled.prospective_ht_unified.items():
+        ht_row = db.exec(
+            select(HtProgressionState).where(
+                HtProgressionState.movement_id == mid,
+                HtProgressionState.unified_ht_group == group,
+            )
+        ).one()
+        ht_row.ht_plates = plates             # THE ONLY PLACE generation writes ht_plates for a unified group
+        ht_row.ht_band_config = list(config)  # THE ONLY PLACE generation writes ht_band_config for a unified group
+        ht_row.pending_ht_plates = None
+        ht_row.pending_ht_band_config = None
+        db.add(ht_row)
 
     # Provenance row (Fork 7d)
     db.add(GenerationLog(
