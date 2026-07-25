@@ -10,7 +10,7 @@ def apply(db: Session) -> None:
     # 1. Find D2 and D5 Hip Thrust TierExercise rows
     stmt = (
         select(TierExercise, ProgramDay.day_role)
-        .join(Tier)
+        .join(Tier, Tier.id == TierExercise.tier_id)
         .join(ProgramDay, ProgramDay.id == Tier.program_day_id)
         .join(Movement, Movement.id == TierExercise.movement_id)
         .where(
