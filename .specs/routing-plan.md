@@ -229,3 +229,19 @@ Delegation ratio: 1/1 (100%)
 Merge order: wt-48 standalone.
 
 **Assist-ladder reconciliation feature is server-complete** — the deferred sibling to spec 47 (HT) is now shipped, closing out the last item from tonight's "self-selected deviation from prescription" investigation thread.
+
+## 2026-07-24 batch: HT clean-advance gating + D2/D5 unification (design approved via brainstorming, docs/superpowers/specs/2026-07-24-ht-clean-advance-and-unification-design.md)
+
+Found live tonight: HT's plates advance is unconditional at approval time (zero performance gating, unlike every other progression rule), and D2/D5 track Hip Thrust as two independent progressions despite being structurally identical slots (D6 stays independent by design — a deliberately-scaled, higher-rep variant). Two sequential specs; staged during the athlete's workout, dispatched after ("workout ended").
+
+- `.specs/49-ht-clean-advance-gating.md` → codex, worktree wt-49, depends on: none. Gates HT's advance on a clean 3x8 (mirrors the existing K2 `pending_load_delta` pattern: staged at analysis time, consumed once at next commit, cleared after). **Correction to the design doc**: it claimed "no schema change" for this spec — wrong, staging `pending_ht_plates`/`pending_ht_band_config` on `MovementState` needs two new columns (mirrors the real, persisted `pending_load_delta` column). **Schema change — HUMAN GATE required at dispatch and merge.**
+- `.specs/50-ht-d2-d5-unification.md` → codex, worktree wt-50, depends on: 49 merged (its `HtProgressionState.pending_ht_plates`/`pending_ht_band_config` fields and the branching logic extend spec 49's staging mechanism — building this first would leave the unified table's pending fields dead code). New day-independent `HtProgressionState` table + `TierExercise.unified_ht_group` column + a one-off idempotent Python backfill script (not a raw-SQL data migration, matching this repo's established schema-vs-data-migration convention) seeding the initial row from the more-advanced (by `config_peak`, not raw plates) of D2's/D5's current live values. **Schema change — HUMAN GATE required at dispatch and merge.**
+
+Delegation ratio: 2/2 (100%)
+Merge order: 49 → 50, strictly sequential.
+
+Notes:
+- **Both specs require HUMAN GATE** — this is a 2-for-2 schema-touching batch, unusual for this session (most batches have had 1-2 gated specs out of 4+). Both gates apply independently at dispatch AND at merge, per the established two-gate pattern.
+- **Opus review**: route both through unconditionally — spec 49 touches the HT write-boundary invariant (Option-C) directly; spec 50 touches an even more invariant-adjacent concern (decoupling a MovementState field from the day-scoping pattern that exists specifically to prevent a known bug class, spec 12's day-blind last-write-wins). Neither is review-exempt under any circumstance.
+- Real production data this fix needs to handle correctly: D2 and D5 are both at 180+Red as of tonight (synced by hand during the investigation) — the backfill script's "more advanced of the two" comparison will hit a tie on first real use, exercising that code path immediately, not just in a test fixture.
+- Standing user instruction as of this batch: once a design is approved, run `/spec` → `/verify-plan` → `/route-plan` back-to-back without stopping in between, except at an actual HUMAN GATE.
