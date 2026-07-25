@@ -53,7 +53,11 @@ def test_named_movements_map_to_expected_rules(gen_db):
         "Reverse Hyper Recovery [REV_HYPER]": ProgressionRule.FIXED_LOAD.value,
         "Light Reverse Hyper [REV_HYPER]": ProgressionRule.REP_LADDER.value,
         "Ab Wheel [WHEEL]":            ProgressionRule.REP_LADDER.value,
-        "Reverse Nordic Curl [GHR]":   ProgressionRule.ASSISTANCE_REDUCTION.value,
+        # 2026-07-24: converted from ASSISTANCE_REDUCTION to RPE_8_STANDARD
+        # (bodyweight-then-load double progression) -- no movement in the
+        # program uses ASSISTANCE_REDUCTION anymore, so that rule family no
+        # longer has a spot-check example here.
+        "Reverse Nordic Curl [GHR]":   ProgressionRule.RPE_8_STANDARD.value,
         "Dragon Flag":                 ProgressionRule.BODY_POSITION.value,
     }
     for name, rule in expected.items():

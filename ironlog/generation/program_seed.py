@@ -493,7 +493,7 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d2_t3c", "Reverse Nordic (assisted)", lib, 3, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
-            scheme="ASSISTED")
+            scheme="DOUBLE_PROGRESSION")
 
 
 # ---------------------------------------------------------------------------
@@ -606,7 +606,7 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d5_t3b", "Reverse Nordic (assisted)", lib, 2, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
-            scheme="ASSISTED")
+            scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d5_t3c", "Cable Tib Raise", lib, 3, "free",
             knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")

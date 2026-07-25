@@ -37,7 +37,7 @@ days:
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Adipower II", ex: [
       {m: atg_split_squat, reps: [8,12], rule: rpe_8_standard, load: 25, unilateral: true},
       {m: cable_tib_raise_d2, reps: [10,15], rule: rpe_8_standard, load: 25},
-      {m: reverse_nordic_assisted_d2, reps: [8,12], rule: assistance_reduction, assist_level: 20, assist_ladder: [20,15,10,5,0]}]}  # 2026-07-22: added to restore D2's 3rd knee-modality slot. 2026-07-24: rep range corrected 8-10 -> 8-12
+      {m: reverse_nordic_assisted_d2, reps: [8,12], rule: rpe_8_standard, load: 0}]}  # 2026-07-22: added to restore D2's 3rd knee-modality slot. 2026-07-24: rep range corrected 8-10 -> 8-12; converted from assisted to loaded double-progression (bodyweight start, load once 12 reps clears), both D2 and D5
 
   d4:  # Upper B / Pull — shoe: Metcon 9 (no swap). T2/T3 swap applied (SA-DB-Row->T2, Andreoni->T3).
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
@@ -66,7 +66,7 @@ days:
       {m: assisted_nordic_curl_d5, reps: [8,12], rule: fixed_load, assist_level: 15}]}  # 2026-07-22: fixed at 15deg, no more progression (athlete's genuine trained level)
     T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Adipower II", ex: [
       {m: poliquin_step_up, reps: [8,12], rule: rpe_8_standard, load: 20, unilateral: true},
-      {m: reverse_nordic_assisted, reps: [8,12], rule: assistance_reduction, assist_level: 20, assist_ladder: [20,15,10,5,0]},  # 2026-07-24: rep range corrected 8-10 -> 8-12
+      {m: reverse_nordic_assisted, reps: [8,12], rule: rpe_8_standard, load: 0},  # 2026-07-24: rep range corrected 8-10 -> 8-12; converted from assisted to loaded double-progression (bodyweight start, load once 12 reps clears), both D2 and D5
       {m: cable_tib_raise_d5, reps: [10,15], rule: rpe_8_standard, load: 30},  # INDEPENDENT from d2 (25); d5=30
       {m: hyper_pro_calf_raise, reps: [10,15], rule: rpe_8_standard, load: 245}]}
 

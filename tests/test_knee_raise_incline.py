@@ -46,8 +46,10 @@ def test_knee_raise_is_assisted_with_full_incline_ladder(gen_db):
 
 
 def test_nordic_and_reverse_nordic_unchanged(gen_db):
-    """Assert-don't-change: the two already-correct ASSISTED movements this
-    task uses as its template must be untouched on progression_mode/load field.
+    """Assert-don't-change: Nordic Curl remains the ASSISTED template this task
+    originally used; Reverse Nordic Curl's own progression_mode/rule have SINCE
+    diverged from that template (see below) and are asserted against their
+    current, correct values instead.
 
     Nordic Curl's progression_rule is NOT asserted here as unchanged: as of
     2026-07-22 its one remaining program slot (D5) is fixed at 15deg with no
@@ -55,6 +57,11 @@ def test_nordic_and_reverse_nordic_unchanged(gen_db):
     the prescribed baseline; D2's slot was replaced with Leg Curl), so
     derive_movement_rules() now correctly resolves it to FIXED_LOAD, not
     INCLINE_REDUCTION -- a deliberate program-design change, not a regression.
+
+    Reverse Nordic Curl converted from ASSISTED/ASSISTANCE_REDUCTION to
+    LADDER/RPE_8_STANDARD/DOUBLE_PROGRESSION as of 2026-07-24 -- athlete
+    directive: bodyweight reps 8-12, add load once 12 reps clears, on both
+    D2 and D5. Also a deliberate program-design change, not a regression.
     """
     nordic = gen_db.exec(
         select(Movement).where(Movement.name == "Nordic Curl [GHR]")
@@ -63,11 +70,11 @@ def test_nordic_and_reverse_nordic_unchanged(gen_db):
         select(Movement).where(Movement.name == "Reverse Nordic Curl [GHR]")
     ).one()
     assert nordic.progression_mode == ProgressionMode.ASSISTED
-    assert rev_nordic.progression_mode == ProgressionMode.ASSISTED
+    assert rev_nordic.progression_mode == ProgressionMode.LADDER
     assert load_field_for_mode(nordic.progression_mode) == "assist_level"
-    assert load_field_for_mode(rev_nordic.progression_mode) == "assist_level"
+    assert load_field_for_mode(rev_nordic.progression_mode) == "current_load"
     assert nordic.progression_rule == ProgressionRule.FIXED_LOAD.value
-    assert rev_nordic.progression_rule == ProgressionRule.ASSISTANCE_REDUCTION.value
+    assert rev_nordic.progression_rule == ProgressionRule.RPE_8_STANDARD.value
 
 
 # ---------------------------------------------------------------------------

@@ -197,9 +197,14 @@ MOVEMENTS = [
          knee_modality=KneeModality.NORDIC, family="nordic", primary_muscle="HAMSTRINGS", secondary_muscles=[]),
     dict(name="Reverse Nordic Curl [GHR]", base_name="Reverse Nordic Curl",
          region=Region.LOWER, status=Status.ACTIVE, load_code="GHR", tags=["GHR"],
-         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         # 2026-07-24: converted from assisted (INCLINE_REDUCTION-style band/degree
+         # assistance) to loaded double-progression -- athlete directive: bodyweight
+         # reps 8-12, add load once 12 reps is cleared, applies to both D2 and D5.
+         # assist_ladder kept for historical reference; unused once progression_mode
+         # is LADDER (RPE_8_STANDARD/DOUBLE_PROGRESSION never reads it).
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          assist_ladder=[20, 15, 10, 5, 0],
-         knee_modality=KneeModality.KOT, min_step=2.5, load_floor=10, primary_muscle="QUADS", secondary_muscles=[]),
+         knee_modality=KneeModality.KOT, min_step=2.5, load_floor=0, primary_muscle="QUADS", secondary_muscles=[]),
     dict(name="Pull-up [TOWER + TUBES]", base_name="Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
