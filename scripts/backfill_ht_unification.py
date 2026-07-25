@@ -9,7 +9,7 @@ from ironlog.engine.band_composite import Band, config_peak
 def apply(db: Session) -> None:
     # 1. Find D2 and D5 Hip Thrust TierExercise rows
     stmt = (
-        select(TierExercise)
+        select(TierExercise, ProgramDay.day_role)
         .join(Tier)
         .join(ProgramDay, ProgramDay.id == Tier.program_day_id)
         .join(Movement, Movement.id == TierExercise.movement_id)
@@ -18,11 +18,13 @@ def apply(db: Session) -> None:
             Movement.lift_category == LiftCategory.HIP_THRUST
         )
     )
-    ht_slots = db.exec(stmt).all()
-    if not ht_slots:
+    rows = db.exec(stmt).all()
+    if not rows:
         print("No D2/D5 Hip Thrust slots found, skipping.")
         return
 
+    ht_slots = [slot for slot, _ in rows]
+    day_role_by_slot_id = {slot.id: day_role for slot, day_role in rows}
     movement_id = ht_slots[0].movement_id
 
     # Make idempotent
@@ -30,7 +32,7 @@ def apply(db: Session) -> None:
         if slot.unified_ht_group != "main":
             slot.unified_ht_group = "main"
             db.add(slot)
-            print(f"Updated TierExercise {slot.id} (day={slot.tier.program_day.day_role}) unified_ht_group='main'.")
+            print(f"Updated TierExercise {slot.id} (day={day_role_by_slot_id[slot.id]}) unified_ht_group='main'.")
         else:
             print(f"TierExercise {slot.id} already unified_ht_group='main'.")
 
