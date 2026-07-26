@@ -43,7 +43,7 @@ CHANGED_REP_TARGETS = {
     "d5_t3d": (10, 15),
     "d6_g1b": (8, 12),
     "d6_g2b": (8, 12),
-    "d6_g3a": (10, 15),
+    "d6_g3a": (15, 20),  # 2026-07-25: athlete directive, Face Pull 10-15 -> 15-20 reps
     "d6_g3c": (8, 12),
 }
 

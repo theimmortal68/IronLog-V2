@@ -80,6 +80,6 @@ days:
       {m: db_seal_row, reps: [8,12], rule: rpe_8_standard, load: 30},   # 30/hand
       {m: lateral_raise_ares, reps: [10,15], rule: rpe_8_standard, load: 10}]}
     GS3: {group_key: "GS3", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: face_pull, reps: [10,15], rule: rpe_8_standard, load: 30},
+      {m: face_pull, reps: [15,20], rule: rpe_8_standard, load: 30},
       {m: cable_v_bar_pushdown, reps: [8,12], rule: single_session_progression, load: 60},
       {m: t_bar_row_wide_kleva, reps: [8,12], rule: rpe_8_standard, load: 105}]}  # MOVED from GS2

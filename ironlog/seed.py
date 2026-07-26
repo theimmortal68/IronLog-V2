@@ -416,7 +416,7 @@ MOVEMENTS = [
     dict(name="Face Pull [FT]", base_name="Face Pull",
          region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5], min_step=2.5, load_floor=10,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10,
          primary_muscle="REAR_DELT", secondary_muscles=["UPPER_TRAPS"]),
     dict(name="Heavy Lat Pulldown [FT]", base_name="Heavy Lat Pulldown",
          region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],

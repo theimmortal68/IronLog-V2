@@ -645,7 +645,7 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # GS3 — Face Pull / Cable V-Bar Pushdown / T-Bar Row Wide
     gs3 = _add_tier(db, pd.id, "GS3", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, gs3.id, "d6_g3a", "Face Pull", lib, 1, "free",
-            pattern="rear_delt", rep_low=10, rep_high=15,
+            pattern="rear_delt", rep_low=15, rep_high=20,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs3.id, "d6_g3b", "Cable V-Bar Pushdown", lib, 2, "semi",
             pattern="triceps", rep_low=8, rep_high=12, scheme="SINGLE_SESSION")
