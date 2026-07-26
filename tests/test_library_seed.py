@@ -159,7 +159,7 @@ def test_sissy_squat_single_continuous_track(seeded):
     assert sum(1 for m in _all(seeded) if m.name == "Sissy Squat") == 1
 
 
-def test_assisted_seed_ladders_for_nordic_family_not_pull_up(seeded):
+def test_assisted_seed_ladders_for_nordic_family_and_pull_up(seeded):
     by_name = {m.name: m for m in _all(seeded)}
 
     nordic_ladder = by_name["Nordic Curl [GHR]"].assist_ladder
@@ -168,4 +168,6 @@ def test_assisted_seed_ladders_for_nordic_family_not_pull_up(seeded):
     assert by_name["Nordic Curl - Volume [GHR]"].assist_ladder == [25, 20, 15, 10, 5, 0]
     assert by_name["Reverse Nordic Curl [GHR]"].assist_ladder == [20, 15, 10, 5, 0]
 
-    assert by_name["Pull-up [TOWER + TUBES]"].assist_ladder is None
+    # 2026-07-26: real assist ladder populated (3 stacked 20lb bands, athlete
+    # directive) -- drop a band at 3x12; ASSISTANCE_REDUCTION now drives it.
+    assert by_name["Pull-up [TOWER + TUBES]"].assist_ladder == [60, 40, 20, 0]

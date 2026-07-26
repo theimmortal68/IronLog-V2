@@ -31,6 +31,11 @@ from ironlog.models.session import (
 # vacated GS1 slot) has NO entry -- intentionally needs-calibration, zero
 # prior history.
 #
+# d1_t3a (Pull-up [TOWER + TUBES]) now seeds assist_level=60 (3 stacked 20lb
+# bands, 2026-07-26 athlete directive -- assist_ladder populated, real
+# assistance_reduction gating replaces the former tracking-only rule). No
+# longer ROLLING_MAX_EXEMPT in scripts/golive_phase1.py (see removal there).
+#
 # d1_t2c / d4_t2c (Face-Up Incline Knee Raise) are seeded "assist" (degrees),
 # not "load": the movement is bodyweight/incline (progression_mode=ASSISTED,
 # ironlog/seed.py), so resolve_start_load reads assist_level, not current_load.
@@ -43,6 +48,7 @@ from ironlog.models.session import (
 BASELINES = {
     "d1_t1": ("load", 165, None), "d1_t2a": ("load", 170, None),
     "d1_t2b": ("load", 55, None), "d1_t2c": ("assist", 25, None),
+    "d1_t3a": ("assist", 60, None),
     "d1_t3b": ("load", 12.5, None), "d1_t3c": ("load", 60, None),
     "d1_t4a": ("load", 100, None), "d1_t4c": ("load", 10, None),
     "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 205, "#0 Orange"),

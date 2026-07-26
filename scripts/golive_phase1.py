@@ -38,18 +38,19 @@ TRAINING_DAYS = ["D1 Upper Push", "D2 Lower A", "D4 Upper Pull", "D5 Lower B", "
 
 # Movements that are structurally load-bearing (progression_mode != bodyweight)
 # but are deliberately NOT pre-seeded with a scalar current_load/assist_level
-# baseline, per the design doc and Task 4's own brief ("Bodyweight/rolling
-# slots ... d1_t3a, d4_t1, d6_g1a" = the three Pull-up slots across D1/D4/D6):
-# docs/superpowers/specs/2026-07-04-config-seed-reconciliation-design.md calls
-# it out explicitly — "Pull-up(rolling-max)" on D1/D4, "Pull-up(rolling-max,
-# red-band assist, Wk1 Set1 max 7 PR)" on D6. Pull-up's real starting point is
-# measured in-gym via the "Set 1 unassisted max test" slot (d6_g1a) and tracked
-# via MovementState.unassisted_max_rolling (run_analysis / roll_unassisted_max),
-# NOT a pre-launch guess. Fabricating an assist_level number here would plant
-# fake athlete data instead of an honest day-1 measurement, so verify treats
-# this movement the same way it already treats bodyweight movements: exempt
-# from the needs-calibration signal, not silently "fixed" with an invented load.
-ROLLING_MAX_EXEMPT = {"Pull-up [TOWER + TUBES]"}
+# baseline, and should be exempted from the needs-calibration signal rather
+# than flagged (their real starting point is measured in-gym, not guessed).
+#
+# 2026-07-26: this set is now EMPTY. D1's "Pull-up [TOWER + TUBES]" (this
+# set's original sole member) is removed -- assist_ladder is now real
+# ([60,40,20,0], 3 stacked 20lb bands) and baseline_seed.py seeds d1_t3a's
+# assist_level=60 (athlete directive: drop a band at 3x12), so it has a
+# genuine pre-seeded starting point and is held to the normal needs-cal
+# check. D4/D6's new "Wide-Grip Pull-up [TOWER]" is NOT added here either --
+# per EXPECTED_NEEDS_CAL in tests/test_golive_phase1.py, it's deliberately
+# expected to surface as needs-cal like any other brand-new movement with
+# zero prior history (Standing OHP, Cable Bicep Curl), not silently exempted.
+ROLLING_MAX_EXEMPT = set()
 
 
 def verify_all_days(db):

@@ -208,6 +208,9 @@ MOVEMENTS = [
     dict(name="Pull-up [TOWER + TUBES]", base_name="Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         # 2026-07-26: 3 identical 20lb bands stacked (60lb assist); drop a
+         # band at 3x12 (athlete directive). assist_ladder now real (was None).
+         assist_ladder=[60, 40, 20, 0],
          objective_override=Objective.PROGRESS, primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
     # 2026-07-26: D4/D6 switched from this shared neutral-grip Pull-up to a
     # new movement, wide-grip unassisted (athlete directive -- neutral-grip

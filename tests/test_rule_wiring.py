@@ -46,7 +46,12 @@ def test_named_movements_map_to_expected_rules(gen_db):
     by_name = {m.name: m for m in gen_db.exec(select(Movement)).all()}
     expected = {
         "Bench Press [PB]":            ProgressionRule.RPE_8_STANDARD.value,
-        "Pull-up [TOWER + TUBES]":     ProgressionRule.PULL_UP_ROLLING_MAX.value,
+        # 2026-07-26: D1's Pull-up gained a real assist_ladder (3 stacked
+        # 20lb bands) -- switched from tracking-only PULL_UP_ROLLING_MAX to
+        # ASSISTANCE_REDUCTION (drop a band at 3x12). D4/D6 moved to a
+        # separate movement ("Wide-Grip Pull-up [TOWER]"), which keeps
+        # PULL_UP_ROLLING_MAX -- see test_derive_movement_rules_is_internally_consistent.
+        "Pull-up [TOWER + TUBES]":     ProgressionRule.ASSISTANCE_REDUCTION.value,
         "Hip Thrust [HIP_THRUST]":     ProgressionRule.RULE_DRIVEN.value,
         "Face-Up Incline Knee Raise":  ProgressionRule.INCLINE_REDUCTION.value,
         "Cable V-Bar Pushdown [FT]":   ProgressionRule.SINGLE_SESSION.value,
@@ -75,8 +80,11 @@ def test_derive_movement_rules_is_internally_consistent():
     # Hip Thrust carries rule_driven (D2/D5) AND rule_driven_fixed_increment (D6),
     # both of which resolve to RULE_DRIVEN — the consistency check must accept this.
     assert rules["Hip Thrust [HIP_THRUST]"] == ProgressionRule.RULE_DRIVEN
-    # Pull-up appears on D1/D4/D6, all pull_up_rolling_max.
-    assert rules["Pull-up [TOWER + TUBES]"] == ProgressionRule.PULL_UP_ROLLING_MAX
+    # D1's Pull-up [TOWER + TUBES] is now the sole slot on this movement, with
+    # a real assist ladder (assistance_reduction). D4/D6 share a separate
+    # movement ("Wide-Grip Pull-up [TOWER]"), still pull_up_rolling_max.
+    assert rules["Pull-up [TOWER + TUBES]"] == ProgressionRule.ASSISTANCE_REDUCTION
+    assert rules["Wide-Grip Pull-up [TOWER]"] == ProgressionRule.PULL_UP_ROLLING_MAX
 
 
 def test_wiring_is_idempotent(gen_db):

@@ -18,7 +18,13 @@ days:
       {m: incline_db_press, reps: [8,12], rule: rpe_8_standard, load: 55},
       {m: face_up_incline_knee_raise_d1, reps: [10,15], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: pull_up_d1, reps: [8,12], rule: pull_up_rolling_max},
+      # 2026-07-26: assist ladder populated (athlete directive) -- 3 identical
+      # 20lb bands stacked (60lb total assist); drop a band once 3x12 reps is
+      # hit at the current stack. assistance_reduction now drives the
+      # drop-a-band milestone; roll_unassisted_max tracking (pull_up_rolling_max's
+      # only real effect) is unconditional on actual_unassisted_reps capture
+      # data and unaffected by this rule change.
+      {m: pull_up_d1, reps: [8,12], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,40,20,0]},
       {m: cross_body_lateral_raise, reps: [10,15], rule: rpe_8_standard, load: 12.5, unilateral: true},
       {m: lat_prayer, reps: [8,12], rule: rpe_8_standard, load: 60}]}
     T4_GIANT: {group_key: "T4 GS", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
