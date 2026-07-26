@@ -74,7 +74,7 @@ days:
     GS1: {group_key: "GS1", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: pull_up_d6, reps: [5,8], rule: pull_up_rolling_max},  # Wk1 Set1 max = 7 (PR), 7/6/6 unassisted; red_band assist
       {m: dips, reps: [8,12], rule: rpe_8_standard, load: 150, load_type: cable},  # CORRECTED: cable-loaded RPE-8 (Andreoni bar + Ares cable), not BW rep-ladder
-      {m: hip_thrust_d6, reps: [12,12], rule: rule_driven_fixed_increment, ht_plates: 155, ht_band_config: [orange]}]}  # D5x0.80 (~192 target); 155 bar + Orange Shorty Monster = peak 200 / bottom 173 (<225 GMWD cap); Wk1 executed 200 plates-only (misload), Wk2+ banded
+      {m: hip_thrust_d6, reps: [12,12], rule: rule_driven_fixed_increment, ht_plates: 155, ht_band_config: [orange], derived_from_unified_group: main, derive_ratio: 0.8}]}  # D5x0.80 (~192 target); 155 bar + Orange Shorty Monster = peak 200 / bottom 173 (<225 GMWD cap); Wk1 executed 200 plates-only (misload), Wk2+ banded
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: reverse_hyper_recovery, reps: [15,20], rule: fixed_load, load: 90, rpe_cap: 6},  # MOVED from GS3
       {m: db_seal_row, reps: [8,12], rule: rpe_8_standard, load: 30},   # 30/hand

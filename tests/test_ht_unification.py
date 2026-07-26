@@ -176,7 +176,9 @@ def test_d6_ht_is_not_unified(gen_db_calibrated):
         select(MovementState)
         .where(MovementState.movement_id == ht_mv.id, MovementState.day_id == "D6 Weak Points")
     ).one()
-    assert ms_d6.pending_ht_plates is not None
+    # 2026-07-26 (spec 52): D6's HT is now a pure derived value (80% of the unified D2/D5 group)
+    # and never earns an independent advance -- this test's expectation was updated accordingly, not weakened.
+    assert ms_d6.pending_ht_plates is None
 
     sk6_commit = lay_skeleton("D6 Weak Points", gen_db)
     ctx6_commit = resolve_context("D6 Weak Points", sk6_commit, gen_db, wk)
@@ -187,5 +189,5 @@ def test_d6_ht_is_not_unified(gen_db_calibrated):
     )
     
     gen_db.refresh(ms_d6)
-    assert ms_d6.ht_plates != 135.0 or ms_d6.ht_band_config != [1]
+    assert ms_d6.ht_plates == 135.0 and ms_d6.ht_band_config == [1]
     assert ms_d6.pending_ht_plates is None

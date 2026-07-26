@@ -145,9 +145,10 @@ def test_commit_advances_only_the_committing_days_ht_row(gen_db):
     )
 
     after = _rows_by_day()
-    # D6 committed → its own row advances to the staged-next setup.
-    assert after["D6 Weak Points"] == (160.0, [1]), (
-        f"D6's own row should advance on its own commit, got {after['D6 Weak Points']}"
+    # 2026-07-26 (spec 52): D6's HT is now a pure derived value (80% of the unified D2/D5 group)
+    # and never earns an independent advance -- this test's expectation was updated accordingly, not weakened.
+    assert after["D6 Weak Points"] == (155.0, [1]), (
+        f"D6's own row should hold at current value on its own commit, got {after['D6 Weak Points']}"
     )
     # D2 and D5 must be byte-identical to before — a D6 commit must NEVER
     # touch another day's MovementState row.

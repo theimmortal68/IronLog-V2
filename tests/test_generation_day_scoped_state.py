@@ -156,7 +156,9 @@ def test_ht_load_is_day_scoped(gen_db):
     for role, cur_plates, next_plates in [
         ("D2 Lower A", 205, 165),
         ("D5 Lower B", 205, 165),
-        ("D6 Weak Points", 155, 160),
+        # 2026-07-26 (spec 52): D6's HT is now a pure derived value (80% of the unified D2/D5 group)
+        # and never earns an independent advance -- this test's expectation was updated accordingly, not weakened.
+        ("D6 Weak Points", 155, 155),
     ]:
         _stage_clean_ht_advance(gen_db, ht_movement.id, role, cur_plates, [1])
         sk = lay_skeleton(role, gen_db)

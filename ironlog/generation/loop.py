@@ -19,8 +19,10 @@ from typing import Callable, List
 
 from sqlmodel import Session as DBSession, select
 
+from ..engine.band_composite import Band, config_peak, ht_scaled_setup
 from ..models.enums import SessionStatus
-from ..models.library import GenerationLog, HtProgressionState
+from ..models.library import BandPair, GenerationLog, HtProgressionState
+from ..models.program import ProgramDay, Tier, TierExercise
 from ..models.session import Session
 from ..persistence.run_analysis import _resolve_movement_state
 from .assembler import AssembledSession, assemble
@@ -75,6 +77,8 @@ def commit_session(
     This is the ONLY place generation writes current_load, ht_plates, or
     ht_band_config.
     """
+    band_inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
+                      for bp in db.exec(select(BandPair)).all()]
     session = assembled.session
     session.status = SessionStatus.PLANNED
     session.approved_at = datetime.utcnow()
@@ -130,11 +134,38 @@ def commit_session(
                 HtProgressionState.unified_ht_group == group,
             )
         ).one()
+        advanced_this_commit = ht_row.pending_ht_plates is not None
         ht_row.ht_plates = plates             # THE ONLY PLACE generation writes ht_plates for a unified group
         ht_row.ht_band_config = list(config)  # THE ONLY PLACE generation writes ht_band_config for a unified group
         ht_row.pending_ht_plates = None
         ht_row.pending_ht_band_config = None
         db.add(ht_row)
+        if not advanced_this_commit:
+            continue
+        by_id_for_peak = {b.id: b for b in band_inventory}
+        new_peak = config_peak(plates, config, by_id_for_peak)
+        derived_tes = db.exec(
+            select(TierExercise).where(
+                TierExercise.derived_from_unified_group == group,
+                TierExercise.movement_id == mid,
+            )
+        ).all()
+        for te in derived_tes:
+            day_role = db.exec(
+                select(ProgramDay.day_role)
+                .join(Tier, Tier.program_day_id == ProgramDay.id)
+                .where(Tier.id == te.tier_id)
+            ).one()
+            derived_plates, derived_config = ht_scaled_setup(
+                new_peak * te.derive_ratio,
+                band_inventory,
+            )
+            derived_state = _resolve_movement_state(db, mid, day_role)
+            derived_state.ht_plates = derived_plates
+            derived_state.ht_band_config = list(derived_config)
+            derived_state.pending_ht_plates = None
+            derived_state.pending_ht_band_config = None
+            db.add(derived_state)
 
     # Provenance row (Fork 7d)
     db.add(GenerationLog(

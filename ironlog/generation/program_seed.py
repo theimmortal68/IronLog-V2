@@ -275,7 +275,9 @@ def _add_te(db: Session, tier_id: int, slot_id: str, prog_name: str,
             rep_low: Optional[int] = None,
             rep_high: Optional[int] = None,
             rpe_cap: Optional[float] = None,
-            scheme: Optional[str] = None) -> TierExercise:
+            scheme: Optional[str] = None,
+            derived_from_unified_group: Optional[str] = None,
+            derive_ratio: Optional[float] = None) -> TierExercise:
     te = TierExercise(
         tier_id=tier_id,
         slot_id=slot_id,
@@ -288,6 +290,8 @@ def _add_te(db: Session, tier_id: int, slot_id: str, prog_name: str,
         rep_high=rep_high,
         rpe_cap=rpe_cap,
         scheme=scheme,
+        derived_from_unified_group=derived_from_unified_group,
+        derive_ratio=derive_ratio,
     )
     db.add(te)
     db.flush()
@@ -628,7 +632,8 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs1.id, "d6_g1c", "Hip Thrust (D5 × 0.80, FIXED)", lib, 3, "free",
-            pattern="hip_thrust", rep_low=12, rep_high=12, scheme="FIXED")
+            pattern="hip_thrust", rep_low=12, rep_high=12, scheme="FIXED",
+            derived_from_unified_group="main", derive_ratio=0.8)
 
     # GS2 — Reverse Hyper Recovery / DB Seal Row / Lateral Raise
     gs2 = _add_tier(db, pd.id, "GS2", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")

@@ -15,7 +15,7 @@ import logging
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
-from typing import Callable, Hashable, List
+from typing import Callable, Hashable, List, Optional, Tuple
 
 from sqlmodel import Session as DBSession
 from sqlmodel import col, select
@@ -208,6 +208,13 @@ def _resolve_unified_ht_progression_state(
             f"movement_id={movement.id} unified_ht_group={unified_ht_group!r}"
         )
     return unified_ht_group, ht_state
+
+
+def _is_derived_ht_slot(db, workout, movement) -> bool:
+    if not _is_ht_movement(movement):
+        return False
+    tier_exercise = _tier_exercise_for_session_movement(db, workout, movement.id)
+    return tier_exercise is not None and tier_exercise.derived_from_unified_group is not None
 
 
 def _state_for_ht_advance(
@@ -556,13 +563,16 @@ def run_analysis(
                 if reconciled != state.assist_level:
                     state.assist_level = reconciled
             window = _confirmation_window(db, mid, set_logs, planned_sets)
+            band_inventory_for_this_movement = (
+                None if _is_derived_ht_slot(db, workout, movement) else band_inventory
+            )
             adv = advance(
                 movement.progression_rule,
                 advance_state,
                 perf,
                 movement,
                 window,
-                band_inventory=band_inventory,
+                band_inventory=band_inventory_for_this_movement,
             )
 
             new_unassisted_max_rolling = None

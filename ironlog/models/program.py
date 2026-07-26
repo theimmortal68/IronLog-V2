@@ -94,6 +94,9 @@ class TierExercise(SQLModel, table=True):
     rpe_cap: Optional[float] = None
     scheme: Optional[str] = None   # e.g. "TOPSET_BACKOFF", "DOUBLE_PROGRESSION"
     unified_ht_group: Optional[str] = None
+    # HT slots conceptually use either unified_ht_group or derived_from_unified_group, never both.
+    derived_from_unified_group: Optional[str] = None
+    derive_ratio: Optional[float] = None
 
 
 class MesoRotation(SQLModel, table=True):

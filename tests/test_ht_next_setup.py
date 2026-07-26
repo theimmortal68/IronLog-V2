@@ -1,5 +1,6 @@
 from ironlog.engine.band_composite import (
-    Band, _all_configs, config_bottom, config_peak, ht_next_setup, ht_performed_floor,
+    Band, _all_configs, config_bottom, config_peak, ht_next_setup,
+    ht_performed_floor, ht_scaled_setup,
 )
 
 INV = [Band(0,18,45), Band(1,36,90), Band(2,60,150), Band(3,80,200), Band(4,130,325), Band(5,190,475)]
@@ -89,3 +90,39 @@ def test_performed_floor_never_regresses_when_felt_peak_lower():
 def test_performed_floor_is_idempotent_when_felt_peak_matches():
     by_id = {b.id: b for b in INV}
     assert ht_performed_floor(170, [1], 260, by_id) == 170
+
+
+def test_ht_scaled_setup_real_bands_uses_nearest_peak_then_fewest_bands():
+    by_id = {b.id: b for b in INV}
+
+    plates, config = ht_scaled_setup(216, INV)
+
+    assert (plates, config) == (215.0, [])
+    assert config_peak(plates, config, by_id) == 215.0
+    assert abs(config_peak(plates, config, by_id) - 216) == 1.0
+
+    tied_one_band_setups = [
+        (170.0, [0]),  # Orange
+        (125.0, [1]),  # Red
+        (65.0, [2]),   # Blue
+        (15.0, [3]),   # Green
+    ]
+    for tied_plates, tied_config in tied_one_band_setups:
+        assert config_bottom(tied_plates, tied_config, by_id) <= 225
+        assert config_peak(tied_plates, tied_config, by_id) == 215.0
+
+
+def test_ht_scaled_setup_never_exceeds_bottom_clamp():
+    by_id = {b.id: b for b in INV}
+
+    for target_peak in range(0, 801):
+        plates, config = ht_scaled_setup(float(target_peak), INV)
+        assert config_bottom(plates, config, by_id) <= 225
+
+
+def test_ht_scaled_setup_tiebreak_prefers_plates_only_over_one_band():
+    inv = [Band(10, 5, 10)]
+
+    plates, config = ht_scaled_setup(20, inv)
+
+    assert (plates, config) == (20.0, [])

@@ -78,3 +78,28 @@ def ht_next_setup(plates, config, inventory: List[Band], plate_step=5, clamp=225
                     best = (key, (p, list(cfg)))
             p += plate_step
     return best[1] if best else (plates, list(config))
+
+
+def ht_scaled_setup(target_peak: float, inventory: List[Band], plate_step=5, clamp=225) -> Tuple[float, list]:
+    """Find the setup whose peak is closest to target_peak under the bottom clamp.
+
+    Pure -- no DB, no HTTP. Mirrors ht_next_setup's exhaustive search, but
+    optimizes for closest-to-target instead of smallest-strictly-above.
+    Tiebreak: fewest bands.
+    """
+    by_id = {b.id: b for b in inventory}
+    best = None
+    for cfg in _all_configs(inventory):
+        srest = sum(by_id[b].rest for b in cfg)
+        if srest > clamp:
+            continue
+        max_plates = int((clamp - srest) // plate_step) * plate_step
+        p = 0.0
+        while p <= max_plates:
+            pk = p + sum(by_id[b].peak for b in cfg)
+            dist = abs(pk - target_peak)
+            key = (dist, len(cfg))
+            if best is None or key < best[0]:
+                best = (key, (p, list(cfg)))
+            p += plate_step
+    return best[1] if best else (0.0, [])
