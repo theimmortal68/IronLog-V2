@@ -41,7 +41,8 @@ CHANGED_REP_TARGETS = {
     "d5_t3a": (8, 12),
     "d5_t3c": (10, 15),
     "d5_t3d": (10, 15),
-    "d6_g1b": (8, 12),
+    "d6_t1": (6, 8),      # 2026-07-26: Dips moved d6_g1b -> T1, athlete directive
+    "d6_g1d": (8, 12),    # 2026-07-26: Cable Bicep Curl fills Dips' vacated GS1 slot
     "d6_g2b": (8, 12),
     "d6_g3a": (15, 20),  # 2026-07-25: athlete directive, Face Pull 10-15 -> 15-20 reps
     "d6_g3c": (8, 12),
@@ -72,6 +73,7 @@ TIER_REST_MAP = {
     ("D5 Lower B", "T1b"): 150,
     ("D5 Lower B", "T2 GS"): 90,
     ("D5 Lower B", "T3 GS"): 60,
+    ("D6 Weak Points", "T1"): 120,
     ("D6 Weak Points", "GS1"): 90,
     ("D6 Weak Points", "GS2"): 90,
     ("D6 Weak Points", "GS3"): 60,

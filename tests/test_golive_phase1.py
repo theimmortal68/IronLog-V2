@@ -19,10 +19,12 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # training history to seed a starting load from. Standing OHP [PB]
 # (2026-07-23, new D4 d4_t1_ohp slot closing the program's overhead-press
 # gap) is a brand new program movement with zero prior training history
-# either.
+# either. Cable Bicep Curl [FT] (2026-07-26, new D6 d6_g1d slot filling Dips'
+# vacated GS1 slot) has zero prior training history.
 EXPECTED_NEEDS_CAL = {
     "D2 Lower A": {"Lying Leg Curl [GHR]"},
     "D4 Upper Pull": {"Standing OHP [PB]"},
+    "D6 Weak Points": {"Cable Bicep Curl [FT]"},
 }
 
 
@@ -38,24 +40,13 @@ def test_golive_all_days_generate_clean(gen_db):
         assert report[role]["loaded_slots"] > 0
 
 
-def test_d6_dips_resolves_seeded_cable_load(gen_db):
-    """C1 regression gate: docs/program/phase1-seed-source.yaml:72 specifies D6
-    Dips (d6_g1b) as cable-loaded RPE-8 at 150 lb ("CORRECTED: cable-loaded,
-    not BW rep-ladder"), and baseline_seed.BASELINES seeds
-    d6_g1b = ("load", 150, None) into MovementState.current_load.
+def test_d6_dips_resolves_seeded_assist_level(gen_db):
+    """D6 Dips now starts as bodyweight + band assist in its own T1 slot.
 
-    Before the fix, `Dips [ANDREONI + FT]` was progression_mode=PROTOCOL, so
-    load_field_for_mode(PROTOCOL) returns None and compute_load_trust/the
-    resolver never reads current_load at all — the seeded 150 was silently
-    ignored and generation shipped Dips with target_load=None. verify_all_days
-    also treats PROTOCOL as legitimately loadless and skips it, so the old
-    go-live report never flagged the gap.
-
-    This test drives the REAL generate_session path (same one verify_all_days
-    uses) and asserts the assembled D6 Dips slot actually carries
-    target_load == 150 on every planned set — proof the seeded baseline
-    resolves, not just that the movement is "structurally loaded" in the
-    aggregate sense verify_all_days checks.
+    docs/program/phase1-seed-source.yaml gives d6_t1 assist_level=40. The
+    go-live baseline must seed that into MovementState.assist_level, not the
+    obsolete d6_g1b cable current_load, and generation must prescribe 40 on
+    the assisted scalar path.
     """
     from sqlmodel import select
 
@@ -63,7 +54,7 @@ def test_d6_dips_resolves_seeded_cable_load(gen_db):
     from ironlog.generation.baseline_seed import seed_movement_baselines
     from ironlog.generation.loop import generate_session
     from ironlog.generation.skeleton import lay_skeleton
-    from ironlog.models.library import Movement
+    from ironlog.models.library import Movement, MovementState
 
     seed_movement_baselines(gen_db)
 
@@ -74,18 +65,27 @@ def test_d6_dips_resolves_seeded_cable_load(gen_db):
         f"D6 Weak Points: generation exhausted (rejections: {outcome.rejections})"
     )
 
-    dips = gen_db.exec(select(Movement).where(Movement.name == "Dips [ANDREONI + FT]")).one()
+    dips = gen_db.exec(select(Movement).where(Movement.name == "Dips [TOWER + TUBES]")).one()
+    state = gen_db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == dips.id,
+            MovementState.day_id == "D6 Weak Points",
+        )
+    ).one()
+    assert state.assist_level == 40
+    assert state.current_load is None
+
     dips_exercises = [
         ex
         for g in outcome.assembled.session.groups
         for ex in g.exercises
         if ex.movement_id == dips.id
     ]
-    assert dips_exercises, "Dips [ANDREONI + FT] did not appear in the generated D6 session"
+    assert dips_exercises, "Dips [TOWER + TUBES] did not appear in the generated D6 session"
     for ex in dips_exercises:
         assert ex.planned_sets, "Dips slot has no planned sets"
         for ps in ex.planned_sets:
-            assert ps.target_load == 150, (
-                f"Dips planned set target_load={ps.target_load!r}, expected 150 "
-                "(seeded cable load from baseline_seed BASELINES['d6_g1b'])"
+            assert ps.target_load == 40, (
+                f"Dips planned set target_load={ps.target_load!r}, expected 40 "
+                "(seeded assist_level from baseline_seed BASELINES['d6_t1'])"
             )

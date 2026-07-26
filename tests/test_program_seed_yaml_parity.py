@@ -75,7 +75,8 @@ YAML_M_TO_LIBRARY = {
     "hyper_pro_calf_raise":             "Calf Raise [GHR]",
     # ── d6 Weak Points ───────────────────────────────────────────────────────
     "pull_up_d6":                       "Pull-up [TOWER + TUBES]",
-    "dips":                             "Dips [ANDREONI + FT]",
+    "dips":                             "Dips [TOWER + TUBES]",
+    "cable_bicep_curl_d6":              "Cable Bicep Curl [FT]",
     "hip_thrust_d6":                    "Hip Thrust [HIP_THRUST]",
     "reverse_hyper_recovery":           "Reverse Hyper Recovery [REV_HYPER]",
     "db_seal_row":                      "DB Seal Row [DB + UTIL_SEAT]",

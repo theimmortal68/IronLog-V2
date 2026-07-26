@@ -46,7 +46,8 @@ def test_total_count_103(seeded):
     # slot got its own movement, no longer sharing "Light Reverse Hyper" with
     # D5's real training day, which has a conflicting progression rule):
     # 110 -> 111.
-    assert len(_all(seeded)) == 111
+    # 2026-07-26: +1 Cable Bicep Curl, athlete directive, fills Dips' vacated GS1 slot.
+    assert len(_all(seeded)) == 112
 
 
 def test_status_counts(seeded):
@@ -55,7 +56,8 @@ def test_status_counts(seeded):
     # go-live Task 1: +2 new ACTIVE movements, +2 ACTIVE-flips (Lat Prayer,
     # Dips) pulled out of INACTIVE: 99 -> 103, 8 -> 6.
     # 2026-07-17: +1 ACTIVE for "Reverse Hyper Recovery [REV_HYPER]": 103 -> 104.
-    assert c[Status.ACTIVE] == 104
+    # 2026-07-26: +1 ACTIVE Cable Bicep Curl, athlete directive, fills Dips' vacated GS1 slot.
+    assert c[Status.ACTIVE] == 105
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 
@@ -129,6 +131,7 @@ def test_golive_library_additions(gen_db):
     # new movements
     assert "Face Pull [FT]" in by_name
     assert "Reverse Hyper - Single Leg [REV_HYPER]" in by_name
+    assert "Cable Bicep Curl [FT]" in by_name
     slscout = by_name["Reverse Hyper - Single Leg [REV_HYPER]"]
     assert slscout.unilateral is True
     # Movement has no `load_code` attribute (that's a seed.py-only dict key
@@ -137,7 +140,12 @@ def test_golive_library_additions(gen_db):
     assert "REV_HYPER" in slscout.equipment_tags
     # ACTIVE flips (live-programmed movements)
     assert by_name["Lat Prayer [ANDREONI + FT]"].status == Status.ACTIVE
-    assert by_name["Dips [ANDREONI + FT]"].status == Status.ACTIVE
+    dips = by_name["Dips [TOWER + TUBES]"]
+    assert dips.status == Status.ACTIVE
+    assert dips.progression_mode == ProgressionMode.ASSISTED
+    assert dips.scheme == Scheme.STRAIGHT
+    assert dips.assist_ladder == [40, 30, 18, 9, 0]
+    assert "TOWER" in dips.equipment_tags and "TUBES" in dips.equipment_tags
 
 
 def test_sissy_squat_single_continuous_track(seeded):

@@ -8,6 +8,12 @@ adaptive slots with program_movement_id set on every slot.
 NO from __future__ import annotations (project-wide constraint).
 """
 from ironlog.generation.skeleton import lay_skeleton
+from ironlog.models.library import Movement
+from sqlmodel import select
+
+
+def _movement_id(db, name):
+    return db.exec(select(Movement.id).where(Movement.name == name)).one()
 
 
 def test_lay_skeleton_reads_program_anchor_and_slots(gen_db):
@@ -54,13 +60,14 @@ def test_invalid_day_role_raises(gen_db):
         lay_skeleton("X Nonexistent", gen_db)
 
 
-def test_d6_gs1_anchor_folds_into_giant_tier(gen_db):
-    """D6 Weak Points folds GS1's Pull-up anchor into the giant tier."""
+def test_d6_t1_anchor_preserved_and_gs1_anchor_folds_into_giant_tier(gen_db):
+    """D6 keeps T1 Dips as anchor and folds GS1's Pull-up into the giant tier."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    assert sk.anchor_movement_ids == []
-    assert slots["d6_g1a"].program_movement_id == 18
+    assert sk.anchor_movement_ids == [_movement_id(gen_db, "Dips [TOWER + TUBES]")]
+    assert [(m.tier_label, m.rep_low, m.rep_high) for m in sk.anchor_meta] == [("T1", 6, 8)]
+    assert slots["d6_g1a"].program_movement_id == _movement_id(gen_db, "Pull-up [TOWER + TUBES]")
     assert slots["d6_g1a"].is_giant_tier is True
     assert slots["d6_g1a"].group_key == "GS1"
     assert slots["d6_g1a"].kind == "accessory"
@@ -72,7 +79,7 @@ def test_d6_gs1_slots_share_giant_tier_group(gen_db):
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    for slot_id in ("d6_g1a", "d6_g1b", "d6_g1c"):
+    for slot_id in ("d6_g1a", "d6_g1c", "d6_g1d"):
         assert slots[slot_id].is_giant_tier is True
         assert slots[slot_id].group_key == "GS1"
 
@@ -90,4 +97,4 @@ def test_d6_gs1_slot_order_preserves_pullup_first(gen_db):
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     gs1_slots = [s.slot_id for s in sk.adaptive_slots if s.group_key == "GS1"]
 
-    assert gs1_slots == ["d6_g1a", "d6_g1b", "d6_g1c"]
+    assert gs1_slots == ["d6_g1a", "d6_g1c", "d6_g1d"]
