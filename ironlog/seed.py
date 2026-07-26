@@ -505,10 +505,16 @@ MOVEMENTS = [
     # ─────────────────────────────────────────────────────────────────────────
     # Core — LADDER (PureTorque Pro: no bracket → min_step movement-level)
     # ─────────────────────────────────────────────────────────────────────────
+    # 2026-07-26: wired into D4's T3 GS (replaces Dragon Flag, athlete
+    # directive -- "Cable Woodchopper" in the original proposal; this
+    # existing unused movement IS that rotational/transverse-plane pattern,
+    # so it's reused rather than duplicated). Marked unilateral (one side
+    # at a time, per rep).
     dict(name="PureTorque Pro Rotation", base_name="PureTorque Pro Rotation",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=[],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, primary_muscle="ABS", secondary_muscles=[]),
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, unilateral=True,
+         primary_muscle="ABS", secondary_muscles=[]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Core — PROTOCOL  (ACTIVE)

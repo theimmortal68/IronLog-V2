@@ -25,7 +25,7 @@ MINI_SESSIONS = [
     (date(2026, 7, 28), "D2 Lower A", ["Lying Leg Curl [GHR]"]),
     (date(2026, 7, 28), "D6 Weak Points", ["DB Seal Row [DB + UTIL_SEAT]", "Lateral Raise [FT]"]),
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
-    (date(2026, 7, 29), "D4 Upper Pull", ["Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "Dragon Flag"]),
+    (date(2026, 7, 29), "D4 Upper Pull", ["Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "PureTorque Pro Rotation"]),
     (date(2026, 7, 29), "D6 Weak Points", ["Dips [TOWER + TUBES]", "T-Bar Row - Wide [OB + KLEVA + LM]", "Cable V-Bar Pushdown [FT]"]),
     (date(2026, 7, 29), "D1 Upper Push", ["Incline DB Press [DB + BENCH]"]),
     (date(2026, 7, 29), "D5 Lower B", ["Nordic Curl [GHR]"]),

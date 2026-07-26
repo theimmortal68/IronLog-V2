@@ -62,7 +62,7 @@ YAML_M_TO_LIBRARY = {
     "face_up_incline_knee_raise_d4":    "Face-Up Incline Knee Raise",
     "db_rear_delt_fly":                 "Rear Delt Fly [DB]",
     "andreoni_bar_cable_pullover":      "Andreoni Cable Pullover",
-    "dragon_flag":                      "Dragon Flag",
+    "puretorque_pro_rotation_d4":       "PureTorque Pro Rotation",
     # ── d5 Lower B ───────────────────────────────────────────────────────────
     "rdl_d5":                           "RDL [PB]",
     "hip_thrust_d5":                    "Hip Thrust [HIP_THRUST]",

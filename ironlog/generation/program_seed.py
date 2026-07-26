@@ -564,15 +564,19 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t2.id, "d4_t2c", "Face-Up Incline Knee Raise", lib, 2, "free",
             pattern="core", rep_low=10, rep_high=15)
 
-    # T3 GS — DB Rear Delt Fly / Andreoni Cable Pullover / Dragon Flag
+    # T3 GS — DB Rear Delt Fly / Andreoni Cable Pullover / PureTorque Pro Rotation
+    # (2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation, athlete
+    # directive -- new slot "d4_t3d", not a reuse of Dragon Flag's old
+    # "d4_t3c" slot_id, per the never-reassign-a-slot_id convention.)
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d4_t3a", "DB Rear Delt Fly", lib, 1, "free",
             pattern="rear_delt", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d4_t3b", "Andreoni Cable Pullover", lib, 2, "free",
             pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d4_t3c", "Dragon Flag", lib, 3, "free",
-            pattern="core", rep_low=3, rep_high=6)
+    _add_te(db, t3.id, "d4_t3d", "PureTorque Pro Rotation", lib, 3, "free",
+            pattern="rotation", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
 
 
 # ---------------------------------------------------------------------------

@@ -65,7 +65,10 @@ days:
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
       {m: db_rear_delt_fly, reps: [8,12], rule: rpe_8_standard, load: 10},
       {m: andreoni_bar_cable_pullover, reps: [8,12], rule: rpe_8_standard, load: 70},
-      {m: dragon_flag, reps: [3,6], rule: body_position_progression, body_position: tuck, position_ladder: [tuck, single_leg_extended, straddle, full]}]}
+      # 2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation (athlete
+      # directive -- "Cable Woodchopper" in the original proposal, this
+      # existing library movement IS that rotational core pattern).
+      {m: puretorque_pro_rotation_d4, reps: [8,12], rule: rpe_8_standard}]}
 
   d5:  # Lower B — shoe: Metcon 9 through T1b, SWAP -> Adipower II at T2 (moved from T3
        # 2026-07-17: BSS needs the heel, so the swap must land before BSS, not after)

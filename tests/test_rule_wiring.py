@@ -59,11 +59,15 @@ def test_named_movements_map_to_expected_rules(gen_db):
         "Light Reverse Hyper [REV_HYPER]": ProgressionRule.REP_LADDER.value,
         "Ab Wheel [WHEEL]":            ProgressionRule.REP_LADDER.value,
         # 2026-07-24: converted from ASSISTANCE_REDUCTION to RPE_8_STANDARD
-        # (bodyweight-then-load double progression) -- no movement in the
-        # program uses ASSISTANCE_REDUCTION anymore, so that rule family no
-        # longer has a spot-check example here.
+        # (bodyweight-then-load double progression). 2026-07-26: D1 Pull-up
+        # re-added ASSISTANCE_REDUCTION to the program (see above), so this
+        # entry no longer needs to carry that rule family's spot-check.
         "Reverse Nordic Curl [GHR]":   ProgressionRule.RPE_8_STANDARD.value,
-        "Dragon Flag":                 ProgressionRule.BODY_POSITION.value,
+        # 2026-07-26: Dragon Flag replaced by "PureTorque Pro Rotation" in
+        # D4's T3 GS (athlete directive) -- no longer programmed on any day,
+        # so it carries no wired progression_rule. BODY_POSITION is now an
+        # unused rule family (no spot-check example needed here).
+        "PureTorque Pro Rotation":     ProgressionRule.RPE_8_STANDARD.value,
     }
     for name, rule in expected.items():
         assert by_name[name].progression_rule == rule, (
