@@ -63,7 +63,8 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Hyper Pro Calf Raise":                         "Calf Raise [GHR]",
     # ── D6 Weak Points ───────────────────────────────────────────────────────
     "Pull-up (Set 1 unassisted max test)":          "Pull-up [TOWER + TUBES]",
-    "Dips":                                         "Dips [ANDREONI + FT]",
+    "Dips":                                         "Dips [TOWER + TUBES]",
+    "Cable Bicep Curl":                             "Cable Bicep Curl [FT]",
     "Hip Thrust (D5 × 0.80, FIXED)":               "Hip Thrust [HIP_THRUST]",
     "T-Bar Row Wide":                               "T-Bar Row - Wide [OB + KLEVA + LM]",
     "DB Seal Row":                                  "DB Seal Row [DB + UTIL_SEAT]",
@@ -623,20 +624,27 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # GS1 — Pull-up / Dips / Hip Thrust
-    gs1 = _add_tier(db, pd.id, "GS1", 1, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    # T1 — Dips (bodyweight + band assist). 2026-07-26: moved out of GS1
+    # (athlete directive) into its own T1 straight-set slot, 6-8 reps.
+    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
+    _add_te(db, t1.id, "d6_t1", "Dips", lib, 1, "anchor",
+            pattern="vertical_push", rep_low=6, rep_high=8,
+            scheme="STRAIGHT")
+
+    # GS1 — Pull-up / Hip Thrust / Cable Bicep Curl (fills Dips' vacated slot)
+    gs1 = _add_tier(db, pd.id, "GS1", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, gs1.id, "d6_g1a", "Pull-up (Set 1 unassisted max test)", lib,
             1, "anchor", pattern="vertical_pull", rep_low=5, rep_high=8,
             scheme="REP_RATIO")
-    _add_te(db, gs1.id, "d6_g1b", "Dips", lib, 2, "free",
-            pattern="vertical_push", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, gs1.id, "d6_g1c", "Hip Thrust (D5 × 0.80, FIXED)", lib, 3, "free",
+    _add_te(db, gs1.id, "d6_g1c", "Hip Thrust (D5 × 0.80, FIXED)", lib, 2, "free",
             pattern="hip_thrust", rep_low=12, rep_high=12, scheme="FIXED",
             derived_from_unified_group="main", derive_ratio=0.8)
+    _add_te(db, gs1.id, "d6_g1d", "Cable Bicep Curl", lib, 3, "free",
+            pattern="bicep_curl", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
 
     # GS2 — Reverse Hyper Recovery / DB Seal Row / Lateral Raise
-    gs2 = _add_tier(db, pd.id, "GS2", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    gs2 = _add_tier(db, pd.id, "GS2", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, gs2.id, "d6_g2a", "Reverse Hyper Recovery", lib, 1, "free",
             pattern="reverse_hyper", rep_low=15, rep_high=20, scheme="FIXED",
             rpe_cap=6.0)
@@ -648,7 +656,7 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             scheme="DOUBLE_PROGRESSION")
 
     # GS3 — Face Pull / Cable V-Bar Pushdown / T-Bar Row Wide
-    gs3 = _add_tier(db, pd.id, "GS3", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
+    gs3 = _add_tier(db, pd.id, "GS3", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, gs3.id, "d6_g3a", "Face Pull", lib, 1, "free",
             pattern="rear_delt", rep_low=15, rep_high=20,
             scheme="DOUBLE_PROGRESSION")

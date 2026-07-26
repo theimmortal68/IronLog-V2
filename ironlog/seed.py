@@ -611,11 +611,26 @@ MOVEMENTS = [
     # Dips: cable-loaded RPE-8 on the Andreoni dip station + FT (Ares cable)
     # — docs/program/phase1-seed-source.yaml:72 "CORRECTED: cable-loaded, not
     # BW rep-ladder" (d6_g1b baseline seeds current_load=150).
-    dict(name="Dips [ANDREONI + FT]", base_name="Dips",
+    # 2026-07-26: converted from cable-loaded (Andreoni bar) to bodyweight +
+    # band assist (athlete directive) -- moved from D6 GS1 to its own T1
+    # straight-set slot at 6-8 reps. Band assist ladder mirrors Reverse
+    # Nordic Curl's old lb-based convention (higher lb = more assist = easier;
+    # advancing walks toward LOWER lb, terminal = fully unassisted).
+    # progression_rule is NOT set here -- seed()'s dict->Movement constructor
+    # doesn't read that key at all; the real source of truth is rule_wiring.py
+    # (derive_movement_rules/wire_progression_rules), driven by
+    # phase1-seed-source.yaml's `rule:` field. See that yaml + rule_wiring.py
+    # for the actual ASSISTANCE_REDUCTION / RPE_8_STANDARD wiring.
+    dict(name="Dips [TOWER + TUBES]", base_name="Dips",
          region=Region.UPPER, status=Status.ACTIVE,
-         load_code="FT", tags=["ANDREONI", "FT"],
+         load_code="TOWER", tags=["TOWER", "TUBES"],
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.STRAIGHT,
+         assist_ladder=[40, 30, 18, 9, 0], primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
+    dict(name="Cable Bicep Curl [FT]", base_name="Cable Bicep Curl",
+         region=Region.UPPER, status=Status.ACTIVE,
+         load_code="FT", tags=["FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5], min_step=5, load_floor=10, primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, primary_muscle="BICEPS", secondary_muscles=[]),
     # EZ curl family (all INACTIVE; grip variants ride the Medium anchor at 1.0)
     dict(name="EZ Bar Curl - Medium Grip [EZ]", base_name="EZ Bar Curl - Medium Grip",
          region=Region.UPPER, status=Status.INACTIVE,
