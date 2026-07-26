@@ -159,6 +159,7 @@ def commit_session(
             derived_plates, derived_config = ht_scaled_setup(
                 new_peak * te.derive_ratio,
                 band_inventory,
+                min_bands=1,
             )
             derived_state = _resolve_movement_state(db, mid, day_role)
             derived_state.ht_plates = derived_plates

@@ -112,6 +112,25 @@ def test_ht_scaled_setup_real_bands_uses_nearest_peak_then_fewest_bands():
         assert config_peak(tied_plates, tied_config, by_id) == 215.0
 
 
+def test_ht_scaled_setup_min_bands_prefers_banded_real_band_tie():
+    by_id = {b.id: b for b in INV}
+
+    plates, config = ht_scaled_setup(216, INV, min_bands=1)
+
+    assert (plates, config) == (170.0, [0])
+    assert config_peak(plates, config, by_id) == 215.0
+    assert abs(config_peak(plates, config, by_id) - 216) == 1.0
+    assert len(config) >= 1
+
+
+def test_ht_scaled_setup_min_bands_falls_back_when_no_banded_config_feasible():
+    inv = [Band(10, 300, 500)]
+
+    plates, config = ht_scaled_setup(100, inv, min_bands=1)
+
+    assert (plates, config) == (100.0, [])
+
+
 def test_ht_scaled_setup_never_exceeds_bottom_clamp():
     by_id = {b.id: b for b in INV}
 

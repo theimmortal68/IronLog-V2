@@ -80,26 +80,36 @@ def ht_next_setup(plates, config, inventory: List[Band], plate_step=5, clamp=225
     return best[1] if best else (plates, list(config))
 
 
-def ht_scaled_setup(target_peak: float, inventory: List[Band], plate_step=5, clamp=225) -> Tuple[float, list]:
+def ht_scaled_setup(target_peak: float, inventory: List[Band], plate_step=5, clamp=225, min_bands: int = 0) -> Tuple[float, list]:
     """Find the setup whose peak is closest to target_peak under the bottom clamp.
 
     Pure -- no DB, no HTTP. Mirrors ht_next_setup's exhaustive search, but
     optimizes for closest-to-target instead of smallest-strictly-above.
-    Tiebreak: fewest bands.
+    Tiebreak: fewest bands. min_bands is opt-in; if no clamp-feasible setup
+    satisfies it, fall back to the unconstrained search.
     """
     by_id = {b.id: b for b in inventory}
-    best = None
-    for cfg in _all_configs(inventory):
-        srest = sum(by_id[b].rest for b in cfg)
-        if srest > clamp:
-            continue
-        max_plates = int((clamp - srest) // plate_step) * plate_step
-        p = 0.0
-        while p <= max_plates:
-            pk = p + sum(by_id[b].peak for b in cfg)
-            dist = abs(pk - target_peak)
-            key = (dist, len(cfg))
-            if best is None or key < best[0]:
-                best = (key, (p, list(cfg)))
-            p += plate_step
-    return best[1] if best else (0.0, [])
+
+    def best_matching(required_min_bands):
+        best = None
+        for cfg in _all_configs(inventory):
+            if len(cfg) < required_min_bands:
+                continue
+            srest = sum(by_id[b].rest for b in cfg)
+            if srest > clamp:
+                continue
+            max_plates = int((clamp - srest) // plate_step) * plate_step
+            p = 0.0
+            while p <= max_plates:
+                pk = p + sum(by_id[b].peak for b in cfg)
+                dist = abs(pk - target_peak)
+                key = (dist, len(cfg))
+                if best is None or key < best[0]:
+                    best = (key, (p, list(cfg)))
+                p += plate_step
+        return best[1] if best else None
+
+    best = best_matching(min_bands)
+    if best is None and min_bands > 0:
+        best = best_matching(0)
+    return best if best else (0.0, [])
