@@ -22,7 +22,7 @@ MINI_SESSIONS = [
     (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Cable Tibialis Raise"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
     (date(2026, 7, 28), "D5 Lower B", ["RDL [PB]", "Hip Thrust [HIP_THRUST]", "Reverse Nordic Curl [GHR]"]),
-    (date(2026, 7, 28), "D2 Lower A", ["Leg Curl [GHR]"]),
+    (date(2026, 7, 28), "D2 Lower A", ["Lying Leg Curl [GHR]"]),
     (date(2026, 7, 28), "D6 Weak Points", ["DB Seal Row [DB + UTIL_SEAT]", "Lateral Raise [FT]"]),
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
     (date(2026, 7, 29), "D4 Upper Pull", ["Standing OHP [PB]", "Pull-up [TOWER + TUBES]", "Dragon Flag"]),

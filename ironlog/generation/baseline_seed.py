@@ -20,8 +20,9 @@ from ironlog.models.session import (
 
 # slot_id -> ("load"|"assist"|"ht", value, band_label_or_None)
 #
-# d2_t2a (Leg Curl [GHR]) has NO entry -- intentionally needs-calibration at
-# go-live (2026-07-22 Nordic Curl -> Leg Curl swap), not a completeness gap.
+# d2_t2a (Lying Leg Curl [GHR], renamed 2026-07-26 from "Leg Curl [GHR]") has
+# NO entry -- intentionally needs-calibration at go-live (2026-07-22
+# Nordic Curl -> Leg Curl swap), not a completeness gap.
 #
 # d1_t2c / d4_t2c (Face-Up Incline Knee Raise) are seeded "assist" (degrees),
 # not "load": the movement is bodyweight/incline (progression_mode=ASSISTED,

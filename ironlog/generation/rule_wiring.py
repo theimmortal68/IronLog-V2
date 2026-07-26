@@ -76,7 +76,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     # ── d2 Lower A ───────────────────────────────────────────────────────────
     "belt_squat":                        "Belt Squat [GHR + FT]",
     "hip_thrust_d2":                     "Hip Thrust [HIP_THRUST]",
-    "leg_curl_d2":                        "Leg Curl [GHR]",
+    "leg_curl_d2":                        "Lying Leg Curl [GHR]",
     "scout_reverse_hyper_bilateral_d2":  "Reverse Hyper [REV_HYPER]",
     "atg_split_squat":                   "ATG Split Squat",
     "cable_tib_raise_d2":                "Cable Tibialis Raise",

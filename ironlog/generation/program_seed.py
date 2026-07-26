@@ -475,7 +475,7 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 
     # T2 GS — Leg Curl / Scout Reverse Hyper
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
-    _add_te(db, t2.id, "d2_t2a", "Leg Curl [GHR]", lib, 1, "free",
+    _add_te(db, t2.id, "d2_t2a", "Lying Leg Curl [GHR]", lib, 1, "free",
             rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d2_t2b", "Scout Reverse Hyper (180 cap)", lib, 2, "free",

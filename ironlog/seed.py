@@ -269,7 +269,7 @@ MOVEMENTS = [
          region=Region.LOWER, status=Status.ACTIVE, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
-    dict(name="Leg Curl [GHR]", base_name="Leg Curl", region=Region.LOWER,
+    dict(name="Lying Leg Curl [GHR]", base_name="Lying Leg Curl", region=Region.LOWER,
          status=Status.ACTIVE, load_code="GHR", tags=["GHR"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, primary_muscle="HAMSTRINGS", secondary_muscles=[]),
