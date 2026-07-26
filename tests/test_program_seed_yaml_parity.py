@@ -54,7 +54,7 @@ YAML_M_TO_LIBRARY = {
     "cable_tib_raise_d2":               "Cable Tibialis Raise",
     "reverse_nordic_assisted_d2":        "Reverse Nordic Curl [GHR]",
     # ── d4 Upper Pull ────────────────────────────────────────────────────────
-    "pull_up_d4":                       "Pull-up [TOWER + TUBES]",
+    "pull_up_d4":                       "Wide-Grip Pull-up [TOWER]",
     "standing_ohp_d4":                  "Standing OHP [PB]",
     "meadows_row_bruno_bar":            "Meadows Row [OB + LM]",
     "single_arm_db_row":                "Single-Arm DB Row [DB]",
@@ -74,7 +74,7 @@ YAML_M_TO_LIBRARY = {
     "cable_tib_raise_d5":               "Cable Tibialis Raise",
     "hyper_pro_calf_raise":             "Calf Raise [GHR]",
     # ── d6 Weak Points ───────────────────────────────────────────────────────
-    "pull_up_d6":                       "Pull-up [TOWER + TUBES]",
+    "pull_up_d6":                       "Wide-Grip Pull-up [TOWER]",
     "dips":                             "Dips [TOWER + TUBES]",
     "cable_bicep_curl_d6":              "Cable Bicep Curl [FT]",
     "hip_thrust_d6":                    "Hip Thrust [HIP_THRUST]",

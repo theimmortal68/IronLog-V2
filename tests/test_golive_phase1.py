@@ -20,11 +20,14 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # (2026-07-23, new D4 d4_t1_ohp slot closing the program's overhead-press
 # gap) is a brand new program movement with zero prior training history
 # either. Cable Bicep Curl [FT] (2026-07-26, new D6 d6_g1d slot filling Dips'
-# vacated GS1 slot) has zero prior training history.
+# vacated GS1 slot) has zero prior training history. Wide-Grip Pull-up
+# [TOWER] (2026-07-26, athlete directive, D4+D6's Pull-up slots switched
+# grips from neutral to wide) is a brand new movement with zero prior
+# training history on either day's MovementState.
 EXPECTED_NEEDS_CAL = {
     "D2 Lower A": {"Lying Leg Curl [GHR]"},
-    "D4 Upper Pull": {"Standing OHP [PB]"},
-    "D6 Weak Points": {"Cable Bicep Curl [FT]"},
+    "D4 Upper Pull": {"Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]"},
+    "D6 Weak Points": {"Cable Bicep Curl [FT]", "Wide-Grip Pull-up [TOWER]"},
 }
 
 

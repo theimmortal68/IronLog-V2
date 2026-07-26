@@ -47,7 +47,8 @@ def test_total_count_103(seeded):
     # D5's real training day, which has a conflicting progression rule):
     # 110 -> 111.
     # 2026-07-26: +1 Cable Bicep Curl, athlete directive, fills Dips' vacated GS1 slot.
-    assert len(_all(seeded)) == 112
+    # 2026-07-26: +1 Wide-Grip Pull-up, athlete directive, D4/D6's Pull-up slots switched grips.
+    assert len(_all(seeded)) == 113
 
 
 def test_status_counts(seeded):
@@ -57,7 +58,8 @@ def test_status_counts(seeded):
     # Dips) pulled out of INACTIVE: 99 -> 103, 8 -> 6.
     # 2026-07-17: +1 ACTIVE for "Reverse Hyper Recovery [REV_HYPER]": 103 -> 104.
     # 2026-07-26: +1 ACTIVE Cable Bicep Curl, athlete directive, fills Dips' vacated GS1 slot.
-    assert c[Status.ACTIVE] == 105
+    # 2026-07-26: +1 ACTIVE Wide-Grip Pull-up, athlete directive, D4/D6 grip switch.
+    assert c[Status.ACTIVE] == 106
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

@@ -48,7 +48,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Scout Reverse Hyper (180 cap)":               "Reverse Hyper [REV_HYPER]",
     "Cable Tib Raise":                              "Cable Tibialis Raise",
     # ── D4 Upper Pull ────────────────────────────────────────────────────────
-    "Assisted Pull-up (2-phase)":                   "Pull-up [TOWER + TUBES]",
+    "Wide-Grip Pull-up":                             "Wide-Grip Pull-up [TOWER]",
     "Meadows Row":                                  "Meadows Row [OB + LM]",
     "Meadows SA Row":                               "Meadows Row [OB + LM]",
     "DB Rear Delt Fly":                             "Rear Delt Fly [DB]",
@@ -62,7 +62,8 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Reverse Nordic (assisted)":                    "Reverse Nordic Curl [GHR]",
     "Hyper Pro Calf Raise":                         "Calf Raise [GHR]",
     # ── D6 Weak Points ───────────────────────────────────────────────────────
-    "Pull-up (Set 1 unassisted max test)":          "Pull-up [TOWER + TUBES]",
+    # (D6's Pull-up slot now shares the "Wide-Grip Pull-up" PROGRAM_TO_LIBRARY
+    # key with D4 -- same movement, same prog_name string -- see D4 section.)
     "Dips":                                         "Dips [TOWER + TUBES]",
     "Cable Bicep Curl":                             "Cable Bicep Curl [FT]",
     "Hip Thrust (D5 × 0.80, FIXED)":               "Hip Thrust [HIP_THRUST]",
@@ -524,9 +525,12 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t1.id, "d4_t1_ohp", "Standing OHP [PB]", lib, 1, "anchor",
             pattern="vertical_push", rep_low=6, rep_high=8, scheme="STRAIGHT")
 
-    # T1b — Assisted Pull-up (anchor)
+    # T1b — Wide-Grip Pull-up (anchor). 2026-07-26: switched from neutral-grip
+    # (shared "Pull-up [TOWER + TUBES]") to a new movement, wide-grip
+    # unassisted (athlete directive: neutral-grip 3x8 milestone cleared,
+    # switching grips for fresh stimulus). D1's Pull-up slot is unaffected.
     t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=180, shoe="Metcon 9")
-    _add_te(db, t1b.id, "d4_t1", "Assisted Pull-up (2-phase)", lib, 1, "anchor",
+    _add_te(db, t1b.id, "d4_t1", "Wide-Grip Pull-up", lib, 1, "anchor",
             pattern="vertical_pull", rep_low=6, rep_high=8, scheme="REP_RATIO")
 
     # T2 GS — Meadows Row / Face-Up Incline Knee Raise / Single-Arm DB Row
@@ -633,7 +637,8 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 
     # GS1 — Pull-up / Hip Thrust / Cable Bicep Curl (fills Dips' vacated slot)
     gs1 = _add_tier(db, pd.id, "GS1", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, gs1.id, "d6_g1a", "Pull-up (Set 1 unassisted max test)", lib,
+    # 2026-07-26: switched to Wide-Grip Pull-up (same athlete directive as D4).
+    _add_te(db, gs1.id, "d6_g1a", "Wide-Grip Pull-up", lib,
             1, "anchor", pattern="vertical_pull", rep_low=5, rep_high=8,
             scheme="REP_RATIO")
     _add_te(db, gs1.id, "d6_g1c", "Hip Thrust (D5 × 0.80, FIXED)", lib, 2, "free",

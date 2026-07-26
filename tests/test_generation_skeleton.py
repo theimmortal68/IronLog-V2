@@ -67,7 +67,10 @@ def test_d6_t1_anchor_preserved_and_gs1_anchor_folds_into_giant_tier(gen_db):
 
     assert sk.anchor_movement_ids == [_movement_id(gen_db, "Dips [TOWER + TUBES]")]
     assert [(m.tier_label, m.rep_low, m.rep_high) for m in sk.anchor_meta] == [("T1", 6, 8)]
-    assert slots["d6_g1a"].program_movement_id == _movement_id(gen_db, "Pull-up [TOWER + TUBES]")
+    # 2026-07-26: D6's Pull-up slot switched to "Wide-Grip Pull-up [TOWER]"
+    # (athlete directive, same grip switch as D4) -- "Pull-up [TOWER + TUBES]"
+    # is now D1-only.
+    assert slots["d6_g1a"].program_movement_id == _movement_id(gen_db, "Wide-Grip Pull-up [TOWER]")
     assert slots["d6_g1a"].is_giant_tier is True
     assert slots["d6_g1a"].group_key == "GS1"
     assert slots["d6_g1a"].kind == "accessory"

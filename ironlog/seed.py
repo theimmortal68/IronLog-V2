@@ -209,6 +209,14 @@ MOVEMENTS = [
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
          objective_override=Objective.PROGRESS, primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
+    # 2026-07-26: D4/D6 switched from this shared neutral-grip Pull-up to a
+    # new movement, wide-grip unassisted (athlete directive -- neutral-grip
+    # 3x8 milestone cleared, switching grips for fresh stimulus). D1's
+    # Pull-up slot is unaffected, stays on the movement above.
+    dict(name="Wide-Grip Pull-up [TOWER]", base_name="Wide-Grip Pull-up", region=Region.UPPER,
+         status=Status.ACTIVE, load_code="TOWER", tags=["TOWER"],
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Reverse hyper (LADDER, STRAIGHT, cap-and-reps; own baselines — no e1RM ratio)

@@ -84,8 +84,11 @@ def test_d2_belt_squat_anchor_gets_three_ramp_sets_before_working_sets(gen_db_ca
 
 
 def test_non_ramp_eligible_pullup_anchor_gets_no_ramp_sets(gen_db_calibrated):
+    # 2026-07-26: D4's Pull-up slot switched to "Wide-Grip Pull-up [TOWER]"
+    # (athlete directive) -- "Pull-up [TOWER + TUBES]" is now D1-only (still
+    # assisted/banded, unaffected by this test's point about non-ramp anchors).
     assembled = _assemble("D4 Upper Pull", gen_db_calibrated)
-    pullup = _movement(gen_db_calibrated, "Pull-up [TOWER + TUBES]")
+    pullup = _movement(gen_db_calibrated, "Wide-Grip Pull-up [TOWER]")
     exercise = _exercise_for(assembled, pullup.id)
 
     assert [planned_set.set_role for planned_set in exercise.planned_sets] == [
