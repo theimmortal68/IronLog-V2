@@ -23,8 +23,11 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # vacated GS1 slot) has zero prior training history. Wide-Grip Pull-up
 # [TOWER] (2026-07-26, athlete directive, D4+D6's Pull-up slots switched
 # grips from neutral to wide) is a brand new movement with zero prior
-# training history on either day's MovementState.
+# training history on either day's MovementState. Lying Tricep Extension
+# [SB] (2026-07-26, new D1 d1_t2d slot filling Pendlay Row Narrow's vacated
+# T2 GS slot after its T1b promotion) has zero prior training history.
 EXPECTED_NEEDS_CAL = {
+    "D1 Upper Push": {"Lying Tricep Extension [SB]"},
     "D2 Lower A": {"Lying Leg Curl [GHR]"},
     "D4 Upper Pull": {"Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]"},
     "D6 Weak Points": {"Cable Bicep Curl [FT]", "Wide-Grip Pull-up [TOWER]"},

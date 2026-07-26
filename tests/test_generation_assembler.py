@@ -88,7 +88,8 @@ def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
     # it was always None. Thread Tier.tier_label through (AnchorSpec.tier_label
     # for the anchor site, SlotSpec.group_key — already the tier_label — for the
     # giant/straight adaptive sites) and assert the assembled labels are real.
-    # D1 Upper Push: T1 (anchor, STRAIGHT) + T2 GS / T3 GS / T4 GS (all giant).
+    # D1 Upper Push: T1 (anchor, STRAIGHT) + T1b (anchor, PAIR/straight;
+    # 2026-07-26 Pendlay Row Narrow promotion) + T2 GS / T3 GS / T4 GS (giant).
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
@@ -96,11 +97,11 @@ def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
     res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
     groups = sorted(res.session.groups, key=lambda g: g.order_index)
     labels = [g.label for g in groups]
-    assert labels == ["T1", "T2 GS", "T3 GS", "T4 GS"], (
+    assert labels == ["T1", "T1b", "T2 GS", "T3 GS", "T4 GS"], (
         f"group labels must mirror the seeded Tier.tier_label order, got {labels}"
     )
     assert groups[0].group_type.value == "STRAIGHT" and groups[0].label == "T1"
-    assert groups[1].group_type.value == "GIANT_SET" and groups[1].label == "T2 GS"
+    assert groups[2].group_type.value == "GIANT_SET" and groups[2].label == "T2 GS"
 
 
 def test_d1_t2_giant_set_stays_grouped(gen_db_calibrated):
@@ -110,9 +111,11 @@ def test_d1_t2_giant_set_stays_grouped(gen_db_calibrated):
     ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
     res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
 
+    # 2026-07-26: Pendlay Row Narrow promoted to its own T1b tier; T2 GS's
+    # vacated slot is now the new "Lying Tricep Extension [SB]" movement.
     group = _giant_group_by_label(res.session, "T2 GS")
     assert _names_for_group(group, gen_db) == [
-        "Pendlay Row - Narrow [OB]",
+        "Lying Tricep Extension [SB]",
         "Incline DB Press [DB + BENCH]",
         "Face-Up Incline Knee Raise",
     ]

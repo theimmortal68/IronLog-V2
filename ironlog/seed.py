@@ -313,6 +313,16 @@ MOVEMENTS = [
          load_code="SB", tags=["SB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=30, primary_muscle="TRICEPS", secondary_muscles=["MID_LOWER_CHEST", "FRONT_DELT"]),
+    # 2026-07-26: new D1 T2 GS accessory (athlete directive) -- fills the slot
+    # vacated by Pendlay Row Narrow's promotion to its own T1b tier. Pure
+    # tricep isolation (not a CG_PRESS variant), same BMF Camber Bar as the
+    # rest of the [SB] family.
+    dict(name="Lying Tricep Extension [SB]", base_name="Lying Tricep Extension",
+         region=Region.UPPER, status=Status.ACTIVE,
+         load_code="SB", tags=["SB"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=20,
+         primary_muscle="TRICEPS", secondary_muscles=[]),
     # OHP ratio-variant
     dict(name="Z-Press [DB]", base_name="Z-Press", region=Region.UPPER,
          status=Status.ACTIVE, load_code="DB", tags=["DB"],

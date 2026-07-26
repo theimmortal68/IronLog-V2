@@ -61,9 +61,15 @@ def test_hgc_condensed_week_creates_sessions(gen_db_calibrated):
 
 
 def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
+    # 2026-07-26: mini-session 1 (D1) no longer demonstrates giant-set
+    # clustering -- Pendlay Row Narrow was promoted out of D1's T2 GS into
+    # its own T1b straight-set tier, so it and Face-Up Incline Knee Raise no
+    # longer share a source ExerciseGroup. Mini-session 2 (D2: Belt Squat /
+    # ATG Split Squat / Cable Tibialis Raise) still has a genuine 2-member
+    # shared giant-set cluster (D2's T3 GS), so this test moved there.
     apply(gen_db_calibrated)
 
-    session = _hgc_sessions(gen_db_calibrated)[0]
+    session = _hgc_sessions(gen_db_calibrated)[1]
     groups = _ordered_groups(session)
 
     assert [group.order_index for group in groups] == [1, 2]
@@ -72,10 +78,10 @@ def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
         GroupType.GIANT_SET,
     ]
     assert [group.rounds for group in groups] == [1, 3]
-    assert _group_movement_names(gen_db_calibrated, groups[0]) == ["Bench Press [PB]"]
+    assert _group_movement_names(gen_db_calibrated, groups[0]) == ["Belt Squat [GHR + FT]"]
     assert _group_movement_names(gen_db_calibrated, groups[1]) == [
-        "Pendlay Row - Narrow [OB]",
-        "Face-Up Incline Knee Raise",
+        "ATG Split Squat",
+        "Cable Tibialis Raise",
     ]
 
 

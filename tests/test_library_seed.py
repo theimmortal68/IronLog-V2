@@ -48,7 +48,9 @@ def test_total_count_103(seeded):
     # 110 -> 111.
     # 2026-07-26: +1 Cable Bicep Curl, athlete directive, fills Dips' vacated GS1 slot.
     # 2026-07-26: +1 Wide-Grip Pull-up, athlete directive, D4/D6's Pull-up slots switched grips.
-    assert len(_all(seeded)) == 113
+    # 2026-07-26: +1 Lying Tricep Extension, athlete directive, fills Pendlay
+    # Row Narrow's vacated D1 T2 GS slot after its T1b promotion.
+    assert len(_all(seeded)) == 114
 
 
 def test_status_counts(seeded):
@@ -59,7 +61,8 @@ def test_status_counts(seeded):
     # 2026-07-17: +1 ACTIVE for "Reverse Hyper Recovery [REV_HYPER]": 103 -> 104.
     # 2026-07-26: +1 ACTIVE Cable Bicep Curl, athlete directive, fills Dips' vacated GS1 slot.
     # 2026-07-26: +1 ACTIVE Wide-Grip Pull-up, athlete directive, D4/D6 grip switch.
-    assert c[Status.ACTIVE] == 106
+    # 2026-07-26: +1 ACTIVE Lying Tricep Extension, fills Pendlay Row's vacated D1 slot.
+    assert c[Status.ACTIVE] == 107
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

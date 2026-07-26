@@ -34,6 +34,7 @@ from ironlog.models.program import (
 PROGRAM_TO_LIBRARY: Dict[str, str] = {
     # ── D1 Upper Push ────────────────────────────────────────────────────────
     "Pendlay Row Narrow":                           "Pendlay Row - Narrow [OB]",
+    "Lying Tricep Extension":                       "Lying Tricep Extension [SB]",
     "Incline DB Press":                             "Incline DB Press [DB + BENCH]",
     "Pull-up (2-phase)":                            "Pull-up [TOWER + TUBES]",
     "Cross-Body Lateral Raise":                     "Cross-Body Cable Lateral Raise [FT]",
@@ -428,10 +429,23 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="bench", rep_low=6, rep_high=8, rpe_cap=8.0,
             scheme="STRAIGHT")
 
-    # T2 GS — Pendlay Row Narrow / Incline DB Press / Face-Up Incline Knee Raise
-    t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, t2.id, "d1_t2a", "Pendlay Row Narrow", lib, 1, "semi",
+    # T1b — Pendlay Row Narrow (anchor). 2026-07-26: promoted out of T2 GS
+    # into its own straight-set tier (athlete directive). slot_id stays
+    # "d1_t2a" -- the movement's original stable slot_id, unchanged by the
+    # tier-label move (same convention as D4's Wide-Grip Pull-up, which kept
+    # slot_id "d4_t1" after its T1->T1b tier-label change).
+    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=120, shoe="Metcon 9")
+    _add_te(db, t1b.id, "d1_t2a", "Pendlay Row Narrow", lib, 1, "anchor",
             pattern="horizontal_pull", rep_low=6, rep_high=8,
+            scheme="DOUBLE_PROGRESSION")
+
+    # T2 GS — Lying Tricep Extension / Incline DB Press / Face-Up Incline Knee Raise
+    # (2026-07-26: Lying Tricep Extension is a NEW movement/slot filling the
+    # spot vacated by Pendlay Row Narrow's T1b promotion above -- "d1_t2a" is
+    # NOT reused here, per the never-reassign-a-slot_id convention.)
+    t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    _add_te(db, t2.id, "d1_t2d", "Lying Tricep Extension", lib, 1, "free",
+            pattern="tricep_extension", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d1_t2b", "Incline DB Press", lib, 2, "free",
             pattern="vertical_push", rep_low=8, rep_high=12,
@@ -440,7 +454,7 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="core", rep_low=10, rep_high=15)
 
     # T3 GS — Pull-up / Cross-Body Lateral Raise / Lat Prayer
-    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
+    t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d1_t3a", "Pull-up (2-phase)", lib, 1, "free",
             pattern="vertical_pull", rep_low=8, rep_high=12, scheme="REP_RATIO")
     _add_te(db, t3.id, "d1_t3b", "Cross-Body Lateral Raise", lib, 2, "free",
@@ -450,7 +464,7 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
 
     # T4 GS — Seated Cable Row / Ab Wheel Rollout / Cross-Body Rear Delt Fly
-    t4 = _add_tier(db, pd.id, "T4 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
+    t4 = _add_tier(db, pd.id, "T4 GS", 5, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, t4.id, "d1_t4a", "Seated Cable Row", lib, 1, "semi",
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")

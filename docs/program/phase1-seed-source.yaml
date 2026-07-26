@@ -13,8 +13,16 @@ days:
   d1:  # Upper A / Push — shoe: Metcon 9 (no swap)
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
       {m: bench_press, reps: [6,8], rule: rpe_8_standard, load: 165}]}
+    T1b: {group_key: "T1b", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
+      # 2026-07-26: promoted out of T2 GS into its own straight-set tier
+      # (athlete directive). slot stays pendlay_row_narrow -- same movement,
+      # only the tier label changed (mirrors d4_t1's T1->T1b precedent).
+      {m: pendlay_row_narrow, reps: [6,8], rule: rpe_8_standard, load: 170}]}
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: pendlay_row_narrow, reps: [6,8], rule: rpe_8_standard, load: 170},
+      # 2026-07-26: new movement filling the slot vacated by Pendlay Row
+      # Narrow's T1b promotion above -- brand new, needs-calibration (no
+      # prior history).
+      {m: lying_tricep_extension_d1, reps: [8,12], rule: rpe_8_standard},
       {m: incline_db_press, reps: [8,12], rule: rpe_8_standard, load: 55},
       {m: face_up_incline_knee_raise_d1, reps: [10,15], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [

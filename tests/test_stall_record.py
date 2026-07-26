@@ -7,7 +7,7 @@ Tests verify:
   (checks mid in ctx.weak_point_hints — key lookup unchanged by value-shape change).
 
 Fixture: stalled_session_db (conftest.py) — consecutive_failed_progressions=2 on
-Pendlay Row - Narrow [OB] (D1 d1_t2a, semi) → detect_stall fires → movement
+Seated Cable Row [FT] (D1 d1_t4a, semi) → detect_stall fires → movement
 in weak_point_hints → slot_has_deviation_signal True → should_invoke_llm True.
 
 NO from __future__ import annotations (project-wide constraint).

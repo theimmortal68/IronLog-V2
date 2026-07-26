@@ -37,6 +37,7 @@ YAML_M_TO_LIBRARY = {
     # ── d1 Upper Push ────────────────────────────────────────────────────────
     "bench_press":                      "Bench Press [PB]",
     "pendlay_row_narrow":               "Pendlay Row - Narrow [OB]",
+    "lying_tricep_extension_d1":        "Lying Tricep Extension [SB]",
     "incline_db_press":                 "Incline DB Press [DB + BENCH]",
     "face_up_incline_knee_raise_d1":    "Face-Up Incline Knee Raise",
     "pull_up_d1":                       "Pull-up [TOWER + TUBES]",

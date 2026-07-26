@@ -36,6 +36,12 @@ from ironlog.models.session import (
 # assistance_reduction gating replaces the former tracking-only rule). No
 # longer ROLLING_MAX_EXEMPT in scripts/golive_phase1.py (see removal there).
 #
+# d1_t2a (Pendlay Row Narrow) keeps its slot_id and baseline unchanged even
+# though it moved tiers 2026-07-26 (T2 GS -> its own T1b) -- the movement's
+# stable slot_id, not the tier label, is what this table keys on. d1_t2d
+# (Lying Tricep Extension, new movement filling the vacated T2 GS slot) has
+# NO entry -- intentionally needs-calibration, zero prior history.
+#
 # d1_t2c / d4_t2c (Face-Up Incline Knee Raise) are seeded "assist" (degrees),
 # not "load": the movement is bodyweight/incline (progression_mode=ASSISTED,
 # ironlog/seed.py), so resolve_start_load reads assist_level, not current_load.
