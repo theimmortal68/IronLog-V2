@@ -470,7 +470,7 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T1b — Barbell Hip Thrust (anchor)
     t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=120, shoe="Adipower II")
     _add_te(db, t1b.id, "d2_t1b", "Barbell Hip Thrust (220 cap)", lib, 1, "anchor",
-            pattern="hip_thrust", rep_low=8, rep_high=8, rpe_cap=8.0,
+            pattern="hip_thrust", rep_low=6, rep_high=8, rpe_cap=8.0,
             scheme="COMPOSITE")
 
     # T2 GS — Leg Curl / Scout Reverse Hyper
@@ -569,7 +569,7 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=150, shoe="Metcon 9")
     _add_te(db, t1b.id, "d5_t1b",
             "Barbell Hip Thrust (220 cap, independent track)", lib, 1, "anchor",
-            pattern="hip_thrust", rep_low=8, rep_high=8, rpe_cap=8.0,
+            pattern="hip_thrust", rep_low=6, rep_high=8, rpe_cap=8.0,
             scheme="COMPOSITE")
 
     # T2 GS — Bulgarian Split Squat / Scout Reverse Hyper / Assisted Nordic

@@ -30,7 +30,7 @@ days:
     T1_STRAIGHT: {group_key: "T1", rest: 150, shoe: "Adipower II", anchor: true, ex: [
       {m: belt_squat, reps: [6,8], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T1b: {group_key: "T1b", rest: 120, shoe: "Adipower II", anchor: true, ex: [
-      {m: hip_thrust_d2, reps: [8,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223 (<225 clamp)
+      {m: hip_thrust_d2, reps: [6,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223 (<225 clamp). 2026-07-26: rep range widened 8-8 -> 6-8 (standard RPE_8_STANDARD-style rep range; advance still gates only on hitting rep_high=8, per _clean/hit_target)
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [
       {m: leg_curl_d2, reps: [8,12], rule: rpe_8_standard},  # 2026-07-22: replaced assisted_nordic_curl_d2; needs-calibration (no prior history). 2026-07-26: renamed to "Lying Leg Curl [GHR]" -- same Hyper Pro rack equipment (id=8) as Belt Squat, zero logged history, safe rename.
       {m: scout_reverse_hyper_bilateral_d2, reps: [8,12], rule: fixed_load, load: 180}]}  # 2026-07-22: corrected from stale rep_ladder to match the live progression_rule fix (movement 19)
@@ -58,7 +58,7 @@ days:
     T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
       {m: rdl_d5, reps: [6,8], rule: rpe_8_standard, load: 255, meso: {1: rdl_conventional, 2: rdl_staggered}}]}
     T1b: {group_key: "T1b", rest: 150, shoe: "Metcon 9", anchor: true, ex: [
-      {m: hip_thrust_d5, reps: [8,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223(accepted, <225 clamp); INDEPENDENT track from d2
+      {m: hip_thrust_d5, reps: [6,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223(accepted, <225 clamp); INDEPENDENT track from d2. 2026-07-26: rep range widened 8-8 -> 6-8, same reasoning as D2
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [   # <-- SHOE SWAP
       {m: bulgarian_split_squat, reps: [8,12], rule: rpe_8_standard, load: 30, unilateral: true},
       {m: scout_reverse_hyper_bilateral_d5_90cap, reps: [15,20], rule: rep_ladder, load: 90, rep_target: 15, rep_ladder: [15,18,20,22,25], ceiling: true, meso: 1},  # remapped to Light Reverse Hyper (cap=90); D6's recovery slot got its own new movement instead of sharing this one
