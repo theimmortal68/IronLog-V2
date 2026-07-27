@@ -75,7 +75,7 @@ YAML_M_TO_LIBRARY = {
     "cable_tib_raise_d5":               "Cable Tibialis Raise",
     "hyper_pro_calf_raise":             "Calf Raise [GHR]",
     # ── d6 Weak Points ───────────────────────────────────────────────────────
-    "pull_up_d6":                       "Wide-Grip Pull-up [TOWER]",
+    "pull_up_neutral_paused_d6":        "Pull-up - Neutral Grip (Paused) [TOWER]",
     "dips":                             "Dips [TOWER + TUBES]",
     "cable_bicep_curl_d6":              "Cable Bicep Curl [FT]",
     "hip_thrust_d6":                    "Hip Thrust [HIP_THRUST]",

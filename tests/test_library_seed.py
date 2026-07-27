@@ -50,7 +50,9 @@ def test_total_count_103(seeded):
     # 2026-07-26: +1 Wide-Grip Pull-up, athlete directive, D4/D6's Pull-up slots switched grips.
     # 2026-07-26: +1 Lying Tricep Extension, athlete directive, fills Pendlay
     # Row Narrow's vacated D1 T2 GS slot after its T1b promotion.
-    assert len(_all(seeded)) == 114
+    # 2026-07-26: +1 Pull-up - Neutral Grip (Paused), 3-way pull-up split,
+    # D6 no longer shares D4's Wide-Grip Pull-up.
+    assert len(_all(seeded)) == 115
 
 
 def test_status_counts(seeded):
@@ -62,7 +64,8 @@ def test_status_counts(seeded):
     # 2026-07-26: +1 ACTIVE Cable Bicep Curl, athlete directive, fills Dips' vacated GS1 slot.
     # 2026-07-26: +1 ACTIVE Wide-Grip Pull-up, athlete directive, D4/D6 grip switch.
     # 2026-07-26: +1 ACTIVE Lying Tricep Extension, fills Pendlay Row's vacated D1 slot.
-    assert c[Status.ACTIVE] == 107
+    # 2026-07-26: +1 ACTIVE Pull-up - Neutral Grip (Paused), 3-way pull-up split.
+    assert c[Status.ACTIVE] == 108
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

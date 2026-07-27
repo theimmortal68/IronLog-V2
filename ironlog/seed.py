@@ -212,12 +212,22 @@ MOVEMENTS = [
          # band at 3x12 (athlete directive). assist_ladder now real (was None).
          assist_ladder=[60, 40, 20, 0],
          objective_override=Objective.PROGRESS, primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
-    # 2026-07-26: D4/D6 switched from this shared neutral-grip Pull-up to a
-    # new movement, wide-grip unassisted (athlete directive -- neutral-grip
-    # 3x8 milestone cleared, switching grips for fresh stimulus). D1's
-    # Pull-up slot is unaffected, stays on the movement above.
+    # 2026-07-26: D4 switched from the shared neutral-grip Pull-up above to
+    # this new movement, wide-grip unassisted (athlete directive -- neutral-
+    # grip 3x8 milestone cleared, switching grips for fresh stimulus). D1's
+    # Pull-up slot is unaffected, stays assisted neutral-grip. D6 briefly
+    # shared this movement too, then split to its own neutral-grip-paused
+    # variant (see below) -- 3-way pull-up split across the program.
     dict(name="Wide-Grip Pull-up [TOWER]", base_name="Wide-Grip Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER"],
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
+    # 2026-07-26: 3-way pull-up split (athlete directive) -- D1 stays
+    # assisted neutral-grip, D4 stays Wide-Grip (unassisted), D6 gets its
+    # own variant: neutral-grip with a paused rep (unassisted, same rolling-
+    # max tracking as Wide-Grip Pull-up).
+    dict(name="Pull-up - Neutral Grip (Paused) [TOWER]", base_name="Pull-up - Neutral Grip (Paused)",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="TOWER", tags=["TOWER"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
          primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
 

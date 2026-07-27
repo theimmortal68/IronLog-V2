@@ -63,8 +63,9 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Reverse Nordic (assisted)":                    "Reverse Nordic Curl [GHR]",
     "Hyper Pro Calf Raise":                         "Calf Raise [GHR]",
     # ── D6 Weak Points ───────────────────────────────────────────────────────
-    # (D6's Pull-up slot now shares the "Wide-Grip Pull-up" PROGRAM_TO_LIBRARY
-    # key with D4 -- same movement, same prog_name string -- see D4 section.)
+    # 2026-07-26: 3-way pull-up split -- D6 no longer shares D4's Wide-Grip
+    # Pull-up, gets its own neutral-grip-paused movement.
+    "Pull-up - Neutral Grip (Paused)":               "Pull-up - Neutral Grip (Paused) [TOWER]",
     "Dips":                                         "Dips [TOWER + TUBES]",
     "Cable Bicep Curl":                             "Cable Bicep Curl [FT]",
     "Hip Thrust (D5 × 0.80, FIXED)":               "Hip Thrust [HIP_THRUST]",
@@ -655,8 +656,9 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 
     # GS1 — Pull-up / Hip Thrust / Cable Bicep Curl (fills Dips' vacated slot)
     gs1 = _add_tier(db, pd.id, "GS1", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    # 2026-07-26: switched to Wide-Grip Pull-up (same athlete directive as D4).
-    _add_te(db, gs1.id, "d6_g1a", "Wide-Grip Pull-up", lib,
+    # 2026-07-26: 3-way pull-up split (athlete directive) -- D6 gets its own
+    # neutral-grip-paused variant, no longer shares D4's Wide-Grip Pull-up.
+    _add_te(db, gs1.id, "d6_g1a", "Pull-up - Neutral Grip (Paused)", lib,
             1, "anchor", pattern="vertical_pull", rep_low=5, rep_high=8,
             scheme="REP_RATIO")
     _add_te(db, gs1.id, "d6_g1c", "Hip Thrust (D5 × 0.80, FIXED)", lib, 2, "free",

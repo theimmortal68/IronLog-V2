@@ -30,11 +30,14 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # Flag -- athlete directive) is a load-bearing (LADDER/DOUBLE_PROGRESSION)
 # movement newly wired into the program, with zero prior training history
 # (it previously sat unused in the library, never programmed on any day).
+# Pull-up - Neutral Grip (Paused) [TOWER] (2026-07-26, 3-way pull-up split --
+# D1 stays assisted neutral-grip, D4 stays Wide-Grip, D6 gets this new
+# variant) is a brand new movement with zero prior training history.
 EXPECTED_NEEDS_CAL = {
     "D1 Upper Push": {"Lying Tricep Extension [SB]"},
     "D2 Lower A": {"Lying Leg Curl [GHR]"},
     "D4 Upper Pull": {"Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "PureTorque Pro Rotation"},
-    "D6 Weak Points": {"Cable Bicep Curl [FT]", "Wide-Grip Pull-up [TOWER]"},
+    "D6 Weak Points": {"Cable Bicep Curl [FT]", "Pull-up - Neutral Grip (Paused) [TOWER]"},
 }
 
 
