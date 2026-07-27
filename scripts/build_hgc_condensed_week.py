@@ -68,6 +68,16 @@ def _copy_planned_exercise(
         )
         db.add(new_pset)
 
+
+def _is_last_for_date(mini_sessions, idx0):
+    """idx0: 0-based index into mini_sessions. True iff no later entry shares this entry's date."""
+    this_date = mini_sessions[idx0][0]
+    return not any(
+        other_date == this_date
+        for other_date, _, _ in mini_sessions[idx0 + 1:]
+    )
+
+
 def apply(db: Session, dry_run: bool = False) -> None:
     # Get current phase
     engine_state = db.exec(select(EngineState)).first()
@@ -120,7 +130,10 @@ def apply(db: Session, dry_run: bool = False) -> None:
             day_role=day_role,
             phase=phase,
             status=SessionStatus.PLANNED,
-            signature={"program_day_id": program_day.id},
+            signature={
+                "program_day_id": program_day.id,
+                "show_finisher": _is_last_for_date(MINI_SESSIONS, idx - 1),
+            },
             rationale=rationale_str,
         )
         db.add(session)

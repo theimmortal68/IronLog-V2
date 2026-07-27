@@ -776,7 +776,8 @@ def get_today_session(db: Session = Depends(get_session)):
     )
     finisher = (
         build_finisher_payload(db, program_day_id)
-        if program_day_id is not None else None
+        if program_day_id is not None and (ws.signature or {}).get("show_finisher", True)
+        else None
     )
     return _serialize_session(ws, db, warmup=warmup, finisher=finisher)
 
@@ -817,7 +818,8 @@ def get_session_detail(session_id: int, db: Session = Depends(get_session)):
     )
     finisher = (
         build_finisher_payload(db, program_day_id)
-        if program_day_id is not None else None
+        if program_day_id is not None and (ws.signature or {}).get("show_finisher", True)
+        else None
     )
     return _serialize_session(ws, db, warmup=warmup, finisher=finisher)
 
