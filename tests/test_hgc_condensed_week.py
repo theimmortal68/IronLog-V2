@@ -62,7 +62,7 @@ def test_hgc_condensed_week_creates_sessions(gen_db_calibrated):
             assert len(ex.planned_sets) > 0
 
 
-def test_hgc_condensed_week_marks_only_last_mini_session_per_date_for_finisher(gen_db_calibrated):
+def test_hgc_condensed_week_marks_only_first_occurrence_of_day_role_for_finisher(gen_db_calibrated):
     apply(gen_db_calibrated)
 
     sessions = _hgc_sessions(gen_db_calibrated)
@@ -71,17 +71,17 @@ def test_hgc_condensed_week_marks_only_last_mini_session_per_date_for_finisher(g
         (idx, s.date, s.day_role, s.signature["show_finisher"])
         for idx, s in enumerate(sessions, 1)
     ] == [
-        (1, date(2026, 7, 27), "D1 Upper Push", False),
-        (2, date(2026, 7, 27), "D2 Lower A", False),
+        (1, date(2026, 7, 27), "D1 Upper Push", True),
+        (2, date(2026, 7, 27), "D2 Lower A", True),
         (3, date(2026, 7, 27), "D6 Weak Points", True),
-        (4, date(2026, 7, 28), "D5 Lower B", False),
+        (4, date(2026, 7, 28), "D5 Lower B", True),
         (5, date(2026, 7, 28), "D2 Lower A", False),
         (6, date(2026, 7, 28), "D6 Weak Points", False),
-        (7, date(2026, 7, 28), "D1 Upper Push", True),
-        (8, date(2026, 7, 29), "D4 Upper Pull", False),
+        (7, date(2026, 7, 28), "D1 Upper Push", False),
+        (8, date(2026, 7, 29), "D4 Upper Pull", True),
         (9, date(2026, 7, 29), "D6 Weak Points", False),
         (10, date(2026, 7, 29), "D1 Upper Push", False),
-        (11, date(2026, 7, 29), "D5 Lower B", True),
+        (11, date(2026, 7, 29), "D5 Lower B", False),
     ]
 
 
