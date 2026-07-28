@@ -85,6 +85,29 @@ def test_hgc_condensed_week_marks_only_last_mini_session_per_date_for_finisher(g
     ]
 
 
+def test_hgc_condensed_week_marks_only_first_mini_session_per_date_for_warmup(gen_db_calibrated):
+    apply(gen_db_calibrated)
+
+    sessions = _hgc_sessions(gen_db_calibrated)
+
+    assert [
+        (idx, s.date, s.day_role, s.signature["show_warmup"])
+        for idx, s in enumerate(sessions, 1)
+    ] == [
+        (1, date(2026, 7, 27), "D1 Upper Push", True),
+        (2, date(2026, 7, 27), "D2 Lower A", False),
+        (3, date(2026, 7, 27), "D6 Weak Points", False),
+        (4, date(2026, 7, 28), "D5 Lower B", True),
+        (5, date(2026, 7, 28), "D2 Lower A", False),
+        (6, date(2026, 7, 28), "D6 Weak Points", False),
+        (7, date(2026, 7, 28), "D1 Upper Push", False),
+        (8, date(2026, 7, 29), "D4 Upper Pull", True),
+        (9, date(2026, 7, 29), "D6 Weak Points", False),
+        (10, date(2026, 7, 29), "D1 Upper Push", False),
+        (11, date(2026, 7, 29), "D5 Lower B", False),
+    ]
+
+
 def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
     # 2026-07-26: mini-session 1 (D1) no longer demonstrates giant-set
     # clustering -- Pendlay Row Narrow was promoted out of D1's T2 GS into

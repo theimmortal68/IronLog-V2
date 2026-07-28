@@ -78,6 +78,15 @@ def _is_last_for_date(mini_sessions, idx0):
     )
 
 
+def _is_first_for_date(mini_sessions, idx0):
+    """idx0: 0-based index into mini_sessions. True iff no earlier entry shares this entry's date."""
+    this_date = mini_sessions[idx0][0]
+    return not any(
+        other_date == this_date
+        for other_date, _, _ in mini_sessions[:idx0]
+    )
+
+
 def apply(db: Session, dry_run: bool = False) -> None:
     # Get current phase
     engine_state = db.exec(select(EngineState)).first()
@@ -133,6 +142,7 @@ def apply(db: Session, dry_run: bool = False) -> None:
             signature={
                 "program_day_id": program_day.id,
                 "show_finisher": _is_last_for_date(MINI_SESSIONS, idx - 1),
+                "show_warmup": _is_first_for_date(MINI_SESSIONS, idx - 1),
             },
             rationale=rationale_str,
         )

@@ -13,6 +13,13 @@ from ironlog.models.library import Movement
 from ironlog.models.program import Program, ProgramDay, DayFinisher
 import ironlog.models
 
+TEST_WARMUP = {
+    "movement_flow_seconds": 90,
+    "items": [{"name": "movement_flow", "seconds": 90}],
+    "activation_seconds": 60,
+    "items_activation": [{"name": "band_pull_apart", "seconds": 60}],
+}
+
 
 def _client():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
@@ -77,6 +84,20 @@ def _program_day_with_finisher(engine):
         return day.id
 
 
+def _program_day_with_warmup(engine):
+    with DbSession(engine) as s:
+        program = Program(name="Phase 1", phase="P1", duration_weeks=4)
+        s.add(program); s.commit(); s.refresh(program)
+        day = ProgramDay(
+            program_id=program.id,
+            day_index=1,
+            day_role="D1 Upper Push",
+            warmup_config=TEST_WARMUP,
+        )
+        s.add(day); s.commit(); s.refresh(day)
+        return day.id
+
+
 def test_get_session_returns_full_graph_with_movement_name():
     client, engine = _client()
     sid = _full_session(engine)
@@ -137,4 +158,31 @@ def test_today_populates_finisher_when_show_finisher_key_absent():
 
     assert r.status_code == 200
     assert r.json()["finisher"]["exercise_name"] == "kb_swing"
+    app.dependency_overrides.clear()
+
+
+def test_today_suppresses_warmup_when_signature_show_warmup_false():
+    client, engine = _client()
+    program_day_id = _program_day_with_warmup(engine)
+    _full_session(
+        engine,
+        signature={"program_day_id": program_day_id, "show_warmup": False},
+    )
+
+    r = client.get("/sessions/today")
+
+    assert r.status_code == 200
+    assert r.json()["warmup"] is None
+    app.dependency_overrides.clear()
+
+
+def test_today_populates_warmup_when_show_warmup_key_absent():
+    client, engine = _client()
+    program_day_id = _program_day_with_warmup(engine)
+    _full_session(engine, signature={"program_day_id": program_day_id})
+
+    r = client.get("/sessions/today")
+
+    assert r.status_code == 200
+    assert r.json()["warmup"] == TEST_WARMUP
     app.dependency_overrides.clear()
