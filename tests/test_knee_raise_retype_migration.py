@@ -39,6 +39,9 @@ def _revert_to_pre_fix_bug_state(db):
 
 
 def test_migration_fixes_movement_and_states_from_bug_state(gen_db):
+    """2026-08-10 (STAB maintenance-block redesign): Face-Up Incline Knee
+    Raise dropped out of D1 entirely (T2 GS turnover), so only D4's seeded
+    MovementState exists to migrate/assert against now."""
     from ironlog.generation.baseline_seed import seed_movement_baselines
     seed_movement_baselines(gen_db)
 
@@ -50,7 +53,7 @@ def test_migration_fixes_movement_and_states_from_bug_state(gen_db):
     bugged_states = gen_db.exec(
         select(MovementState).where(MovementState.movement_id == mv_id)
     ).all()
-    assert bugged_states, "expected seeded D1/D4 states to migrate"
+    assert bugged_states, "expected seeded D4 state to migrate"
     for st in bugged_states:
         assert st.current_load is not None
         assert st.assist_level is None
@@ -67,8 +70,6 @@ def test_migration_fixes_movement_and_states_from_bug_state(gen_db):
         st.day_id: st
         for st in gen_db.exec(select(MovementState).where(MovementState.movement_id == mv_id)).all()
     }
-    assert fixed_states["D1 Upper Push"].assist_level == 25.0
-    assert fixed_states["D1 Upper Push"].current_load is None
     assert fixed_states["D4 Upper Pull"].assist_level == 10.0
     assert fixed_states["D4 Upper Pull"].current_load is None
 
@@ -86,15 +87,17 @@ def test_migration_is_idempotent(gen_db):
     assert second["movement_changed"] == 0, "re-running must not report a change"
     assert second["states_changed"] == 0, "already-migrated states must be left alone"
 
-    # Values are stable across the second run.
+    # Values are stable across the second run. (2026-08-10: D1 no longer
+    # carries this movement -- STAB maintenance-block T2 GS turnover -- so
+    # only D4's state is checked here.)
     mv = gen_db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
     assert mv.progression_mode == ProgressionMode.ASSISTED
     assert mv.assist_ladder == [25, 20, 15, 10, 5, 0]
-    d1 = gen_db.exec(select(MovementState).where(
-        MovementState.movement_id == mv.id, MovementState.day_id == "D1 Upper Push",
+    d4 = gen_db.exec(select(MovementState).where(
+        MovementState.movement_id == mv.id, MovementState.day_id == "D4 Upper Pull",
     )).one()
-    assert d1.assist_level == 25.0
-    assert d1.current_load is None
+    assert d4.assist_level == 10.0
+    assert d4.current_load is None
 
 
 def test_migration_does_not_touch_nordic_or_reverse_nordic(gen_db):

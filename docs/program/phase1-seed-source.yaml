@@ -12,33 +12,24 @@ shoes:
 days:
   d1:  # Upper A / Push — shoe: Metcon 9 (no swap)
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      {m: bench_press, reps: [6,8], rule: rpe_8_standard, load: 165}]}
+      {m: bench_press, reps: [4,6], rule: rpe_8_standard, load: 155}]}  # 2026-08-10: maintenance block, T1 rep range 6-8 -> 4-6, real Wk1 locked 155x3x6 RPE8 (Belle Mere BMF Camber Bar 21" grip)
     T1b: {group_key: "T1b", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      # 2026-07-26: promoted out of T2 GS into its own straight-set tier
-      # (athlete directive). slot stays pendlay_row_narrow -- same movement,
-      # only the tier label changed (mirrors d4_t1's T1->T1b precedent).
-      {m: pendlay_row_narrow, reps: [6,8], rule: rpe_8_standard, load: 170}]}
+      {m: pendlay_row_narrow, reps: [4,6], rule: hold_load_strain_constraint, load: 170}]}  # 2026-08-10: held at 170 while strain heals (maps to FIXED_LOAD), rep range 6-8 -> 4-6
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      # 2026-07-26: new movement filling the slot vacated by Pendlay Row
-      # Narrow's T1b promotion above -- brand new, needs-calibration (no
-      # prior history).
-      {m: lying_tricep_extension_d1, reps: [8,12], rule: rpe_8_standard},
-      {m: incline_db_press, reps: [8,12], rule: rpe_8_standard, load: 55},
-      {m: face_up_incline_knee_raise_d1, reps: [10,15], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
+      # 2026-08-10: full T2 GS turnover -- Lying Tricep Extension / Incline DB
+      # Press / Face-Up Incline Knee Raise all drop out of D1 entirely,
+      # replaced by real Wk1-executed movements (APEX Config A: Stryker Pad +
+      # Matrix Machine).
+      {m: stryker_pad_seated_ohp_d1, reps: [8,12], rule: rpe_8_standard, load: 65},  # 2026-08-10: real Wk1 locked 65x3x12 (possibly RPE 6-7, verify Wk2)
+      {m: matrix_machine_preacher_curl_d1, reps: [8,12], rule: rpe_8_standard, load: 55},  # 2026-08-10: real Wk1 locked 55x3x12 RPE8, reintroduces bicep work
+      {m: better_fly_standing_lateral_raise_d1, reps: [10,15], rule: rpe_8_standard, load: 20}]}  # 2026-08-10: real Wk1 locked 20x3x12 RPE8
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      # 2026-07-26: assist ladder populated (athlete directive) -- 3 identical
-      # 20lb bands stacked (60lb total assist); drop a band once 3x12 reps is
-      # hit at the current stack. assistance_reduction now drives the
-      # drop-a-band milestone; roll_unassisted_max tracking (pull_up_rolling_max's
-      # only real effect) is unconditional on actual_unassisted_reps capture
-      # data and unaffected by this rule change.
-      {m: pull_up_d1, reps: [8,12], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,40,20,0]},
-      {m: cross_body_lateral_raise, reps: [10,15], rule: rpe_8_standard, load: 12.5, unilateral: true},
-      {m: lat_prayer, reps: [8,12], rule: rpe_8_standard, load: 60}]}
-    T4_GIANT: {group_key: "T4 GS", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: seated_cable_row, reps: [8,12], rule: rpe_8_standard, load: 100},
-      {m: ab_wheel_rollout, reps: [8,8], rule: rep_ladder},
-      {m: cross_body_rear_delt_fly_d1, reps: [10,15], rule: rpe_8_standard, load: 10, unilateral: true}]}
+      {m: pull_up_d1, reps: [4,6], rule: pull_up_rolling_max},  # 2026-08-10: switched to Wide-Grip dead-hang unassisted (was assisted neutral-grip 3-band ladder), real Wk1 executed 4/4/4
+      {m: lat_prayer, reps: [8,12], rule: rpe_8_standard, load: 70},  # 2026-08-10: real Wk1 locked 70x3x12 (flagged under-loaded, RPE 6-7 -- Wk2 jump to 85-95 is a live in-session decision, not seeded)
+      {m: ab_wheel_rollout_d1, reps: [8,12], rule: rep_ladder_at_cap}]}  # 2026-08-10: relocated from the now-removed T4 GS; D1's mandatory core slot (anti-extension), real Wk1 locked 3x8 bodyweight
+    # T4 GS removed entirely 2026-08-10: Ab Wheel Rollout moved to T3 above;
+    # Seated Cable Row and Cross-Body Rear Delt Fly (its old T4 co-members)
+    # both drop out of D1's real Wk1 execution, no replacement.
 
   d2:  # Lower A — shoe: Adipower II (all tiers; corrected 2026-07-14, was mistakenly Metcon 9)
     T1_STRAIGHT: {group_key: "T1", rest: 150, shoe: "Adipower II", anchor: true, ex: [

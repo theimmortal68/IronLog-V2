@@ -21,7 +21,7 @@ def test_baselines_seeded_day_scoped(gen_db):
     te = {t.slot_id: t for t in gen_db.exec(select(TierExercise)).all()}
     # scalar load lands on the right (movement, day)
     d1t1 = te["d1_t1"]
-    assert by_key[(d1t1.movement_id, "D1 Upper Push")].current_load == 165
+    assert by_key[(d1t1.movement_id, "D1 Upper Push")].current_load == 155
     # HT gets plates + band config = [orange id]
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
     d6ht = te["d6_g1c"]

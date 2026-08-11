@@ -7,8 +7,10 @@ Tests verify:
   (checks mid in ctx.weak_point_hints — key lookup unchanged by value-shape change).
 
 Fixture: stalled_session_db (conftest.py) — consecutive_failed_progressions=2 on
-Seated Cable Row [FT] (D1 d1_t4a, semi) → detect_stall fires → movement
+Lat Prayer [ANDREONI + FT] (D1 d1_t3c, free) → detect_stall fires → movement
 in weak_point_hints → slot_has_deviation_signal True → should_invoke_llm True.
+(2026-08-10: fixture moved off Seated Cable Row [FT]/d1_t4a -- STAB
+maintenance-block redesign removed D1's T4 GS tier entirely.)
 
 NO from __future__ import annotations (project-wide constraint).
 """

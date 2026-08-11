@@ -31,10 +31,11 @@ from ironlog.models.session import (
 # vacated GS1 slot) has NO entry -- intentionally needs-calibration, zero
 # prior history.
 #
-# d1_t3a (Pull-up [TOWER + TUBES]) now seeds assist_level=60 (3 stacked 20lb
-# bands, 2026-07-26 athlete directive -- assist_ladder populated, real
-# assistance_reduction gating replaces the former tracking-only rule). No
-# longer ROLLING_MAX_EXEMPT in scripts/golive_phase1.py (see removal there).
+# d1_t3a (Pull-up [TOWER + TUBES]) seeded assist_level=60 as of 2026-07-26
+# (3 stacked 20lb bands, athlete directive). SUPERSEDED 2026-08-10: d1_t3a
+# is now Wide-Grip Pull-up [TOWER] (unassisted dead-hang,
+# PULL_UP_ROLLING_MAX) -- the assist baseline is removed, not carried
+# forward, matching every other Wide-Grip Pull-up slot in the program.
 #
 # d1_t2a (Pendlay Row Narrow) keeps its slot_id and baseline unchanged even
 # though it moved tiers 2026-07-26 (T2 GS -> its own T1b) -- the movement's
@@ -42,8 +43,8 @@ from ironlog.models.session import (
 # (Lying Tricep Extension, new movement filling the vacated T2 GS slot) has
 # NO entry -- intentionally needs-calibration, zero prior history.
 #
-# d1_t2c / d4_t2c (Face-Up Incline Knee Raise) are seeded "assist" (degrees),
-# not "load": the movement is bodyweight/incline (progression_mode=ASSISTED,
+# d4_t2c (Face-Up Incline Knee Raise) is seeded "assist" (degrees), not
+# "load": the movement is bodyweight/incline (progression_mode=ASSISTED,
 # ironlog/seed.py), so resolve_start_load reads assist_level, not current_load.
 # The design doc's "Face-Up-Knee 25°"/"10°" values
 # (docs/superpowers/specs/2026-07-04-config-seed-reconciliation-design.md) are
@@ -51,12 +52,31 @@ from ironlog.models.session import (
 # (Nordic Curl [GHR]). Task 7 briefly seeded these as "load" because the
 # movement was (incorrectly) LADDER-typed at the time — Fix C retypes the
 # movement ASSISTED and reverts these two slots back to "assist".
+#
+# 2026-08-10 (STAB maintenance-block redesign, D1 reconciled to already-
+# executed Wk1 reality): d1_t1 165 -> 155 (real Wk1 lock). d1_t2b
+# (Incline DB Press), d1_t2c (Face-Up Incline Knee Raise), d1_t3b
+# (Cross-Body Lateral Raise), d1_t4a (Seated Cable Row), d1_t4c
+# (Cross-Body Rear Delt Fly) all REMOVED -- their movements drop out of
+# D1's wiring entirely (T4 GS tier removed), leaving these baselines dead;
+# the underlying MovementState rows are left in place at those slot_ids,
+# not deleted, per the never-delete-orphans convention. d1_t3a's assist
+# baseline REMOVED -- D1's pull-up slot is now Wide-Grip Pull-up
+# (PULL_UP_ROLLING_MAX, unassisted dead-hang), and Wide-Grip Pull-up
+# movements never carry a BASELINES entry anywhere in this program
+# (matches D4/D6's Wide-Grip Pull-up slots). d1_t3c (Lat Prayer) 60 -> 70
+# (real Wk1 lock, flagged under-loaded -- Wk2's 85-95 jump is a live
+# in-session decision, not seeded). New d1_t2f/d1_t2g/d1_t2e (Stryker Pad
+# Seated OHP / Matrix Machine Preacher Curl / Better Fly Standing Lateral
+# Raise) seed real Wk1 locks 65/55/20. d1_t3d (Ab Wheel Rollout,
+# relocated from its old d1_t4b slot into T3 GS) has NO entry --
+# bodyweight/REP_LADDER, matches the fact it never had a scalar baseline
+# at its old slot_id either.
 BASELINES = {
-    "d1_t1": ("load", 165, None), "d1_t2a": ("load", 170, None),
-    "d1_t2b": ("load", 55, None), "d1_t2c": ("assist", 25, None),
-    "d1_t3a": ("assist", 60, None),
-    "d1_t3b": ("load", 12.5, None), "d1_t3c": ("load", 60, None),
-    "d1_t4a": ("load", 100, None), "d1_t4c": ("load", 10, None),
+    "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
+    "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
+    "d1_t2e": ("load", 20, None),
+    "d1_t3c": ("load", 70, None),
     "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 205, "#0 Orange"),
     "d2_t2b": ("load", 180, None),
     "d2_t3a": ("load", 25, None), "d2_t3b": ("load", 25, None),

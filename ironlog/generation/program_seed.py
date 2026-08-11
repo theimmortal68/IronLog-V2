@@ -36,6 +36,9 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Pendlay Row Narrow":                           "Pendlay Row - Narrow [OB]",
     "Lying Tricep Extension":                       "Lying Tricep Extension [SB]",
     "Incline DB Press":                             "Incline DB Press [DB + BENCH]",
+    "Better Fly Standing Lateral Raise":            "Better Fly Standing Lateral Raise [FT]",
+    "Stryker Pad Seated OHP":                       "Stryker Pad Seated OHP [DB]",
+    "Matrix Machine Preacher Curl":                 "Matrix Machine Preacher Curl [EZ]",
     "Pull-up (2-phase)":                            "Pull-up [TOWER + TUBES]",
     "Cross-Body Lateral Raise":                     "Cross-Body Cable Lateral Raise [FT]",
     "Cross-Body Rear Delt Fly":                     "Cross-Body Cable Rear Delt Fly [FT]",
@@ -423,57 +426,74 @@ def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — Bench Press [PB] (anchor; meso-2 bar swap is equipment-level, not a
-    #      library movement change, so no MesoRotation row)
+    # T1 — Bench Press [PB] (anchor). 2026-08-10: global T1/T1b rep range
+    # drop 6-8 -> 4-6 (maintenance block, athlete directive, real Wk1
+    # execution locked 155x3x6 @ RPE8). Equipment note (Belle Mere BMF
+    # Camber Bar, 21" grip) is a physical-setup detail, not a schema field
+    # -- same movement, load_code unchanged.
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
     _add_te(db, t1.id, "d1_t1", "Bench Press [PB]", lib, 1, "anchor",
-            pattern="bench", rep_low=6, rep_high=8, rpe_cap=8.0,
+            pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
             scheme="STRAIGHT")
 
-    # T1b — Pendlay Row Narrow (anchor). 2026-07-26: promoted out of T2 GS
-    # into its own straight-set tier (athlete directive). slot_id stays
+    # T1b — Pendlay Row Narrow (anchor). 2026-08-10: held at 170 while the
+    # strain heals (real Wk1 executed 170x3x8, over the new 4-6 rep cap --
+    # logged as-is, the hold is on load not on stopping mid-set). Rep range
+    # drops 6-8 -> 4-6 alongside every other T1/T1b primary. slot_id stays
     # "d1_t2a" -- the movement's original stable slot_id, unchanged by the
-    # tier-label move (same convention as D4's Wide-Grip Pull-up, which kept
-    # slot_id "d4_t1" after its T1->T1b tier-label change).
+    # 2026-07-26 tier-label move (T2 GS -> its own T1b).
     t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=120, shoe="Metcon 9")
     _add_te(db, t1b.id, "d1_t2a", "Pendlay Row Narrow", lib, 1, "anchor",
-            pattern="horizontal_pull", rep_low=6, rep_high=8,
+            pattern="horizontal_pull", rep_low=4, rep_high=6,
             scheme="DOUBLE_PROGRESSION")
 
-    # T2 GS — Lying Tricep Extension / Incline DB Press / Face-Up Incline Knee Raise
-    # (2026-07-26: Lying Tricep Extension is a NEW movement/slot filling the
-    # spot vacated by Pendlay Row Narrow's T1b promotion above -- "d1_t2a" is
-    # NOT reused here, per the never-reassign-a-slot_id convention.)
+    # T2 GS — Stryker Pad Seated OHP / Matrix Machine Preacher Curl / Better
+    # Fly Standing Lateral Raise. 2026-08-10: full T2 GS turnover -- Lying
+    # Tricep Extension, Incline DB Press, and Face-Up Incline Knee Raise
+    # (old d1_t2d/d1_t2b/d1_t2c) all drop out of D1 entirely, replaced by
+    # three movements from real Wk1 execution (all WK1_LOCKED, all new
+    # slots per the never-reassign-a-slot_id convention -- none of the
+    # vacated slot_ids are reused). D1's core requirement is fully covered
+    # by Ab Wheel in T3 below, so no core movement returns to T2.
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, t2.id, "d1_t2d", "Lying Tricep Extension", lib, 1, "free",
-            pattern="tricep_extension", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2b", "Incline DB Press", lib, 2, "free",
+    _add_te(db, t2.id, "d1_t2f", "Stryker Pad Seated OHP", lib, 1, "free",
             pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2c", "Face-Up Incline Knee Raise", lib, 3, "free",
-            pattern="core", rep_low=10, rep_high=15)
-
-    # T3 GS — Pull-up / Cross-Body Lateral Raise / Lat Prayer
-    t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
-    _add_te(db, t3.id, "d1_t3a", "Pull-up (2-phase)", lib, 1, "free",
-            pattern="vertical_pull", rep_low=8, rep_high=12, scheme="REP_RATIO")
-    _add_te(db, t3.id, "d1_t3b", "Cross-Body Lateral Raise", lib, 2, "free",
+    _add_te(db, t2.id, "d1_t2g", "Matrix Machine Preacher Curl", lib, 2, "free",
+            pattern="bicep_curl", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t2.id, "d1_t2e", "Better Fly Standing Lateral Raise", lib, 3, "free",
             pattern="lateral_raise", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d1_t3c", "Lat Prayer", lib, 3, "free",
-            pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
 
-    # T4 GS — Seated Cable Row / Ab Wheel Rollout / Cross-Body Rear Delt Fly
-    t4 = _add_tier(db, pd.id, "T4 GS", 5, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
-    _add_te(db, t4.id, "d1_t4a", "Seated Cable Row", lib, 1, "semi",
-            pattern="horizontal_pull", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t4.id, "d1_t4b", "Ab Wheel Rollout", lib, 2, "free",
-            pattern="core", rep_low=8, rep_high=8)
-    _add_te(db, t4.id, "d1_t4c", "Cross-Body Rear Delt Fly", lib, 3, "free",
-            pattern="rear_delt", rep_low=10, rep_high=15,
-            scheme="DOUBLE_PROGRESSION")
+    # T3 GS — Wide-Grip Pull-up (dead-hang) / Lat Prayer / Ab Wheel Rollout.
+    # 2026-08-10: switched from assisted neutral-grip (Pull-up [TOWER +
+    # TUBES]) to unassisted Wide-Grip dead-hang -- athlete directive, real
+    # Wk1 executed 4/4/4. Cross-Body Lateral Raise (old d1_t3b) dropped
+    # entirely (Better Fly Standing Lateral Raise in T2 above covers that
+    # role now). Ab Wheel Rollout RELOCATES here from its old T4 GS slot
+    # (d1_t4b) -- D1's mandatory core slot (anti-extension pattern), kept
+    # after the athlete confirmed proper bracing technique resolves the
+    # earlier hyperextension-strain concern. It's an existing movement
+    # moving tiers, not a new one, but gets a fresh slot_id (d1_t3d) per
+    # the never-reassign convention -- d1_t3b/d1_t4b are vacated, not
+    # reused.
+    t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
+    _add_te(db, t3.id, "d1_t3a", "Wide-Grip Pull-up", lib, 1, "free",
+            pattern="vertical_pull", rep_low=4, rep_high=6, scheme="REP_RATIO")
+    _add_te(db, t3.id, "d1_t3c", "Lat Prayer", lib, 2, "free",
+            pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t3.id, "d1_t3d", "Ab Wheel Rollout", lib, 3, "free",
+            pattern="core", rep_low=8, rep_high=12, scheme="REP_LADDER")
+
+    # T4 GS tier is fully removed. 2026-08-10: once Ab Wheel Rollout moves
+    # to T3 above, its only other two members -- Seated Cable Row (old
+    # d1_t4a, semi) and Cross-Body Rear Delt Fly (old d1_t4c) -- both drop
+    # out of D1 entirely per the real Wk1 execution (neither appears in the
+    # FINAL source doc's D1 session). No Tier row or TierExercise rows are
+    # created for them; the Movement rows themselves stay in the library,
+    # just unwired from D1. Orphaned MovementState rows at their old
+    # slot_ids are left in place, not deleted.
 
 
 # ---------------------------------------------------------------------------

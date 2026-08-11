@@ -33,8 +33,20 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # Pull-up - Neutral Grip (Paused) [TOWER] (2026-07-26, 3-way pull-up split --
 # D1 stays assisted neutral-grip, D4 stays Wide-Grip, D6 gets this new
 # variant) is a brand new movement with zero prior training history.
+#
+# 2026-08-10 (STAB maintenance-block redesign): D1's "Lying Tricep Extension
+# [SB]" needs-cal entry is REMOVED -- that movement drops out of D1's wiring
+# entirely (T2 GS turnover to Stryker Pad Seated OHP / Matrix Machine
+# Preacher Curl / Better Fly Standing Lateral Raise), and every T1/T1b/T2/T3
+# slot now seeds from a real Wk1 logged baseline. D1 DOES pick up one
+# needs-cal entry though: "Wide-Grip Pull-up [TOWER]" (d1_t3a) is
+# PULL_UP_ROLLING_MAX, which is tracked via unassisted_max_rolling, not a
+# scalar current_load/assist_level -- it never gets a BASELINES entry
+# anywhere in the program (matches D4's Wide-Grip Pull-up below), so it
+# reads needs-cal until a real session logs an unassisted rep max, same as
+# D4's.
 EXPECTED_NEEDS_CAL = {
-    "D1 Upper Push": {"Lying Tricep Extension [SB]"},
+    "D1 Upper Push": {"Wide-Grip Pull-up [TOWER]"},
     "D2 Lower A": {"Lying Leg Curl [GHR]"},
     "D4 Upper Pull": {"Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "PureTorque Pro Rotation"},
     "D6 Weak Points": {"Cable Bicep Curl [FT]", "Pull-up - Neutral Grip (Paused) [TOWER]"},

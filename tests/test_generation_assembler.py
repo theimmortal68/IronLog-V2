@@ -89,7 +89,10 @@ def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
     # for the anchor site, SlotSpec.group_key — already the tier_label — for the
     # giant/straight adaptive sites) and assert the assembled labels are real.
     # D1 Upper Push: T1 (anchor, STRAIGHT) + T1b (anchor, PAIR/straight;
-    # 2026-07-26 Pendlay Row Narrow promotion) + T2 GS / T3 GS / T4 GS (giant).
+    # 2026-07-26 Pendlay Row Narrow promotion) + T2 GS / T3 GS (giant). T4 GS
+    # removed entirely 2026-08-10 (STAB maintenance-block redesign, D1
+    # reconciled to already-executed Wk1 reality -- Ab Wheel Rollout moved
+    # into T3 GS, Seated Cable Row and Cross-Body Rear Delt Fly dropped).
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
@@ -97,7 +100,7 @@ def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
     res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
     groups = sorted(res.session.groups, key=lambda g: g.order_index)
     labels = [g.label for g in groups]
-    assert labels == ["T1", "T1b", "T2 GS", "T3 GS", "T4 GS"], (
+    assert labels == ["T1", "T1b", "T2 GS", "T3 GS"], (
         f"group labels must mirror the seeded Tier.tier_label order, got {labels}"
     )
     assert groups[0].group_type.value == "STRAIGHT" and groups[0].label == "T1"
@@ -111,13 +114,15 @@ def test_d1_t2_giant_set_stays_grouped(gen_db_calibrated):
     ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
     res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
 
-    # 2026-07-26: Pendlay Row Narrow promoted to its own T1b tier; T2 GS's
-    # vacated slot is now the new "Lying Tricep Extension [SB]" movement.
+    # 2026-08-10 (STAB maintenance-block redesign): T2 GS's full membership
+    # turned over to the movements actually executed in real Wk1 (Lying
+    # Tricep Extension / Incline DB Press / Face-Up Incline Knee Raise all
+    # dropped out of D1 entirely).
     group = _giant_group_by_label(res.session, "T2 GS")
     assert _names_for_group(group, gen_db) == [
-        "Lying Tricep Extension [SB]",
-        "Incline DB Press [DB + BENCH]",
-        "Face-Up Incline Knee Raise",
+        "Stryker Pad Seated OHP [DB]",
+        "Matrix Machine Preacher Curl [EZ]",
+        "Better Fly Standing Lateral Raise [FT]",
     ]
 
 
