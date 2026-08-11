@@ -77,19 +77,27 @@ and as a standalone rule) — no new rule needed.
 
 The source doc's pull-up section (3 days: D1/D4/D6) conflicted with
 in-session changes made earlier this same conversation (D1's 3-band ladder,
-D6's neutral-grip-paused unassisted variant) and was further revised live
-during this design conversation: wide grip becomes standard everywhere,
-dropped to 2 days/week.
+D6's neutral-grip-paused unassisted variant), was revised once already
+during this design conversation (wide grip standard, dropped to 2
+days/week, D4+D6), then **revised again** after the athlete reported having
+already trained D1 with wide-grip dead-hang pull-ups. Final architecture:
+still 2 days/week, but **D1 + D6** (not D4 + D6) — D4 is the one that loses
+it.
 
-- **D4** (`Wide-Grip Pull-up [TOWER]`): unchanged — unassisted, 6-8 reps,
-  `pull_up_rolling_max`. Already correct, no seed change needed.
-- **D6**: new movement `Wide-Grip Pull-up [TOWER + TUBES]` — assisted via
+- **D1**: `Wide-Grip Pull-up [TOWER]` — unassisted, low-rep, dead-hang style
+  (full stop/extension at the bottom each rep — recorded on `Movement.notes`
+  with the same client-visibility caveat as the Ab Wheel bracing note, §9).
+  Already trained by the athlete this way; matches the existing unassisted
+  Wide-Grip movement, no new movement needed.
+- **D6**: `Wide-Grip Pull-up [TOWER + TUBES]` (new movement) — assisted via
   sling + single 20lb band, `assist_ladder=[20, 0]`, `ASSISTANCE_REDUCTION`,
-  8-12 reps (the higher-rep assisted slot).
-- **D1**: pull-ups removed entirely. Replacement: **Better Fly Straight-Arm
+  8-12 reps (the higher-rep assisted slot). Unchanged from the prior
+  revision.
+- **D4**: pull-ups removed entirely. Replacement: **Better Fly Straight-Arm
   Lat Pulldown** (cable-based, already-planned equipment, direct lat
-  target, no hip/back involvement) — fills the "more lat volume instead"
-  requirement in D1's T3 GS.
+  target, no hip/back involvement) — moved here from D1 (§ prior revision
+  had it on D1; D1 keeps its pull-ups now, so the lat-volume replacement
+  moves to D4's T2 GS instead).
 - **Retired** (orphaned in place, not deleted — matches this session's
   established convention for superseded movements): `Pull-up [TOWER +
   TUBES]` (D1's now-dropped 3-band neutral-grip setup, built earlier this
@@ -163,14 +171,14 @@ injury-hold work): build, verify (`pytest` green + live `/generate` smoke
 test), deploy each day before starting the next.
 
 1. **D1** — Upper Push (camber-bar bench, Stryker Pad OHP, Matrix Preacher
-   Curl, Ab Trainer Cable Crunch, pull-up removed → lat pulldown added,
+   Curl, Ab Trainer Cable Crunch, Wide-Grip Pull-up KEPT (dead-hang, §5),
    Ab Wheel returns as a light T4 (§9), Jump Rope finisher, Wall Slide
    warmup addition)
 2. **D2** — Lower Squat (Belt Squat unchanged binding, Sissy Squat, Nordic
    Curl Max, ATG Split Squat, Hip Thrust removed)
-3. **D4** — Upper Pull + Vertical Press (Seated BTN OHP, Wide-Grip Pull-up
-   unchanged, Stryker Pad CSR, Cable Woodchopper retained, Jump Rope
-   finisher, Wall Slide warmup addition)
+3. **D4** — Upper Pull + Vertical Press (Seated BTN OHP, pull-up removed →
+   Better Fly Straight-Arm Lat Pulldown added (§5), Stryker Pad CSR, Cable
+   Woodchopper retained, Jump Rope finisher, Wall Slide warmup addition)
 4. **D5** — Lower Hinge (Kickstand RDL replaces bilateral RDL, Nordic Max
    BSS, Nordic Curl Max independent track, Hip Thrust removed)
 5. **D6** — Weak Points + Isolation (new assisted Wide-Grip Pull-up, Dips
