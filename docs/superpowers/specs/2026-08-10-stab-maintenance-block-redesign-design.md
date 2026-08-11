@@ -28,13 +28,15 @@ hold.
 **Likely root cause identified during this same investigation**: Ab Wheel
 rollout with the lower back sagging into hyperextension instead of staying
 braced — a classic mechanism for exactly this injury pattern, and the
-athlete's own best guess for the original injury 2 weeks prior. Ab Wheel
-does not appear anywhere in the source doc's new day structure (D1's old T4
-tier — Seated Cable Row / Ab Wheel / Cross-Body Rear Delt Fly — is dropped
-entirely in the new 3-tier D1 layout), so it is already excluded as a side
-effect of the broader redesign. Documented here explicitly as an
-injury-driven retirement (§8) rather than left as an undocumented
-incidental drop.
+athlete's own best guess for the original injury 2 weeks prior. **Revised
+during design review**: the athlete can currently perform Ab Wheel
+correctly (bracing, ribcage down, lower back supported) — the root cause
+was technique, not the movement itself, so it goes back into D1 (see §9)
+rather than staying retired. It is NOT on the source doc's explicit
+`removed_movements_this_block` list, and its earlier absence from the new
+D1 structure was incidental (D1's old T4 tier — Seated Cable Row / Ab Wheel
+/ Cross-Body Rear Delt Fly — was dropped as part of the broader tier
+restructuring, not as a deliberate exclusion).
 
 ## Decisions
 
@@ -129,16 +131,29 @@ pull-up retirements above:
 - Old Nordic Curl [Hyper Pro] variants → replaced by Nordic Curl Max
 - `Pull-up [TOWER + TUBES]`, `Pull-up - Neutral Grip (Paused) [TOWER]` (see
   §5)
-- `Ab Wheel [WHEEL]` (D1 T4) — **injury-driven, confirmed likely root
-  cause**: rollout with the lower back sagging into hyperextension is the
-  athlete's best-guess mechanism for the original strain 2 weeks prior.
-  Not on the source doc's explicit retirement list, but genuinely absent
-  from the new day structure — documented here so the reason isn't lost.
+
+`Ab Wheel [WHEEL]` is explicitly NOT retired — see §9, it goes back into D1.
 
 Orphaned `MovementState`/`HtProgressionState` rows for retired movements
 are left in place (harmless, matches established convention throughout
 this session — e.g. D6 Dips' old cable-loaded slot, D1's Pendlay Row
 slot_id stability).
+
+### 9. Ab Wheel returns to D1 (technique fix, not a retirement)
+
+The athlete can currently perform Ab Wheel correctly with proper bracing
+(ribcage pulled down, lower back actively supported) — confirmed same-day.
+Re-added to D1 as a light standalone T4 tier (`TierKind.T1_STRAIGHT`,
+mirrors its pre-redesign slot: `PROTOCOL`/`STRAIGHT` scheme, bodyweight,
+8 reps, no load progression), positioned after D1's existing T3 GS.
+
+The bracing cue ("brace, pull ribcage down, support lower back") is
+recorded on `Movement.notes` for documentation — **caveat**: this field is
+not currently surfaced anywhere in the client or generation payload (grepped
+`ironlog/api/*.py`/`ironlog/generation/*.py`, zero references to
+`Movement.notes`), so it will not actually appear as an in-workout cue.
+Making cues client-visible is a real, separate feature gap — out of scope
+for this redesign, flagged as an open item (§ Open items).
 
 ## Rollout order
 
@@ -149,7 +164,8 @@ test), deploy each day before starting the next.
 
 1. **D1** — Upper Push (camber-bar bench, Stryker Pad OHP, Matrix Preacher
    Curl, Ab Trainer Cable Crunch, pull-up removed → lat pulldown added,
-   Jump Rope finisher, Wall Slide warmup addition)
+   Ab Wheel returns as a light T4 (§9), Jump Rope finisher, Wall Slide
+   warmup addition)
 2. **D2** — Lower Squat (Belt Squat unchanged binding, Sissy Squat, Nordic
    Curl Max, ATG Split Squat, Hip Thrust removed)
 3. **D4** — Upper Pull + Vertical Press (Seated BTN OHP, Wide-Grip Pull-up
@@ -190,3 +206,6 @@ D2, not deferred.
   "pending James use," not this block's concern.
 - AbMat ROM Pad and Zercher Pad — explicitly banked for a future block per
   the source doc, not wired this block.
+- Client-visible per-exercise coaching cues (e.g. Ab Wheel's bracing note)
+  — real feature gap, `Movement.notes` exists but isn't surfaced anywhere
+  today. Not this redesign's scope.
