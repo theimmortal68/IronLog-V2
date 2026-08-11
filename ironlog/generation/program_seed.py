@@ -36,6 +36,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Pendlay Row Narrow":                           "Pendlay Row - Narrow [OB]",
     "Lying Tricep Extension":                       "Lying Tricep Extension [SB]",
     "Incline DB Press":                             "Incline DB Press [DB + BENCH]",
+    "Better Fly Standing Lateral Raise":            "Better Fly Standing Lateral Raise [FT]",
     "Pull-up (2-phase)":                            "Pull-up [TOWER + TUBES]",
     "Cross-Body Lateral Raise":                     "Cross-Body Cable Lateral Raise [FT]",
     "Cross-Body Rear Delt Fly":                     "Cross-Body Cable Rear Delt Fly [FT]",
