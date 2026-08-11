@@ -9,12 +9,16 @@ logged_session_id — depends on gen_db; plants a COMPLETED session with one tap
          produces an E1rmHistory row. Returns the session id.
 
 stalled_session_db — depends on gen_db; plants a stall signal on
-         Seated Cable Row [FT] (D1 d1_t4a, tier_role=semi) via
+         Lat Prayer [ANDREONI + FT] (D1 d1_t3c, tier_role=free) via
          consecutive_failed_progressions=2. Returns the same gen_db session.
          (2026-07-26: moved off Pendlay Row - Narrow [OB] -- it was promoted
          to D1's T1b anchor slot, and should_invoke_llm only considers
          semi/free tier_role slots, so an anchor can no longer carry this
-         fixture's stall signal.)
+         fixture's stall signal. 2026-08-10: moved off Seated Cable Row [FT]
+         (D1 d1_t4a) -- the STAB maintenance-block redesign removed D1's
+         entire T4 GS tier, so Seated Cable Row no longer has any D1
+         TierExercise for a stall signal to attach to; Lat Prayer at d1_t3c
+         is free tier_role, same eligibility as the old semi slot.)
 
 Placed in conftest.py so pytest auto-discovers it for all test modules in tests/.
 _gen_fixtures.py re-exports this fixture for explicit import in test modules.
@@ -148,17 +152,17 @@ def logged_session_id(gen_db):
 
 @pytest.fixture
 def stalled_session_db(gen_db):
-    """gen_db + a stall signal on Seated Cable Row [FT] (D1 d1_t4a, semi).
+    """gen_db + a stall signal on Lat Prayer [ANDREONI + FT] (D1 d1_t3c, free).
 
     consecutive_failed_progressions=2 >= STALL_FAILED_THRESHOLD(2) → detect_stall
     fires (failed_stalled=True) → movement added to weak_point_hints →
-    slot_has_deviation_signal True for d1_t4a → should_invoke_llm True for D1.
+    slot_has_deviation_signal True for d1_t3c → should_invoke_llm True for D1.
     Yields the same gen_db session so tests can use it as a drop-in for gen_db.
     """
     from ironlog.models.library import Movement, MovementState
 
     mv = gen_db.exec(
-        select(Movement).where(Movement.name == "Seated Cable Row [FT]")
+        select(Movement).where(Movement.name == "Lat Prayer [ANDREONI + FT]")
     ).one()
 
     gen_db.add(MovementState(

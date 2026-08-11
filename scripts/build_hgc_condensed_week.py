@@ -17,8 +17,19 @@ from ironlog.generation.skeleton import lay_skeleton
 
 RATIONALE = "HGC condensed week"
 
+# 2026-08-10 (STAB maintenance-block redesign): this script re-derives each
+# mini-session's PlannedExercise/PlannedSet rows from a FRESH generate_session
+# call against the live program (see `apply()` below), so the movement names
+# here must resolve in whatever D1 (etc.) currently looks like -- they are
+# not a frozen historical record. D1's T2 GS turned over entirely (Lying
+# Tricep Extension / Incline DB Press / Face-Up Incline Knee Raise all
+# dropped), so the two D1 entries below are repointed to movements that
+# actually exist in D1's current wiring: "Face-Up Incline Knee Raise" ->
+# "Stryker Pad Seated OHP [DB]", "Incline DB Press [DB + BENCH]" ->
+# "Matrix Machine Preacher Curl [EZ]". Dates/rationale/ordering are
+# historical bookkeeping and are left unchanged.
 MINI_SESSIONS = [
-    (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Face-Up Incline Knee Raise"]),
+    (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Stryker Pad Seated OHP [DB]"]),
     (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Cable Tibialis Raise"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
     (date(2026, 7, 28), "D5 Lower B", ["RDL [PB]", "Hip Thrust [HIP_THRUST]", "Reverse Nordic Curl [GHR]"]),
@@ -27,7 +38,7 @@ MINI_SESSIONS = [
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
     (date(2026, 7, 29), "D4 Upper Pull", ["Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "PureTorque Pro Rotation"]),
     (date(2026, 7, 29), "D6 Weak Points", ["Dips [TOWER + TUBES]", "T-Bar Row - Wide [OB + KLEVA + LM]", "Cable V-Bar Pushdown [FT]"]),
-    (date(2026, 7, 29), "D1 Upper Push", ["Incline DB Press [DB + BENCH]"]),
+    (date(2026, 7, 29), "D1 Upper Push", ["Matrix Machine Preacher Curl [EZ]"]),
     (date(2026, 7, 29), "D5 Lower B", ["Nordic Curl [GHR]"]),
 ]
 

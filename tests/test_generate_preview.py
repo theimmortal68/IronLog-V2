@@ -84,7 +84,10 @@ def test_generate_returns_preview_matching_session_shape():
     }
     assert exercises["Bench Press [PB]"]["unit_hint"] == "lb"
     assert exercises["Ab Wheel [WHEEL]"]["unit_hint"] is None
-    assert exercises["Face-Up Incline Knee Raise"]["unit_hint"] == "assist"
+    # Face-Up Incline Knee Raise (the program's one "assist" unit_hint example)
+    # dropped out of D1 entirely 2026-08-10 (STAB maintenance-block redesign,
+    # T2 GS turnover) -- D1 no longer has any ASSISTED-progression movement,
+    # so there's nothing left in this day's preview to assert "assist" against.
     app.dependency_overrides.clear()
 
 

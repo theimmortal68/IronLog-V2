@@ -111,10 +111,13 @@ def test_hgc_condensed_week_marks_only_first_mini_session_per_date_for_warmup(ge
 def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
     # 2026-07-26: mini-session 1 (D1) no longer demonstrates giant-set
     # clustering -- Pendlay Row Narrow was promoted out of D1's T2 GS into
-    # its own T1b straight-set tier, so it and Face-Up Incline Knee Raise no
-    # longer share a source ExerciseGroup. Mini-session 2 (D2: Belt Squat /
-    # ATG Split Squat / Cable Tibialis Raise) still has a genuine 2-member
-    # shared giant-set cluster (D2's T3 GS), so this test moved there.
+    # its own T1b straight-set tier, so it and its former T2 GS co-member no
+    # longer share a source ExerciseGroup (2026-08-10: that co-member is now
+    # Stryker Pad Seated OHP [DB], per the STAB maintenance-block redesign's
+    # T2 GS turnover -- same "doesn't cluster" fact, different movement).
+    # Mini-session 2 (D2: Belt Squat / ATG Split Squat / Cable Tibialis
+    # Raise) still has a genuine 2-member shared giant-set cluster (D2's T3
+    # GS), so this test moved there.
     apply(gen_db_calibrated)
 
     session = _hgc_sessions(gen_db_calibrated)[1]

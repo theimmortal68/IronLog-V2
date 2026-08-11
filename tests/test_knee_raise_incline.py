@@ -82,22 +82,19 @@ def test_nordic_and_reverse_nordic_unchanged(gen_db):
 # ---------------------------------------------------------------------------
 
 def test_baselines_seed_assist_level_not_current_load(gen_db):
+    """2026-08-10 (STAB maintenance-block redesign): Face-Up Incline Knee
+    Raise dropped out of D1 entirely (T2 GS turnover), so D1 no longer has a
+    MovementState for it at all -- only D4's remains to check."""
     from ironlog.generation.baseline_seed import seed_movement_baselines
 
     seed_movement_baselines(gen_db)
     mv = gen_db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
 
-    d1 = gen_db.exec(select(MovementState).where(
-        MovementState.movement_id == mv.id,
-        MovementState.day_id == "D1 Upper Push",
-    )).one()
     d4 = gen_db.exec(select(MovementState).where(
         MovementState.movement_id == mv.id,
         MovementState.day_id == "D4 Upper Pull",
     )).one()
 
-    assert d1.assist_level == 25.0
-    assert d1.current_load is None
     assert d4.assist_level == 10.0
     assert d4.current_load is None
 
@@ -106,12 +103,17 @@ def test_baselines_seed_assist_level_not_current_load(gen_db):
 # 3. Generation regression: no lb load, assist-sourced value threads through
 # ---------------------------------------------------------------------------
 
-def test_generate_d1_upper_push_knee_raise_carries_no_lb_load(gen_db):
+def test_generate_d4_upper_pull_knee_raise_carries_no_lb_load(gen_db):
     """Regression against the '25 lb' bug: the knee-raise slot's prescribed
-    value must come from assist_level (25), NOT from any stray current_load.
-    Plants a decoy current_load on the D1 state to prove the field-routing
+    value must come from assist_level (10), NOT from any stray current_load.
+    Plants a decoy current_load on the D4 state to prove the field-routing
     (not just the numeric coincidence) is fixed — before this fix, LADDER
-    movements resolved off current_load, so a decoy would have leaked through."""
+    movements resolved off current_load, so a decoy would have leaked through.
+
+    2026-08-10 (STAB maintenance-block redesign): retargeted from D1 to D4 --
+    Face-Up Incline Knee Raise dropped out of D1's wiring entirely (T2 GS
+    turnover), D4's copy (assist_ladder [10,5,0], baseline assist=10) is now
+    the only live example of this movement in the program."""
     from ironlog.api.app import _make_proposer, _week_keyer
     from ironlog.generation.baseline_seed import seed_movement_baselines
     from ironlog.generation.loop import generate_session
@@ -120,19 +122,19 @@ def test_generate_d1_upper_push_knee_raise_carries_no_lb_load(gen_db):
     seed_movement_baselines(gen_db)
 
     mv = gen_db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
-    d1 = gen_db.exec(select(MovementState).where(
+    d4 = gen_db.exec(select(MovementState).where(
         MovementState.movement_id == mv.id,
-        MovementState.day_id == "D1 Upper Push",
+        MovementState.day_id == "D4 Upper Pull",
     )).one()
-    d1.current_load = 999.0   # decoy lb value — must never surface as target_load
-    gen_db.add(d1)
+    d4.current_load = 999.0   # decoy lb value — must never surface as target_load
+    gen_db.add(d4)
     gen_db.commit()
 
-    sk = lay_skeleton("D1 Upper Push", gen_db)
+    sk = lay_skeleton("D4 Upper Pull", gen_db)
     proposer = _make_proposer(sk)
-    outcome = generate_session("D1 Upper Push", gen_db, proposer, _week_keyer)
+    outcome = generate_session("D4 Upper Pull", gen_db, proposer, _week_keyer)
     assert outcome.assembled is not None, (
-        f"D1 Upper Push: generation exhausted (rejections: {outcome.rejections})"
+        f"D4 Upper Pull: generation exhausted (rejections: {outcome.rejections})"
     )
 
     exercises = [
@@ -141,13 +143,13 @@ def test_generate_d1_upper_push_knee_raise_carries_no_lb_load(gen_db):
         for ex in g.exercises
         if ex.movement_id == mv.id
     ]
-    assert exercises, f"{KNEE_RAISE} did not appear in the generated D1 session"
+    assert exercises, f"{KNEE_RAISE} did not appear in the generated D4 session"
     for ex in exercises:
         assert ex.planned_sets, "knee-raise slot has no planned sets"
         for ps in ex.planned_sets:
-            assert ps.target_load == 25.0, (
+            assert ps.target_load == 10.0, (
                 f"knee-raise planned set target_load={ps.target_load!r}, expected "
-                "25.0 (the D1 incline degrees from assist_level) — not the decoy "
+                "10.0 (the D4 incline degrees from assist_level) — not the decoy "
                 "current_load(999) and not a fabricated lb floor"
             )
 
@@ -181,12 +183,15 @@ def test_incline_reduction_advances_real_seeded_movement(gen_db):
     assert r2.advanced is True and r2.new_assist_level == 20
 
 
-def _log_clean_knee_raise_session(db, *, session_id, session_date, movement_id):
-    """Plant one COMPLETED D1 session with 3 clean working sets (reps hit
+def _log_clean_knee_raise_session(db, *, session_id, session_date, movement_id,
+                                  day_role="D4 Upper Pull", target_load=10.0):
+    """Plant one COMPLETED session with 3 clean working sets (reps hit
     rep_high, RPE 8.0 ON_TARGET) on the knee raise, in a non-T1 group (label
     'T2') so _confirmation_window resolves to 2 — mirrors
-    tests/test_rule_wiring.py::_log_clean_session."""
-    sess = IronSession(id=session_id, date=session_date, day_role="D1 Upper Push",
+    tests/test_rule_wiring.py::_log_clean_session. Defaults to D4 Upper Pull
+    (2026-08-10: Face-Up Incline Knee Raise dropped out of D1 entirely, STAB
+    maintenance-block redesign's T2 GS turnover)."""
+    sess = IronSession(id=session_id, date=session_date, day_role=day_role,
                        phase="CUT", status=SessionStatus.COMPLETED)
     db.add(sess)
     db.flush()
@@ -204,17 +209,22 @@ def _log_clean_knee_raise_session(db, *, session_id, session_date, movement_id):
         db.add(ps)
         db.flush()
         db.add(SetLog(planned_set_id=ps.id, session_id=sess.id, movement_id=movement_id,
-                      set_index=i, actual_load=25.0, actual_reps=15,
+                      set_index=i, actual_load=target_load, actual_reps=15,
                       feedback_tap=FeedbackTap.ON_TARGET, is_warmup=False))
     db.commit()
 
 
 def test_run_analysis_end_to_end_advances_assist_level_after_two_clean_sessions(gen_db):
     """Full pipeline proof (mirrors test_clean_bench_session_earns_load_step):
-    seed the calibrated baselines, log two clean D1 knee-raise sessions through
-    run_analysis, and confirm MovementState.assist_level steps 25 -> 20 on the
+    seed the calibrated baselines, log two clean D4 knee-raise sessions through
+    run_analysis, and confirm MovementState.assist_level steps 10 -> 5 on the
     second one — the INCLINE_REDUCTION rule firing end-to-end now that
-    assist_ladder is populated."""
+    assist_ladder is populated.
+
+    2026-08-10 (STAB maintenance-block redesign): retargeted from D1 to D4 --
+    Face-Up Incline Knee Raise dropped out of D1's wiring entirely (T2 GS
+    turnover). D4's assist_ladder is [10,5,0] (not D1's former [25,20,15,10,5,0]
+    starting point), so the expected step is 10 -> 5, not 25 -> 20."""
     from ironlog.generation.baseline_seed import seed_movement_baselines
     from ironlog.persistence.run_analysis import run_analysis
 
@@ -223,9 +233,9 @@ def test_run_analysis_end_to_end_advances_assist_level_after_two_clean_sessions(
     mv = gen_db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
     st0 = gen_db.exec(select(MovementState).where(
         MovementState.movement_id == mv.id,
-        MovementState.day_id == "D1 Upper Push",
+        MovementState.day_id == "D4 Upper Pull",
     )).one()
-    assert st0.assist_level == 25.0
+    assert st0.assist_level == 10.0
     assert st0.current_load is None
 
     _log_clean_knee_raise_session(gen_db, session_id=9201,
@@ -234,9 +244,9 @@ def test_run_analysis_end_to_end_advances_assist_level_after_two_clean_sessions(
 
     st1 = gen_db.exec(select(MovementState).where(
         MovementState.movement_id == mv.id,
-        MovementState.day_id == "D1 Upper Push",
+        MovementState.day_id == "D4 Upper Pull",
     )).one()
-    assert st1.assist_level == 25.0, "first clean session builds the streak, doesn't advance yet"
+    assert st1.assist_level == 10.0, "first clean session builds the streak, doesn't advance yet"
 
     _log_clean_knee_raise_session(gen_db, session_id=9202,
                                   session_date=date(2026, 7, 8), movement_id=mv.id)
@@ -244,10 +254,10 @@ def test_run_analysis_end_to_end_advances_assist_level_after_two_clean_sessions(
 
     st2 = gen_db.exec(select(MovementState).where(
         MovementState.movement_id == mv.id,
-        MovementState.day_id == "D1 Upper Push",
+        MovementState.day_id == "D4 Upper Pull",
     )).one()
-    assert st2.assist_level == 20.0, (
-        "second clean session must step incline down the ladder (25 -> 20) "
+    assert st2.assist_level == 5.0, (
+        "second clean session must step incline down the ladder (10 -> 5) "
         "via _incline_reduction"
     )
     assert st2.current_load is None, "engine must never write a lb load onto a bodyweight movement"

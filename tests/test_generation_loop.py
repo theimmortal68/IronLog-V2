@@ -83,9 +83,12 @@ def test_conditional_invocation_quiet_week_no_llm_call(gen_db):
 def test_conditional_invocation_signal_present_calls_llm(stalled_session_db):
     """NAMED GATE f (signal path): planted stall → should_invoke_llm True → proposer called once.
 
-    stalled_session_db has consecutive_failed_progressions=2 on Seated Cable Row [FT]
-    (d1_t4a, tier_role=semi) → detect_stall fires → movement in weak_point_hints →
-    slot_has_deviation_signal True → should_invoke_llm True → proposer called once.
+    stalled_session_db has consecutive_failed_progressions=2 on Lat Prayer
+    [ANDREONI + FT] (d1_t3c, tier_role=free) → detect_stall fires → movement
+    in weak_point_hints → slot_has_deviation_signal True → should_invoke_llm
+    True → proposer called once. (2026-08-10: fixture moved off Seated Cable
+    Row [FT]/d1_t4a -- STAB maintenance-block redesign removed D1's T4 GS
+    tier entirely.)
     """
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", stalled_session_db)

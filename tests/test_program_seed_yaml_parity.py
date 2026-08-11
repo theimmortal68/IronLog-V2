@@ -40,12 +40,16 @@ YAML_M_TO_LIBRARY = {
     "lying_tricep_extension_d1":        "Lying Tricep Extension [SB]",
     "incline_db_press":                 "Incline DB Press [DB + BENCH]",
     "face_up_incline_knee_raise_d1":    "Face-Up Incline Knee Raise",
-    "pull_up_d1":                       "Pull-up [TOWER + TUBES]",
+    "pull_up_d1":                       "Wide-Grip Pull-up [TOWER]",       # was "Pull-up [TOWER + TUBES]"
     "cross_body_lateral_raise":         "Cross-Body Cable Lateral Raise [FT]",
     "lat_prayer":                       "Lat Prayer [ANDREONI + FT]",
     "seated_cable_row":                 "Seated Cable Row [FT]",
     "ab_wheel_rollout":                 "Ab Wheel [WHEEL]",
     "cross_body_rear_delt_fly_d1":      "Cross-Body Cable Rear Delt Fly [FT]",
+    "stryker_pad_seated_ohp_d1":        "Stryker Pad Seated OHP [DB]",
+    "matrix_machine_preacher_curl_d1":  "Matrix Machine Preacher Curl [EZ]",
+    "better_fly_standing_lateral_raise_d1": "Better Fly Standing Lateral Raise [FT]",
+    "ab_wheel_rollout_d1":              "Ab Wheel [WHEEL]",
     # ── d2 Lower A ───────────────────────────────────────────────────────────
     "belt_squat":                       "Belt Squat [GHR + FT]",
     "hip_thrust_d2":                    "Hip Thrust [HIP_THRUST]",

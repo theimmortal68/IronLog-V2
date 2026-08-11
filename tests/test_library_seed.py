@@ -52,7 +52,10 @@ def test_total_count_103(seeded):
     # Row Narrow's vacated D1 T2 GS slot after its T1b promotion.
     # 2026-07-26: +1 Pull-up - Neutral Grip (Paused), 3-way pull-up split,
     # D6 no longer shares D4's Wide-Grip Pull-up.
-    assert len(_all(seeded)) == 115
+    # 2026-08-10: +3 (STAB maintenance-block redesign, D1 reconciled to
+    # already-executed Wk1 reality): Better Fly Standing Lateral Raise [FT],
+    # Stryker Pad Seated OHP [DB], Matrix Machine Preacher Curl [EZ]: 115 -> 118.
+    assert len(_all(seeded)) == 118
 
 
 def test_status_counts(seeded):
@@ -65,7 +68,9 @@ def test_status_counts(seeded):
     # 2026-07-26: +1 ACTIVE Wide-Grip Pull-up, athlete directive, D4/D6 grip switch.
     # 2026-07-26: +1 ACTIVE Lying Tricep Extension, fills Pendlay Row's vacated D1 slot.
     # 2026-07-26: +1 ACTIVE Pull-up - Neutral Grip (Paused), 3-way pull-up split.
-    assert c[Status.ACTIVE] == 108
+    # 2026-08-10: +3 ACTIVE (STAB redesign): Better Fly Standing Lateral
+    # Raise, Stryker Pad Seated OHP, Matrix Machine Preacher Curl: 108 -> 111.
+    assert c[Status.ACTIVE] == 111
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

@@ -40,9 +40,9 @@ def _proposer_for(day_role, db):
 
 
 def test_reps_and_rest_from_bench_anchor(gen_db):
-    """Bench (d1_t1, T1 anchor, STRAIGHT scheme) -> 3 WORKING sets at 6/8 (YAML
-    reconciliation), group rest_seconds == 120 (from the Tier), not the old
-    hardcoded 8-12."""
+    """Bench (d1_t1, T1 anchor, STRAIGHT scheme) -> 3 WORKING sets at 4/6
+    (2026-08-10 STAB maintenance-block T1 rep-range drop, YAML reconciliation),
+    group rest_seconds == 120 (from the Tier), not the old hardcoded 8-12."""
     out = generate_session("D1 Upper Push", gen_db, _proposer_for("D1 Upper Push", gen_db), _week_keyer)
     assert out.exhausted is False
     sess = out.assembled.session
@@ -52,7 +52,7 @@ def test_reps_and_rest_from_bench_anchor(gen_db):
 
     assert len(ex.planned_sets) == 3
     for ps in ex.planned_sets:
-        assert (ps.target_reps_low, ps.target_reps_high) == (6, 8)
+        assert (ps.target_reps_low, ps.target_reps_high) == (4, 6)
     assert group.group_type == GroupType.STRAIGHT
     assert group.rest_seconds == 120
 

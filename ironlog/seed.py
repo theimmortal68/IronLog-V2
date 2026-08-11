@@ -339,6 +339,15 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10,
          derived_from="Standing OHP [PB]", start_ratio=0.85, primary_muscle="FRONT_DELT", secondary_muscles=["SIDE_DELT", "TRICEPS"]),
+    # 2026-08-10: new D1 T2 GS accessory (maintenance block, STAB redesign,
+    # real Wk1 execution). Per-hand DB seated press on the new Stryker Pad
+    # bench attachment (APEX Config A) -- equipment note only, standard DB
+    # press progression.
+    dict(name="Stryker Pad Seated OHP [DB]", base_name="Stryker Pad Seated OHP",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="DB", tags=["DB", "STRYKER_PAD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=20,
+         primary_muscle="FRONT_DELT", secondary_muscles=["SIDE_DELT", "TRICEPS"]),
     # Pendlay Row family (Medium anchor + grip variants at 1.0)
     dict(name="Pendlay Row - Medium [OB]", base_name="Pendlay Row - Medium",
          region=Region.UPPER, lift_category=LiftCategory.ROW, status=Status.ACTIVE,
@@ -693,6 +702,17 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=35,
          derived_from="EZ Bar Curl - Medium Grip [EZ]", start_ratio=1.0, primary_muscle="BICEPS", secondary_muscles=[]),
+    # 2026-08-10: new D1 T2 GS accessory (maintenance block, STAB redesign,
+    # real Wk1 execution) -- reintroduces bicep work to the program. Kyoto EZ
+    # Curl bar seated in the new Matrix Machine (APEX Config A), separate
+    # anchor from the INACTIVE straight-EZ-curl family above (different
+    # equipment/movement pattern, not a grip variant of it).
+    dict(name="Matrix Machine Preacher Curl [EZ]", base_name="Matrix Machine Preacher Curl",
+         region=Region.UPPER, status=Status.ACTIVE,
+         load_code="EZ", tags=["EZ", "MATRIX"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=20,
+         primary_muscle="BICEPS", secondary_muscles=[]),
     dict(name="Hammer Curl [DB]", base_name="Hammer Curl",
          region=Region.UPPER, status=Status.INACTIVE,
          load_code="DB", tags=["DB"],

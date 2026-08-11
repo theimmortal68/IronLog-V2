@@ -18,17 +18,24 @@ from ironlog.models.library import Movement
 from ironlog.models.program import ProgramDay, Tier, TierExercise
 
 # slot_id -> (rep_low, rep_high) — post-YAML-reconciliation final values.
+# 2026-08-10 (STAB maintenance-block redesign): D1's block below reflects
+# the reconciled-to-already-executed-Wk1-reality structure -- T1/T1b rep
+# range dropped 6-8 -> 4-6; T2 GS fully turned over to
+# d1_t2e/d1_t2f/d1_t2g (Stryker Pad Seated OHP / Matrix Machine Preacher
+# Curl / Better Fly Standing Lateral Raise), so d1_t2b/d1_t2c no longer
+# exist; d1_t3a (Wide-Grip Pull-up) drops to 4-6 reps; d1_t3b (Cross-Body
+# Lateral Raise) is gone; T4 GS tier removed entirely, so d1_t4a/d1_t4c are
+# gone and Ab Wheel Rollout (was d1_t4b, 8-8) relocated into T3 GS as
+# d1_t3d at 8-12.
 CHANGED_REP_TARGETS = {
-    "d1_t1": (6, 8),
-    "d1_t2a": (6, 8),
-    "d1_t2b": (8, 12),
-    "d1_t2c": (10, 15),
-    "d1_t3a": (8, 12),
-    "d1_t3b": (10, 15),
+    "d1_t1": (4, 6),
+    "d1_t2a": (4, 6),
+    "d1_t2e": (8, 12),
+    "d1_t2f": (8, 12),
+    "d1_t2g": (10, 15),
+    "d1_t3a": (4, 6),
     "d1_t3c": (8, 12),
-    "d1_t4a": (8, 12),
-    "d1_t4b": (8, 8),
-    "d1_t4c": (10, 15),
+    "d1_t3d": (8, 12),
     "d2_t3a": (8, 12),
     "d2_t3b": (10, 15),
     "d4_t1": (6, 8),
@@ -60,7 +67,8 @@ TIER_REST_MAP = {
     ("D1 Upper Push", "T1"): 120,
     ("D1 Upper Push", "T2 GS"): 90,
     ("D1 Upper Push", "T3 GS"): 75,
-    ("D1 Upper Push", "T4 GS"): 60,
+    # ("D1 Upper Push", "T4 GS") removed 2026-08-10 (STAB maintenance-block
+    # redesign) -- D1's T4 GS tier no longer exists.
     ("D2 Lower A", "T1"): 150,
     ("D2 Lower A", "T1b"): 120,
     ("D2 Lower A", "T2 GS"): 90,

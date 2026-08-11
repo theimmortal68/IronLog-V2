@@ -51,7 +51,13 @@ def test_named_movements_map_to_expected_rules(gen_db):
         # ASSISTANCE_REDUCTION (drop a band at 3x12). D4/D6 moved to a
         # separate movement ("Wide-Grip Pull-up [TOWER]"), which keeps
         # PULL_UP_ROLLING_MAX -- see test_derive_movement_rules_is_internally_consistent.
-        "Pull-up [TOWER + TUBES]":     ProgressionRule.ASSISTANCE_REDUCTION.value,
+        # 2026-08-10 (STAB maintenance-block redesign): D1's pull-up slot
+        # itself switched to Wide-Grip Pull-up [TOWER] (unassisted dead-hang,
+        # PULL_UP_ROLLING_MAX), so "Pull-up [TOWER + TUBES]" is no longer
+        # programmed on ANY day and carries no wired progression_rule.
+        # ASSISTANCE_REDUCTION's spot-check moves to "Dips [TOWER + TUBES]"
+        # (D6 d6_t1, still real and wired).
+        "Dips [TOWER + TUBES]":        ProgressionRule.ASSISTANCE_REDUCTION.value,
         "Hip Thrust [HIP_THRUST]":     ProgressionRule.RULE_DRIVEN.value,
         "Face-Up Incline Knee Raise":  ProgressionRule.INCLINE_REDUCTION.value,
         "Cable V-Bar Pushdown [FT]":   ProgressionRule.SINGLE_SESSION.value,
@@ -84,10 +90,14 @@ def test_derive_movement_rules_is_internally_consistent():
     # Hip Thrust carries rule_driven (D2/D5) AND rule_driven_fixed_increment (D6),
     # both of which resolve to RULE_DRIVEN — the consistency check must accept this.
     assert rules["Hip Thrust [HIP_THRUST]"] == ProgressionRule.RULE_DRIVEN
-    # D1's Pull-up [TOWER + TUBES] is now the sole slot on this movement, with
-    # a real assist ladder (assistance_reduction). D4/D6 share a separate
-    # movement ("Wide-Grip Pull-up [TOWER]"), still pull_up_rolling_max.
-    assert rules["Pull-up [TOWER + TUBES]"] == ProgressionRule.ASSISTANCE_REDUCTION
+    # 2026-08-10 (STAB maintenance-block redesign): D1's pull-up slot itself
+    # switched to Wide-Grip Pull-up [TOWER] (unassisted dead-hang), so
+    # "Pull-up [TOWER + TUBES]" is no longer programmed on any day and has no
+    # entry in `rules` at all (derive_movement_rules only maps movements that
+    # are actually wired to a slot). "Dips [TOWER + TUBES]" (D6 d6_t1) is now
+    # the real, wired ASSISTANCE_REDUCTION example.
+    assert "Pull-up [TOWER + TUBES]" not in rules
+    assert rules["Dips [TOWER + TUBES]"] == ProgressionRule.ASSISTANCE_REDUCTION
     assert rules["Wide-Grip Pull-up [TOWER]"] == ProgressionRule.PULL_UP_ROLLING_MAX
 
 
@@ -105,11 +115,12 @@ def test_wiring_is_idempotent(gen_db):
 def _log_clean_session(db, *, day_role, movement_name, session_id,
                         n_sets, reps, target_reps_high, target_rpe=8.0,
                         rep_low=6, feedback=FeedbackTap.ON_TARGET,
-                        session_date=date(2026, 7, 6), label="T1", actual_load=165.0):
+                        session_date=date(2026, 7, 6), label="T1", actual_load=155.0):
     """Plant one COMPLETED session with `n_sets` clean working sets on a real
     seeded movement (mirrors conftest.logged_session_id / test_run_analysis_progression).
 
-    actual_load defaults to 165.0 (Bench's seeded baseline, the original caller)
+    actual_load defaults to 155.0 (Bench's seeded baseline, 2026-08-10 STAB
+    maintenance-block value -- the original caller)
     -- pass the movement's own seeded current_load explicitly for any other
     movement, so the logged performance represents hitting the prescription
     cleanly rather than an incidental (and, since L's load ratchet, meaningful)
@@ -143,7 +154,8 @@ def _log_clean_session(db, *, day_role, movement_name, session_id,
 def test_clean_bench_session_earns_load_step(gen_db):
     """THE proof the dormant engine is now live AND correctly raises the load.
 
-    Seed the Phase-1 calibrated baselines (Bench = 165 lb, tier 0), log a clean
+    Seed the Phase-1 calibrated baselines (Bench = 155 lb, 2026-08-10 STAB
+    maintenance-block value, tier 0), log a clean
     top-of-range RPE-8 Bench session (all working sets at rep_high=8, ON_TARGET),
     run_analysis. A clean advance must EARN a load step (pending_load_delta = the
     coarse increment 5.0) and leave current_increment_tier UNCHANGED at 0.
@@ -168,7 +180,7 @@ def test_clean_bench_session_earns_load_step(gen_db):
         )
     ).one()
     assert st0.current_increment_tier == 0
-    assert st0.current_load == 165
+    assert st0.current_load == 155
     assert st0.pending_load_delta is None
 
     _log_clean_session(gen_db, day_role="D1 Upper Push",
@@ -191,7 +203,7 @@ def test_clean_bench_session_earns_load_step(gen_db):
         "current_increment_tier is the step-SIZE index — a clean advance must NOT "
         "bump it (that would shrink the step, the old backwards behavior)"
     )
-    assert st1.current_load == 165, "run_analysis never writes current_load (two-writer boundary)"
+    assert st1.current_load == 155, "run_analysis never writes current_load (two-writer boundary)"
     assert st1.active_rule == ProgressionRule.RPE_8_STANDARD.value
 
 
