@@ -22,38 +22,80 @@
 
 ## Task 1: D1 — reconcile to already-executed reality
 
+**CORRECTED 2026-08-10** — the original version of this task was written from
+a truncated read of `_seed_d1` (cut off at line 465 of a function that runs
+to 482) and missed D1's entire T4 GS tier (Seated Cable Row / Ab Wheel /
+Cross-Body Rear Delt Fly). It also failed to cross-check against this plan's
+own design doc §7, which already had the correct T2 GS composition. This
+version is verified against a line-complete read of the current
+`_seed_d1` and the design doc.
+
 **Files:**
-- Modify: `ironlog/seed.py` (new movement: Better Fly Standing Lateral Raise)
-- Modify: `ironlog/generation/program_seed.py:35-44` (PROGRAM_TO_LIBRARY), `:425-465` (`_seed_d1`)
+- Modify: `ironlog/seed.py` (new movements: Stryker Pad Seated OHP, Matrix
+  Machine Preacher Curl, Better Fly Standing Lateral Raise)
+- Modify: `ironlog/generation/program_seed.py:35-44` (PROGRAM_TO_LIBRARY),
+  `:425-482` (`_seed_d1` — note the FULL range, not `:425-465`)
 - Modify: `docs/program/phase1-seed-source.yaml` (d1 block)
 - Modify: `ironlog/generation/rule_wiring.py` (YAML_M_TO_LIBRARY)
 - Modify: `ironlog/generation/baseline_seed.py` (BASELINES)
-- Test: `tests/test_library_seed.py`, `tests/test_program_seed_yaml_parity.py`, `tests/test_golive_phase1.py`, `tests/test_rule_wiring.py`, `tests/test_generation_skeleton.py`, `tests/test_generation_assembler.py`
+- Modify: `tests/conftest.py` (`stalled_session_db` fixture — see Step 10)
+- Test: `tests/test_library_seed.py`, `tests/test_program_seed_yaml_parity.py`, `tests/test_golive_phase1.py`, `tests/test_rule_wiring.py`, `tests/test_generation_skeleton.py`, `tests/test_generation_assembler.py`, `tests/test_generation_loop.py`, `tests/test_stall_record.py`, plus any other file referencing the movements/slot_ids dropped below (grep before assuming the list above is exhaustive)
 
 **Interfaces:**
-- Consumes: existing `Pull-up [TOWER + TUBES]`, `Wide-Grip Pull-up [TOWER]`, `Lat Prayer [ANDREONI + FT]`, `Ab Wheel [WHEEL]`, `Bench Press [PB]`, `Pendlay Row - Narrow [OB]`, `Lying Tricep Extension [SB]` movements — all already exist, no new rows for these.
-- Produces: new movement `Better Fly Standing Lateral Raise [FT]` (library name others may reference).
+- Consumes: existing `Pull-up [TOWER + TUBES]`, `Wide-Grip Pull-up [TOWER]`, `Lat Prayer [ANDREONI + FT]`, `Ab Wheel [WHEEL]`, `Bench Press [PB]`, `Pendlay Row - Narrow [OB]` movements — all already exist, no new rows for these. `Lying Tricep Extension [SB]` is NOT consumed by D1 in the corrected structure (see below) — it falls out of D1 entirely; do not reference it in `_seed_d1`.
+- Produces: new movements `Stryker Pad Seated OHP`, `Matrix Machine Preacher Curl`, `Better Fly Standing Lateral Raise [FT]` (library names other tasks may reference — Task 5/D6 also uses the Belle Mere BMF Camber Bar family this movement doesn't touch, no cross-task collision expected).
 
-### Target D1 structure (from the FINAL source doc)
+### Corrected current D1 structure (verified line-complete)
+
+```
+T1 (d1_t1): Bench Press [PB], anchor, 6-8
+T1b (d1_t2a): Pendlay Row Narrow, anchor, 6-8
+T2 GS (d1_t2d, d1_t2b, d1_t2c): Lying Tricep Extension / Incline DB Press / Face-Up Incline Knee Raise, 8-12/8-12/10-15
+T3 GS (d1_t3a, d1_t3b, d1_t3c): Pull-up [TOWER+TUBES] / Cross-Body Lateral Raise / Lat Prayer, 8-12/10-15/8-12
+T4 GS (d1_t4a, d1_t4b, d1_t4c): Seated Cable Row / Ab Wheel Rollout / Cross-Body Rear Delt Fly, 8-12/8-8/10-15
+```
+
+### Target D1 structure (from the FINAL source doc, cross-checked against design doc §7)
 
 | Tier | Slot | Movement | Reps | Rule |
 |---|---|---|---|---|
-| T1 | d1_t1 | Bench Press [PB] (camber 21" grip — equipment note only, same movement) | 4-6 | RPE_8_STANDARD |
-| T1b | d1_t2a | Pendlay Row - Narrow [OB] | 4-6 | FIXED_LOAD (held @ 170) |
-| T2 GS | d1_t2d | Lying Tricep Extension [SB] | 8-12 | RPE_8_STANDARD (unchanged) |
-| T2 GS | (new) | Better Fly Standing Lateral Raise [FT] | 10-15 | RPE_8_STANDARD |
-| T2 GS | d1_t2c | Face-Up Incline Knee Raise | 10-15 | INCLINE_REDUCTION (unchanged) |
-| T3 GS | (movement swap) | Wide-Grip Pull-up [TOWER] | 4-6 | PULL_UP_ROLLING_MAX |
-| T3 GS | d1_t3c | Lat Prayer [ANDREONI + FT] | 8-12 | RPE_8_STANDARD (unchanged) |
-| T3 GS | (new) | Ab Wheel [WHEEL] | 8-12 | REP_LADDER |
+| T1 | d1_t1 | Bench Press [PB] | 4-6 | RPE_8_STANDARD, load=155 |
+| T1b | d1_t2a | Pendlay Row - Narrow [OB] | 4-6 | FIXED_LOAD, held @ 170 |
+| T2 GS | (new) | Stryker Pad Seated OHP | 8-12 | RPE_8_STANDARD, load=65 |
+| T2 GS | (new) | Matrix Machine Preacher Curl | 8-12 | RPE_8_STANDARD, load=55 |
+| T2 GS | (new) | Better Fly Standing Lateral Raise [FT] | 10-15 | RPE_8_STANDARD, load=20 |
+| T3 GS | d1_t3a (movement swap) | Wide-Grip Pull-up [TOWER] | 4-6 | PULL_UP_ROLLING_MAX (4/4/4 real Wk1) |
+| T3 GS | d1_t3c | Lat Prayer [ANDREONI + FT] | 8-12 | RPE_8_STANDARD, load=70 (was 60) |
+| T3 GS | (new, relocated) | Ab Wheel [WHEEL] | 8-12 (was 8-8) | REP_LADDER (moves here FROM its old d1_t4b slot — same Movement row, new slot_id, no new Movement row) |
 
-Dropped from D1 entirely: `Incline DB Press [DB + BENCH]` (d1_t2b), `Cross-Body Lateral Raise [FT]` (d1_t2b... wait, `Cross-Body Lateral Raise` was `d1_t3b`) — replaced by Better Fly Standing Lateral Raise.
+**T2 GS's three members are ALL new — Lying Tricep Extension, Incline DB
+Press, and Face-Up Incline Knee Raise are dropped from D1 entirely, not
+kept "unchanged."** T4 GS is fully removed once Ab Wheel relocates out of
+it — its other two members (Seated Cable Row, Cross-Body Rear Delt Fly)
+drop out of D1 along with T3's Cross-Body Lateral Raise (Better Fly
+Standing Lateral Raise in T2 covers that role now).
 
-- [ ] **Step 1: Add the new movement to `ironlog/seed.py`**
+Dropped from D1 entirely (Movement rows untouched in the library, just
+unwired from D1): `Lying Tricep Extension [SB]`, `Incline DB Press [DB +
+BENCH]`, `Face-Up Incline Knee Raise`, `Cross-Body Cable Lateral Raise [FT]`, `Seated Cable Row [FT]`, `Cross-Body Cable Rear Delt Fly [FT]`.
 
-Find the `Better Fly` / lateral-raise-family section (search for `"Cross-Body Cable Lateral Raise [FT]"` to locate the right neighborhood) and add a sibling entry:
+- [ ] **Step 1: Add the 3 new movements to `ironlog/seed.py`**
 
 ```python
+    dict(name="Stryker Pad Seated OHP [DB]", base_name="Stryker Pad Seated OHP",
+         region=Region.UPPER, status=Status.ACTIVE,
+         load_code="DB", tags=["DB", "STRYKER_PAD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=20,
+         primary_muscle="FRONT_DELT", secondary_muscles=["TRICEPS", "SIDE_DELT"]),
+
+    dict(name="Matrix Machine Preacher Curl [EZ]", base_name="Matrix Machine Preacher Curl",
+         region=Region.UPPER, status=Status.ACTIVE,
+         load_code="EZ", tags=["EZ", "MATRIX"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=20,
+         primary_muscle="BICEPS", secondary_muscles=[]),
+
     dict(name="Better Fly Standing Lateral Raise [FT]", base_name="Better Fly Standing Lateral Raise",
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="FT", tags=["FT", "BETTER_FLY"],
@@ -62,23 +104,24 @@ Find the `Better Fly` / lateral-raise-family section (search for `"Cross-Body Ca
          primary_muscle="SIDE_DELT", secondary_muscles=["FRONT_DELT"]),
 ```
 
-- [ ] **Step 2: Update `ironlog/generation/program_seed.py`'s `PROGRAM_TO_LIBRARY`**
-
-At line 38 (after `"Incline DB Press"` entry — leave that entry in place, it's still a valid library movement even though D1 stops using it):
+- [ ] **Step 2: Update `ironlog/generation/program_seed.py`'s `PROGRAM_TO_LIBRARY`** (D1 section)
 
 ```python
+    "Stryker Pad Seated OHP":                       "Stryker Pad Seated OHP [DB]",
+    "Matrix Machine Preacher Curl":                 "Matrix Machine Preacher Curl [EZ]",
     "Better Fly Standing Lateral Raise":            "Better Fly Standing Lateral Raise [FT]",
 ```
 
-- [ ] **Step 3: Rewrite `_seed_d1` (lines 425-465)**
+(Leave the existing `"Lying Tricep Extension"`, `"Incline DB Press"` entries in place — those movements stay in the library, just stop being referenced by `_seed_d1`.)
+
+- [ ] **Step 3: Rewrite `_seed_d1` in full (currently lines 425-482 — the WHOLE function, including its T4 GS tier)**
 
 ```python
 def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — Bench Press [PB] (anchor). 2026-08-10: global T1/T1b rep range
-    # drop 6-8 -> 4-6 (maintenance block, athlete directive, real Wk1
-    # execution locked 155x3x6 @ RPE8). Equipment note (Belle Mere BMF
-    # Camber Bar, 21" grip) is a physical-setup detail, not a schema field
-    # -- same movement, load_code unchanged.
+    # T1 — Bench Press [PB] (anchor). 2026-08-10: maintenance block, global
+    # T1/T1b rep range 6-8 -> 4-6, real Wk1 execution locked 155x3x6 @ RPE8
+    # (Belle Mere BMF Camber Bar 21" grip -- physical-setup detail, not a
+    # schema field, same movement/load_code as before).
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
     _add_te(db, t1.id, "d1_t1", "Bench Press [PB]", lib, 1, "anchor",
             pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
@@ -93,29 +136,33 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="horizontal_pull", rep_low=4, rep_high=6,
             scheme="DOUBLE_PROGRESSION")
 
-    # T2 GS — Lying Tricep Extension / Better Fly Standing Lateral Raise /
-    # Face-Up Incline Knee Raise. 2026-08-10: Incline DB Press dropped,
-    # Better Fly Standing Lateral Raise added (final maintenance-block
-    # composition -- Ab Trainer Cable Crunch never landed here, D1's core
-    # requirement is fully covered by Ab Wheel in T3 below).
+    # T2 GS — Stryker Pad Seated OHP / Matrix Machine Preacher Curl / Better
+    # Fly Standing Lateral Raise. 2026-08-10: maintenance-block redesign --
+    # Lying Tricep Extension, Incline DB Press, and Face-Up Incline Knee
+    # Raise all drop out of D1 entirely (D1's mandatory core requirement is
+    # covered by Ab Wheel in T3 below instead). All 3 members here are new
+    # movements/slots.
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, t2.id, "d1_t2d", "Lying Tricep Extension", lib, 1, "free",
-            pattern="tricep_extension", rep_low=8, rep_high=12,
+    _add_te(db, t2.id, "d1_t2f", "Stryker Pad Seated OHP", lib, 1, "free",
+            pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2e", "Better Fly Standing Lateral Raise", lib, 2, "free",
+    _add_te(db, t2.id, "d1_t2g", "Matrix Machine Preacher Curl", lib, 2, "free",
+            pattern="bicep_curl", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t2.id, "d1_t2e", "Better Fly Standing Lateral Raise", lib, 3, "free",
             pattern="lateral_raise", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2c", "Face-Up Incline Knee Raise", lib, 3, "free",
-            pattern="core", rep_low=10, rep_high=15)
 
     # T3 GS — Wide-Grip Pull-up (dead-hang) / Lat Prayer / Ab Wheel Rollout.
     # 2026-08-10: switched from assisted neutral-grip (Pull-up [TOWER +
     # TUBES]) to unassisted Wide-Grip dead-hang -- athlete directive, real
     # Wk1 executed 4/4/4. Cross-Body Lateral Raise dropped (Better Fly
     # Standing Lateral Raise in T2 above covers that role now). Ab Wheel
-    # added -- D1's mandatory core slot (anti-extension pattern), kept
-    # after the athlete confirmed proper bracing technique resolves the
-    # earlier hyperextension-strain concern.
+    # RELOCATES here from its old T4 GS slot (d1_t4b) -- D1's mandatory
+    # core slot (anti-extension pattern), kept after the athlete confirmed
+    # proper bracing technique resolves the earlier hyperextension-strain
+    # concern. T4 GS is fully removed below this tier (Ab Wheel was its
+    # only surviving member).
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d1_t3a", "Wide-Grip Pull-up", lib, 1, "free",
             pattern="vertical_pull", rep_low=4, rep_high=6, scheme="REP_RATIO")
@@ -123,15 +170,21 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d1_t3d", "Ab Wheel Rollout", lib, 3, "free",
             pattern="core", rep_low=8, rep_high=12, scheme="REP_LADDER")
+
+    # T4 GS is intentionally NOT re-added here -- its 3 former members
+    # (Seated Cable Row d1_t4a, Ab Wheel Rollout d1_t4b, Cross-Body Rear
+    # Delt Fly d1_t4c) are removed: Ab Wheel relocated to T3 (d1_t3d)
+    # above, Seated Cable Row and Cross-Body Rear Delt Fly drop out of D1
+    # entirely.
 ```
 
-Note: `d1_t3a`'s `movement_id` resolves to a DIFFERENT movement now (`Wide-Grip Pull-up [TOWER]` instead of `Pull-up [TOWER + TUBES]`) while KEEPING the same `slot_id` — this is allowed because it's the same real-world "D1's pull-up slot," not a slot being handed to an unrelated movement (mirrors this session's established distinction: reassigning a slot's movement when the athlete explicitly changes what goes in that conceptual position is fine; reusing a vacated slot_id for a totally different exercise is not — that's why Ab Wheel gets a fresh `d1_t3d`, not `d1_t3b`/`d1_t4b`).
+Note: `d1_t3a`'s `movement_id` resolves to a DIFFERENT movement now (`Wide-Grip Pull-up [TOWER]` instead of `Pull-up [TOWER + TUBES]`) while KEEPING the same `slot_id` — allowed because it's the same real-world "D1's pull-up slot" (mirrors this session's established distinction: reassigning a slot's movement when the athlete explicitly changes what goes in that conceptual position is fine; reusing a vacated slot_id for a totally different exercise is not — that's why Ab Wheel gets a fresh `d1_t3d` on its move, not `d1_t3b` or its own old `d1_t4b`).
 
-`Cross-Body Lateral Raise [FT]` (`d1_t3b`) and `Incline DB Press [DB + BENCH]` (`d1_t2b`) both fall out of the program with this rewrite — no explicit orphan handling needed beyond removing their `_add_te` calls (they stay defined in the library, just unwired from D1).
+`Cross-Body Lateral Raise [FT]` (`d1_t3b`), `Lying Tricep Extension [SB]` (`d1_t2d`), `Incline DB Press [DB + BENCH]` (`d1_t2b`), `Face-Up Incline Knee Raise` (`d1_t2c`), `Seated Cable Row [FT]` (`d1_t4a`), `Cross-Body Cable Rear Delt Fly [FT]` (`d1_t4c`) all fall out of the program with this rewrite — no explicit orphan handling needed beyond removing their `_add_te` calls (they stay defined in the library, just unwired from D1).
 
 - [ ] **Step 4: Update `docs/program/phase1-seed-source.yaml`'s `d1:` block**
 
-Find the `d1:` section and replace it entirely:
+Find the `d1:` section and replace it entirely (it currently has a `T4_GIANT` block too — remove that along with `T2_GIANT`'s old contents):
 
 ```yaml
   d1:  # Upper A / Push — shoe: Metcon 9 (no swap)
@@ -140,59 +193,61 @@ Find the `d1:` section and replace it entirely:
     T1b: {group_key: "T1b", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
       {m: pendlay_row_narrow, reps: [4,6], rule: hold_load_strain_constraint, load: 170}]}  # 2026-08-10: held at 170 while strain heals (maps to FIXED_LOAD), rep range 6-8 -> 4-6
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: lying_tricep_extension_d1, reps: [8,12], rule: rpe_8_standard},
-      {m: better_fly_standing_lateral_raise_d1, reps: [10,15], rule: rpe_8_standard, load: 20},  # 2026-08-10: real Wk1 locked 20x3x12 RPE8
-      {m: face_up_incline_knee_raise_d1, reps: [10,15], rule: incline_reduction, assist_level: 25, assist_ladder: [25,20,15,10,5,0]}]}
+      {m: stryker_pad_seated_ohp_d1, reps: [8,12], rule: rpe_8_standard, load: 65},  # 2026-08-10: real Wk1 locked 65x3x12, flagged possibly RPE 6-7 (verify Wk2) -- seeded as-is
+      {m: matrix_machine_preacher_curl_d1, reps: [8,12], rule: rpe_8_standard, load: 55},  # 2026-08-10: real Wk1 locked 55x3x12 RPE8
+      {m: better_fly_standing_lateral_raise_d1, reps: [10,15], rule: rpe_8_standard, load: 20}]}  # 2026-08-10: real Wk1 locked 20x3x12 RPE8
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
       {m: pull_up_d1, reps: [4,6], rule: pull_up_rolling_max},  # 2026-08-10: switched to Wide-Grip dead-hang unassisted (was assisted neutral-grip 3-band ladder), real Wk1 executed 4/4/4
       {m: lat_prayer, reps: [8,12], rule: rpe_8_standard, load: 70},  # 2026-08-10: real Wk1 locked 70x3x12 (flagged under-loaded, RPE 6-7 -- Wk2 jump to 85-95 is a live in-session decision, not seeded)
-      {m: ab_wheel_rollout_d1, reps: [8,12], rule: rep_ladder_at_cap}]}  # 2026-08-10: D1's mandatory core slot (anti-extension), real Wk1 locked 3x8 bodyweight
+      {m: ab_wheel_rollout_d1, reps: [8,12], rule: rep_ladder_at_cap}]}  # 2026-08-10: relocated from D1's old T4 GS, real Wk1 locked 3x8 bodyweight (D1's mandatory core slot, anti-extension)
 ```
 
 - [ ] **Step 5: Update `ironlog/generation/rule_wiring.py`'s `YAML_M_TO_LIBRARY`**
 
-The `pull_up_d1` entry already exists pointing at `"Pull-up [TOWER + TUBES]"` — change it, and add the two new `m:` ids from the yaml block above:
+The `pull_up_d1` entry already exists pointing at `"Pull-up [TOWER + TUBES]"` — change it, and add the 3 new `m:` ids from the yaml block above:
 
 ```python
     "pull_up_d1":                        "Wide-Grip Pull-up [TOWER]",       # was "Pull-up [TOWER + TUBES]"
+    "stryker_pad_seated_ohp_d1":         "Stryker Pad Seated OHP [DB]",
+    "matrix_machine_preacher_curl_d1":   "Matrix Machine Preacher Curl [EZ]",
     "better_fly_standing_lateral_raise_d1": "Better Fly Standing Lateral Raise [FT]",
     "ab_wheel_rollout_d1":               "Ab Wheel [WHEEL]",
 ```
 
-Add `"rep_ladder_at_cap": ProgressionRule.REP_LADDER` and `"hold_load_strain_constraint": ProgressionRule.FIXED_LOAD` to `RULE_STRING_TO_ENUM` if not already present (check first — `rep_ladder` already maps to `REP_LADDER`; confirm whether `rep_ladder_at_cap` is a new string key needing its own entry, since it's spelled differently from the existing `"rep_ladder"` key).
+Add `"rep_ladder_at_cap": ProgressionRule.REP_LADDER` and `"hold_load_strain_constraint": ProgressionRule.FIXED_LOAD` to `RULE_STRING_TO_ENUM` if not already present (check first — `rep_ladder` already maps to `REP_LADDER`; confirm whether `rep_ladder_at_cap` needs its own entry since it's spelled differently).
 
 - [ ] **Step 6: Update `tests/test_program_seed_yaml_parity.py`'s own `YAML_M_TO_LIBRARY` copy**
 
-Same three line changes as Step 5, in this file's separate copy (the anti-drift keystone test maintains its own mapping deliberately).
+Same line changes as Step 5, in this file's separate copy (the anti-drift keystone test maintains its own mapping deliberately).
 
 - [ ] **Step 7: Seed D1's real Wk1 baselines in `ironlog/generation/baseline_seed.py`**
 
-Update existing `BASELINES` entries and add the new ones for D1's slots:
+First read the CURRENT `BASELINES` dict to confirm exact existing entries for `d1_t1`, `d1_t2a`, `d1_t2b`, `d1_t2c`, `d1_t3a`, `d1_t3c`, `d1_t4a`, `d1_t4c` (there is no `d1_t2d` or `d1_t4b` entry today — Lying Tricep Extension and Ab Wheel have never had baselines). Then apply:
 
 ```python
     "d1_t1": ("load", 155, None),          # was 165 -- real Wk1 locked value
-    "d1_t2a": ("load", 170, None),         # unchanged, held
-    "d1_t2d": ("load", ?, None),           # Lying Tricep Extension -- check current value, not in source doc's Wk1 lock list, leave as-is
+    "d1_t2a": ("load", 170, None),         # unchanged value, held (rule changes elsewhere)
+    "d1_t2f": ("load", 65, None),          # Stryker Pad Seated OHP -- new, real Wk1 locked
+    "d1_t2g": ("load", 55, None),          # Matrix Machine Preacher Curl -- new, real Wk1 locked
     "d1_t2e": ("load", 20, None),          # Better Fly Standing Lateral Raise -- new, real Wk1 locked
-    "d1_t2c": ("assist", 25, None),        # unchanged
-    "d1_t3a": ("assist", None, None),      # Wide-Grip Pull-up is PULL_UP_ROLLING_MAX -- no scalar baseline (unassisted, rolling-max tracked via unassisted_max_rolling, not current_load/assist_level). REMOVE any existing "d1_t3a" baseline entry rather than setting one here -- Wide-Grip Pull-up movements across the program (D4/D6) never get a BASELINES entry, this must match that pattern.
-    "d1_t3c": ("load", 70, None),          # Lat Prayer -- real Wk1 locked, was different value before
-    "d1_t3d": ("load", 0, None),           # Ab Wheel Rollout -- REP_LADDER/bodyweight, verify whether "load":0 or a different baseline shape fits REP_LADDER movements (check an existing REP_LADDER baseline entry, e.g. Ab Wheel's old d1_t4b entry before this rewrite, for the right value/None convention)
+    "d1_t3c": ("load", 70, None),          # Lat Prayer -- real Wk1 locked, was 60
 ```
 
-Resolve the `?`/verification notes above by reading the CURRENT `BASELINES` dict for `d1_t2d` and the old `d1_t4b` (Ab Wheel's previous slot_id) entries before writing this step's final diff — don't guess.
+REMOVE entirely: `"d1_t2b"`, `"d1_t2c"`, `"d1_t3a"` (Wide-Grip Pull-up movements never get a BASELINES entry anywhere in this codebase — rolling-max tracked, not scalar/assist), `"d1_t4a"`, `"d1_t4c"`. No entry needed for `d1_t3d` (Ab Wheel — bodyweight, matches the fact it never had one at its old `d1_t4b` slot).
 
 - [ ] **Step 8: Update `tests/test_golive_phase1.py`'s `EXPECTED_NEEDS_CAL`**
 
-D1's slots should NOT appear as needs-cal (all seeded from real data). Remove any pre-existing D1 entries if present; do not add new ones for D1.
+D1's slots should NOT appear as needs-cal (all seeded from real data). Remove any pre-existing D1 entries if present.
 
 - [ ] **Step 9: Update `tests/test_library_seed.py` counts**
 
-+1 movement (Better Fly Standing Lateral Raise), +1 ACTIVE. Update `test_total_count_103` and `test_status_counts` with incremented values and a dated comment, matching this file's established comment style.
++3 movements (Stryker Pad Seated OHP, Matrix Machine Preacher Curl, Better Fly Standing Lateral Raise), +3 ACTIVE. Update `test_total_count_103` and `test_status_counts` with incremented values and a dated comment, matching this file's established comment style.
 
-- [ ] **Step 10: Fix structural tests**
+- [ ] **Step 10: Fix structural tests + the stale stall-signal fixture**
 
-`tests/test_generation_skeleton.py` and `tests/test_generation_assembler.py` likely have D1-specific assertions (tier composition, movement names) that need updating to match the new T2/T3 GS membership — grep both files for `"D1 Upper Push"` and any of the removed/added movement names (`Incline DB Press`, `Cross-Body Lateral Raise`, `Better Fly Standing Lateral Raise`, `Ab Wheel`) and update expected values to match Step 3's structure.
+`tests/test_generation_skeleton.py` and `tests/test_generation_assembler.py` have D1-specific assertions (tier composition, movement names, T4 GS presence) that need updating to match Step 3's structure — grep both files for `"D1 Upper Push"` and any of the removed/added movement names.
+
+`tests/conftest.py`'s `stalled_session_db` fixture is currently keyed on `"Seated Cable Row [FT]"` at slot `d1_t4a`, `tier_role=semi` — Seated Cable Row is dropping out of D1 entirely, so this breaks. Repoint it to `"Lat Prayer [ANDREONI + FT]"` at `d1_t3c` (`tier_role="free"` — `should_invoke_llm`'s eligibility check accepts both `free` and `semi`, only excluding `anchor`). Update the fixture's docstring and the file's top-of-file docstring to match. This fixture is also used by `tests/test_generation_loop.py` and `tests/test_stall_record.py` (both reference "Seated Cable Row"/`d1_t4a` in their own docstrings/comments describing the fixture — update those comments too, even though they don't assert on the movement name directly). Grep the whole `tests/` directory for `"Seated Cable Row"`, `"Cross-Body Rear Delt Fly"`, `d1_t4a`, `d1_t4b`, `d1_t4c` to catch anything else.
 
 - [ ] **Step 11: Run the full suite**
 
@@ -204,13 +259,13 @@ Expected: all passing, no regressions outside the files touched above.
 - [ ] **Step 12: Commit**
 
 ```bash
-git add ironlog/seed.py ironlog/generation/program_seed.py ironlog/generation/rule_wiring.py ironlog/generation/baseline_seed.py docs/program/phase1-seed-source.yaml tests/test_program_seed_yaml_parity.py tests/test_golive_phase1.py tests/test_library_seed.py tests/test_generation_skeleton.py tests/test_generation_assembler.py
+git add ironlog/seed.py ironlog/generation/program_seed.py ironlog/generation/rule_wiring.py ironlog/generation/baseline_seed.py docs/program/phase1-seed-source.yaml tests/test_program_seed_yaml_parity.py tests/test_golive_phase1.py tests/test_library_seed.py tests/test_generation_skeleton.py tests/test_generation_assembler.py tests/conftest.py tests/test_generation_loop.py tests/test_stall_record.py
 git commit -m "feat(program): D1 reconciled to maintenance-block Wk1 reality (STAB redesign)"
 ```
 
 - [ ] **Step 13: Apply to production and verify live**
 
-SSH to myflix, run a Python script mirroring this session's established live-update pattern: create the `Better Fly Standing Lateral Raise [FT]` `Movement` row, repoint/relabel D1's `TierExercise` rows to match Step 3 exactly (rep ranges, movement_id for `d1_t3a`, new rows for `d1_t2e`/`d1_t3d`, removed rows for the old `d1_t2b`/`d1_t3b`), set `MovementState` values per Step 7's table, run `ironlog.generation.rule_wiring.main()`, restart `ironlogv2`, then run a direct `generate_session("D1 Upper Push", ...)` call confirming the assembled session matches the target table at the top of this task and that `Bench Press [PB]`/`Pendlay Row - Narrow [OB]`/`Lat Prayer` prescribe from their real seeded loads (not needs-calibration).
+SSH to myflix, run a Python script mirroring this session's established live-update pattern: create the 3 new `Movement` rows, rebuild D1's `Tier`/`TierExercise` rows to match Step 3 exactly (drop the T4 GS tier entirely, rewire T2/T3), set `MovementState` values per Step 7's table, run `ironlog.generation.rule_wiring.main()`, restart `ironlogv2`, then run a direct `generate_session("D1 Upper Push", ...)` call confirming the assembled session matches the target table (§ Target D1 structure above) and that `Bench Press [PB]`/`Pendlay Row - Narrow [OB]`/`Lat Prayer`/all 3 new T2 movements prescribe from their real seeded loads (not needs-calibration).
 
 ---
 
