@@ -456,13 +456,13 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # vacated slot_ids are reused). D1's core requirement is fully covered
     # by Ab Wheel in T3 below, so no core movement returns to T2.
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, t2.id, "d1_t2e", "Stryker Pad Seated OHP", lib, 1, "free",
+    _add_te(db, t2.id, "d1_t2f", "Stryker Pad Seated OHP", lib, 1, "free",
             pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2f", "Matrix Machine Preacher Curl", lib, 2, "free",
+    _add_te(db, t2.id, "d1_t2g", "Matrix Machine Preacher Curl", lib, 2, "free",
             pattern="bicep_curl", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2g", "Better Fly Standing Lateral Raise", lib, 3, "free",
+    _add_te(db, t2.id, "d1_t2e", "Better Fly Standing Lateral Raise", lib, 3, "free",
             pattern="lateral_raise", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 

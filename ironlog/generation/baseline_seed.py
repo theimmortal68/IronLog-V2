@@ -66,7 +66,7 @@ from ironlog.models.session import (
 # movements never carry a BASELINES entry anywhere in this program
 # (matches D4/D6's Wide-Grip Pull-up slots). d1_t3c (Lat Prayer) 60 -> 70
 # (real Wk1 lock, flagged under-loaded -- Wk2's 85-95 jump is a live
-# in-session decision, not seeded). New d1_t2e/d1_t2f/d1_t2g (Stryker Pad
+# in-session decision, not seeded). New d1_t2f/d1_t2g/d1_t2e (Stryker Pad
 # Seated OHP / Matrix Machine Preacher Curl / Better Fly Standing Lateral
 # Raise) seed real Wk1 locks 65/55/20. d1_t3d (Ab Wheel Rollout,
 # relocated from its old d1_t4b slot into T3 GS) has NO entry --
@@ -74,8 +74,8 @@ from ironlog.models.session import (
 # at its old slot_id either.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
-    "d1_t2e": ("load", 65, None), "d1_t2f": ("load", 55, None),
-    "d1_t2g": ("load", 20, None),
+    "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
+    "d1_t2e": ("load", 20, None),
     "d1_t3c": ("load", 70, None),
     "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 205, "#0 Orange"),
     "d2_t2b": ("load", 180, None),
