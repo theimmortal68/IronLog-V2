@@ -25,6 +25,17 @@ variants removed, bilateral RDL replaced with unilateral Kickstand RDL,
 hip-hinge finishers removed) are consistent with and supersede that interim
 hold.
 
+**Likely root cause identified during this same investigation**: Ab Wheel
+rollout with the lower back sagging into hyperextension instead of staying
+braced — a classic mechanism for exactly this injury pattern, and the
+athlete's own best guess for the original injury 2 weeks prior. Ab Wheel
+does not appear anywhere in the source doc's new day structure (D1's old T4
+tier — Seated Cable Row / Ab Wheel / Cross-Body Rear Delt Fly — is dropped
+entirely in the new 3-tier D1 layout), so it is already excluded as a side
+effect of the broader redesign. Documented here explicitly as an
+injury-driven retirement (§8) rather than left as an undocumented
+incidental drop.
+
 ## Decisions
 
 ### 1. Phase transition
@@ -118,6 +129,11 @@ pull-up retirements above:
 - Old Nordic Curl [Hyper Pro] variants → replaced by Nordic Curl Max
 - `Pull-up [TOWER + TUBES]`, `Pull-up - Neutral Grip (Paused) [TOWER]` (see
   §5)
+- `Ab Wheel [WHEEL]` (D1 T4) — **injury-driven, confirmed likely root
+  cause**: rollout with the lower back sagging into hyperextension is the
+  athlete's best-guess mechanism for the original strain 2 weeks prior.
+  Not on the source doc's explicit retirement list, but genuinely absent
+  from the new day structure — documented here so the reason isn't lost.
 
 Orphaned `MovementState`/`HtProgressionState` rows for retired movements
 are left in place (harmless, matches established convention throughout
