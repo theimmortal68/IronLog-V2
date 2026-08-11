@@ -1,204 +1,60 @@
-# Task 2 Report: `_effective_movement_id` in lay_skeleton + dismiss sets applied
+# Task 2 (D2 — Lower Squat + new core tier) — NEEDS_CONTEXT
 
-Status: **DONE**
-Branch: `feat/note-apply`
+Status: **NEEDS_CONTEXT** (blocked before any code was written — no commits made, worktree untouched beyond this report file)
 
-## Changes
+## What was done
 
-- `ironlog/generation/skeleton.py`:
-  - Imported `SlotMovementOverride`.
-  - Added `_effective_movement_id(db, te, meso_number) -> int`: precedence
-    active `SlotMovementOverride` > `MesoRotation(meso_number)` > `te.movement_id`.
-  - Anchor branch now calls `_effective_movement_id` instead of the inline
-    `mr.movement_id if mr else te.movement_id` check.
-  - Adaptive branch now sets `program_movement_id = _effective_movement_id(db, te, meso_number)`
-    instead of the raw `te.movement_id`. This is an intentional behavior change per the
-    brief: previously the adaptive branch never consulted `MesoRotation` at all. Investigation
-    confirmed the seeded program (`program_seed.py`) already has meso-2 `MesoRotation` rows on
-    non-anchor slots (`d4_t2a` semi, `d4_t3b` free), and an existing guard test
-    (`test_program_seed_rotation_guard.py::test_new_meso_rotations_exist_and_resolve`) already
-    asserts those rows should resolve — so this aligns `lay_skeleton` with pre-existing
-    seed/test intent rather than introducing a regression. No existing test asserted the old
-    "meso ignored for non-anchors" behavior via `lay_skeleton` directly, and the full suite
-    stayed green.
-  - Updated the `lay_skeleton` docstring to describe the new precedence instead of the stale
-    "no meso override applied to non-anchors" note.
-  - Base program (`TierExercise.movement_id`) is never mutated — confirmed by an explicit
-    assertion in the new test.
+No production code changes were made. All work so far was verification/cross-referencing, per the task's own instruction to cross-check the brief against `docs/program/source/2026-08-10-maintenance-block-seed-data-FINAL.md`'s D2 section *before* writing any code, and to stop rather than guess on a genuine discrepancy.
 
-- `ironlog/api/app.py` (`dismiss_note`): added `n.applied = True` alongside the existing
-  `n.classification = NoteClass.JOURNAL` set, fixing the bug where a dismissed note kept
-  `applied=False` and could still flag the movement as deviation-eligible.
+Read in full:
+- `/home/jstout/projects/IronLog-V2-wt-stab-d2/.superpowers/sdd/task-2-brief.md`
+- `docs/program/source/2026-08-10-maintenance-block-seed-data-FINAL.md` — D2 section (lines 207-353), "Weekly Volume Check" (35-53), "Key Nordic Curl Update — Ares Weighted Assist" (848-882), "Progression Priorities Wk 2" (882-922)
+- `docs/superpowers/plans/2026-08-10-stab-maintenance-block-redesign.md` — Task 2 section (272-onward), confirmed byte-identical in substance to `task-2-brief.md`
+- Current `_seed_d2` in `ironlog/generation/program_seed.py` (lines 503-538), the current `d2:` block in `docs/program/phase1-seed-source.yaml` (34-45), the current D2 entries in `PROGRAM_TO_LIBRARY`, `rule_wiring.YAML_M_TO_LIBRARY`, `test_program_seed_yaml_parity.YAML_M_TO_LIBRARY`, `baseline_seed.BASELINES`, `test_golive_phase1.EXPECTED_NEEDS_CAL`
+- Task 1's actual merged diff (`git show d36890d`, `16d6a3f`) as the style/convention template
+- `ironlog/generation/skeleton.py`, `ironlog/generation/context.py` (`_PATTERN_LIFT_CATEGORIES`, `KNEE_TARGETS`), `ironlog/engine/advance.py` (`_rep_ladder`), `ironlog/models/library.py` (`Movement.rep_ladder`)
 
-- `tests/test_slot_override_skeleton.py` (new): 4 tests —
-  1. `test_skeleton_emits_base_movement_with_no_override` — no-override/no-meso path returns
-     `te.movement_id` unchanged (regression guard for the no-override case).
-  2. `test_active_override_swaps_only_its_slot` — active override swaps only the overridden
-     anchor slot (bench→incline); the unrelated adaptive slot (`close_grip`) is untouched;
-     the base `TierExercise.movement_id` row is unmutated; `active=False` reverts to bench.
-  3. `test_override_takes_precedence_over_meso_rotation` — full precedence chain: meso-2
-     rotation (bench→overhead press) applies with no override; an active override on the same
-     slot (bench→incline) wins over the meso rotation; dismissing the override falls back to
-     the meso rotation (not straight to base) at `meso_number=2`; `meso_number=1` (no rotation
-     row) falls all the way back to the base movement.
-  4. `test_adaptive_slot_meso_rotation_fires_through_skeleton` (added post-review) — regression
-     lock for the intentional adaptive-branch behavior change: uses the `gen_db` seed fixture,
-     reads the real seeded meso-2 `MesoRotation` on D4's `d4_t2a` (Meadows Row [semi] → Pendlay
-     Row) and asserts `lay_skeleton("D4 Upper Pull", ..., meso_number=2)` emits that seeded
-     target's `movement_id` for the adaptive slot, while `meso_number=1` emits the base
-     `te.movement_id`. Proves adaptive-slot meso rotation now fires through `lay_skeleton` AND
-     is meso-gated (not always-on) — without this, a refactor could silently revert the
-     adaptive branch to raw `te.movement_id` and stay green.
+## Discrepancies found, and how each was resolved (or not)
 
-- `tests/test_notes_endpoints.py`: added `test_dismiss_sets_applied_true` — after
-  `/notes/{id}/dismiss`, asserts `note.applied is True` and `note.classification == JOURNAL`.
-  (Note: the brief named the file `test_notes_review_endpoints.py`; the real file covering
-  `/notes/review` + confirm/dismiss is `tests/test_notes_endpoints.py` — extended that file
-  instead of creating a duplicate, matching the fix already applied by the Task 1 implementer
-  for other model/import discrepancies in the brief.)
+### 1. Tier order for the new T4 straight tier — RESOLVED, not blocking
+The brief's Step 3 body says "tier_order 5" but its own closing sentence says "Tier orders renumber sequentially (T1=1, T2 GS=2 [T1b gone], T3 GS=3, T4=4)". These conflict. Resolved in favor of the explicit, later, more specific statement: **tier_order=4**. The "tier_order 5" mention reads as a drafting artifact not updated when the renumbering note was added. This is purely an internal ordering field (`skeleton.py` sorts tiers by `Tier.tier_order`); it doesn't affect any athlete-facing weight/rep value. Confirmed via advisor consultation — treat as resolved, document, don't escalate.
 
-## Test commands + results
+### 2. D2 T3 GS rest_seconds: 75 (current code) vs 60 (FINAL doc) — RESOLVED, not blocking, but real fallout
+The FINAL doc states "### T3 GS — 3 items, **60s rest**, 3 rounds" for D2 (line 281). Current `_seed_d2` has `rest_seconds=75` for T3 GS (unrelated to any change the brief calls out). The brief is silent on this field entirely. This is corroborated by an independent primary source: **D5's T3 GS already uses `rest_seconds=60`** in the live codebase (`program_seed.py` line ~648), and the FINAL doc's D5 T3 GS also states 60s (line 616) — i.e., 60s is the actual, already-implemented target convention for this specific tier shape in this program, and D2's current 75s is pre-existing staleness this task is meant to reconcile away (same category of miss as Task 1's missed T4 GS tier). **Resolution: change D2 T3 GS rest_seconds 75 → 60** as part of this task's rewrite.
+- Mechanical consequence not mentioned by the brief: the yaml `d2:` block's `T3_GIANT` line (`rest: 75`) must also change to `rest: 60` in the same commit, or `tests/test_program_seed_yaml_parity.py` (which asserts tier-level `rest_seconds` parity against the yaml) will fail.
 
-1. Targeted:
-   ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_slot_override_skeleton.py tests/test_notes_endpoints.py'
-   ```
-   Result (initial): **8 passed** (existing 4 dismiss/review + new dismiss-applied + 3 new
-   skeleton tests). 0 failed.
+### 3. Belt Squat's `rep_ladder`/`rep_target`/`ceiling` yaml fields under the new 4-6 rep range — CHECKED, confirmed inert, not blocking
+The current yaml line for `belt_squat` carries `rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true`, built for the old 6-8 rep range. Traced whether these yaml keys are live engine inputs: `rule_wiring.py`'s `_iter_yaml_rules()` only reads `ex["m"]` and `ex.get("rule")` from each yaml exercise entry — `rep_target`, `rep_ladder`, and `ceiling` are never read by any parser in the codebase (confirmed via grep across `ironlog/` and `scripts/`). The only live `rep_ladder` field is `Movement.rep_ladder` (a JSON column read by `engine/advance.py::_rep_ladder`), and **no `seed.py` movement dict populates it for Belt Squat or any other movement** — it is always `None`/`[]` from a fresh seed today, for every movement, including Belt Squat, pre-existing this task. Conclusion: these three yaml keys are pure documentation/comments, not live inputs. Leaving them unchanged (still `[8,10,12,15]`/`rep_target: 8`) is correct — they don't need to move to match 4-6, and fixing this pre-existing dead-metadata/engine gap is out of this task's scope.
 
-2. Post-review coverage add (`test_adaptive_slot_meso_rotation_fires_through_skeleton`):
-   ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_slot_override_skeleton.py'
-   ```
-   Result: **4 passed** (3 original skeleton tests + 1 new adaptive-meso coverage test).
+### 4. Knee-modality wiring for the two new lower-body T2/T3 movements — **BLOCKING, this is the NEEDS_CONTEXT**
 
-3. Full suite (final):
-   ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
-   ```
-   Result: **392 passed** (baseline 387 + 5 new tests: 3 override skeleton + 1 adaptive-meso
-   coverage + 1 dismiss-applied), 0 failed, 0 regressions.
+The brief's Step 1 `dict(...)` literals for `Matrix Machine Sissy Squat` and `Nordic Curl Max [Ares]` do **not** set `knee_modality` on the Movement, and Step 3 gives no `knee_modality=` kwarg for either `TierExercise` either. Taken completely literally, this produces a real, material regression:
 
-## Concerns
+- **Current D2** has 3 knee-tagged `TierExercise` slots: `d2_t3a` (ATG Split Squat, KOT), `d2_t3b` (Cable Tibialis Raise, TIB), `d2_t3c` (Reverse Nordic, **KOT**).
+- **Brief's literal instructions** drop `d2_t3c` (Reverse Nordic) with no replacement, and add no knee_modality to either new movement → D2 would end up with only **2** knee-tagged slots (KOT + TIB), and **zero** NORDIC- or SISSY-tagged slots anywhere in D2.
+- This directly collides with `ironlog/generation/context.py`'s `KNEE_TARGETS = {"NORDIC": 2, "TIB": 2, "KOT": 2, "SISSY": 1}` (weekly, program-wide targets). Traced the current whole-program wiring: **exactly one** `TierExercise` in the entire program currently carries `knee_modality=NORDIC` — `d5_t2c` ("Assisted Nordic (eccentric)"), against a target of 2/week — and **zero** carry `SISSY` anywhere, ever.
+- The two new movements are exactly the ones that could plausibly close these gaps: `Nordic Curl Max [Ares]` is literally a Nordic curl variant (assist ladder, same shape as `Nordic Curl [GHR]`, which *does* carry `knee_modality=NORDIC` at the Movement level), and the FINAL doc gives `Matrix Machine Sissy Squat` an explicit `knee_health_note: sissy_squat_trains_vmo_deep_knee_flexion` (line 252) — the only narrative "knee" annotation given to any D2 movement in the whole FINAL doc — strongly suggesting SISSY relevance, paralleling the existing (but currently unwired-anywhere) `Sissy Squat` movement that already carries `knee_modality=SISSY`.
+- I also read the two FINAL-doc sections most likely to settle this explicitly — "Weekly Volume Check" (lines 35-53) and "Key Nordic Curl Update — Ares Weighted Assist" (848-882) — per advisor's suggested decision rule. **Neither states a weekly Nordic/knee-modality frequency target or says anything about `KneeModality` tagging.** They describe real-world exercise/volume content, not the internal engine's knee-modality bookkeeping (that's a `docs/06 §4` construct this FINAL doc never references). So the FINAL doc does not settle the question either way.
+- **This has a real compounding effect into Task 4 (D5)**: `Nordic Curl Max [Ares]` "is referenced again by Task 4 (D5) — same Movement row, shared identity" per this brief's own Interfaces section. If Task 2 wires it untagged and Task 4 also wires it untagged (because Task 4's brief likely inherits the same silence), the *entire program* could end up with zero NORDIC-tagged slots against a weekly target of 2 — with each task's implementer independently relaxing/adjusting whatever test currently encodes the count (`tests/test_generation_skeleton.py::test_d2_has_knee_slots_in_adaptive` asserts `len(knee_slots) >= 3` for D2 specifically), each in isolation, no single point catching that the *combined* result silently drops a design invariant nobody explicitly decided to drop.
 
-None. The adaptive-branch behavior change (now honoring `MesoRotation` for non-anchor slots)
-is a deliberate widening of `_effective_movement_id`'s use per the brief, and cross-checked
-against the seed data + an existing guard test that already implies this rotation should be
-honored — flagged above for visibility, not as an open risk.
+**The actual question for the plan owner:** should `nordic_curl_max_d2`'s `TierExercise` (and/or the D5 copy in Task 4) carry `knee_modality=KneeModality.NORDIC`, and should `matrix_machine_sissy_squat`'s `TierExercise` carry `knee_modality=KneeModality.SISSY`? (TierExercise-level only — not proposing to add `knee_modality` to the Movement dicts themselves, which the brief gives verbatim and I have not touched.) Or is dropping D2's knee-slot count from 3 to 2 (and leaving NORDIC/SISSY at their current under-target counts) the intended, accepted maintenance-block tradeoff, in which case `test_d2_has_knee_slots_in_adaptive`'s threshold should just be relaxed to `>= 2` with a comment explaining why?
 
-## Fix pass (whole-branch review, 2026-07-05)
+I did not guess at this because: it's a real design decision the brief is silent on, not resolvable from either the brief or the FINAL doc, and picking wrong could either (a) silently under-serve a stated engine invariant (KNEE_TARGETS) for a live athlete's actual weekly movement variety, or (b) invent tagging behavior not authorized by the brief's literal Step 1/3 text. Both are things this task's instructions specifically told me not to do without asking.
 
-The whole-branch review found one Important latent bug that Task 2 *exposed* (did not
-introduce), plus requested an end-to-end integration test.
+## Additional test fallout discovered (not blocking, but scoped larger than the brief's file list — flagging for whoever resumes)
 
-**Bug — rep-scheme lookup keyed on movement, not slot identity** (`ironlog/generation/context.py`
-~line 345). `resolve_context` built `te_by_mid = {te.movement_id: te}` and looked up
-`te_by_mid.get(slot.program_movement_id)`. Pre–Task 2 the adaptive branch always emitted the
-base `te.movement_id`, so base == effective and the lookup always hit. Once adaptive-slot meso
-rotations and `SlotMovementOverride`s went live, a slot's `program_movement_id` can differ from
-its base movement → the movement-keyed lookup **misses** (`rep_scheme` becomes `None`) or, if the
-swapped movement coincides with a different slot's base, returns the **wrong** TE's rep scheme.
-Durable (survives reconcile), bites at meso 2.
+Beyond the brief's declared step 7-9 test updates, grepping for every D2-specific identifier being removed (`d2_t1b`, `d2_t2a`, `d2_t2b`, `d2_t3c`, `hip_thrust_d2`, `leg_curl_d2`, `scout_reverse_hyper_bilateral_d2`, `reverse_nordic_assisted_d2`) turned up:
 
-- **Fix:** re-keyed the lookup on the slot's stable identity —
-  `te_by_slot = {te.slot_id: te}`, looked up via `te_by_slot.get(slot.slot_id)`. `slot_id`
-  (e.g. `"d4_t2a"`) is globally unique across the program (day+tier+position) and carried on
-  both `SlotSpec` and `TierExercise`, so it is unaffected by movement swaps. No production
-  behavior change for the no-swap path; correct resolution for the swapped path.
-- **Regression test:** `tests/test_generation_context.py::test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation`
-  — at `meso_number=2`, D4's `d4_t2a` (Meadows Row → Pendlay Row rotation) resolves its
-  `rep_scheme` to that slot's own TE (`rep_low`/`rep_high`/`scheme`), not `None`/wrong.
-  **Verified the test catches the bug**: temporarily reverting `context.py` to the movement-keyed
-  lookup made this test fail (`rep_scheme is None`); restoring the slot-keyed fix makes it pass.
+- **`tests/test_generation_day_scoped_state.py`** — `test_ht_load_is_day_scoped` is built entirely around a **3-way** day-scoped independence check for Hip Thrust across D2/D5/D6 (`te["d2_t1b"]`, asserts `len(ht_states) == 3`, asserts exact per-day plate values including D2's 205). Since D2's Hip Thrust tier is being dropped entirely (per the brief's explicit "Removed: Hip Thrust (D2 T1b — the whole tier is dropped, not just the movement)"), this test's premise breaks and needs restructuring to a 2-way (D5/D6) independence check, not just a value update. This is legitimate, brief-authorized fallout (not itself ambiguous) but is more invasive than a field tweak — flagging so it isn't missed.
+- **`tests/test_ht_generate_banded.py::test_week1_prescribes_seeded_current_setup`** — also asserts D2's `d2_t1b` HT baseline (205, Orange) through the real `generate_session` path; same fallout category, needs D2 dropped from its per-day loop.
+- **`tests/test_generation_repair.py`** — references `d2_t2a` in a comment ("Pick the first knee slot (NORDIC — d2_t2a 'Assisted Nordic')") but the comment is already stale relative to current `main` (current `d2_t2a` is Lying Leg Curl, not Assisted Nordic) and the test logic picks the first knee slot generically, not by name — likely needs no code change, only comment cleanup. Low risk either way.
+- **`tests/test_note_resolver.py`** — uses `slot_id="d2_t2a"` but on a synthetic fixture movement (`"shared_row"`), not tied to the real seeded program — checked, does not appear to need any change.
 
-**Integration test (Minor)** — `tests/test_note_apply_endpoints.py::test_apply_then_generate_slot_emits_target_movement`
-exercises the feature's central seam end to end: seeds a program day with a bench anchor slot
-+ an unrelated accessory slot + a `CONFIG_CHANGE` note on bench; `POST /notes/{id}/apply` with
-an incline target via `TestClient`; then `lay_skeleton("D1 Upper Push", db, meso_number=1)` and
-asserts the bench slot emits incline, the accessory slot is unchanged, and the base
-`TierExercise.movement_id` row is unmutated.
+## What's needed to unblock
 
-### Fix-pass test results
-```
-ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_generation_context.py tests/test_note_apply_endpoints.py'
-```
-→ **16 passed**.
-```
-ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
-```
-→ **403 passed** (baseline 401 + 2 new tests), 0 failed, 0 regressions.
+A decision on the knee_modality question in item 4 above. Once that's settled, implementation proceeds exactly per the brief otherwise (Steps 1-2 have no open questions; Step 3's tier_order and T3 rest are resolved per items 1-2 above; Steps 4-9 follow directly with the additional fallout noted above folded in).
 
----
+## Files touched by this report
 
-## Note-apply REDESIGN plan — Task 2: Classifier `action_type` (2026-07-05)
-
-**This is a distinct task, unrelated to the slot-override work above.** The redesign plan
-(`.superpowers/plans/2026-07-05-note-apply-redesign.md`) restarted task numbering; its own
-Task 2 landed here because the brief (`task-2-brief.md`) pointed at this report path. Appended
-per this repo's established pattern of appending fix-wave sections to the same `task-N-report.md`
-rather than creating a new file per micro-task.
-
-Status: **DONE**
-Branch: `feat/note-apply-redesign`
-
-### Objective
-The apply UI needs to route by action (swap vs load vs reps) deterministically. The Gemini note
-classifier (`ironlog/notes/classify.py`) previously returned only free-text `action` inside
-`proposed_change`; it now also emits a structured `action_type` enum so the UI can route
-without parsing free text.
-
-### Changes
-- `ironlog/notes/classify.py`:
-  - `NOTE_CLASSIFICATION_SCHEMA`: added `action_type` (`enum`: `SWAP`, `LOAD_INCREASE`,
-    `LOAD_DECREASE`, `REP_CHANGE`, `OTHER`), added to `required`.
-  - `NOTE_SYSTEM_INSTRUCTION`: instructs the model to classify the action into that enum
-    (SWAP = replace movement; LOAD_INCREASE/DECREASE = load too light/heavy;
-    REP_CHANGE = different rep target; OTHER = anything else, incl. non-CONFIG_CHANGE).
-    `proposed_change.movement` stays the extracted subject movement regardless of `action_type`.
-  - `NoteClassification` dataclass: added `action_type: str = "OTHER"` (new field, default
-    keeps old 4-positional-arg call sites — e.g. `tests/test_note_classify_persist.py` prior to
-    this change — working unchanged... except that test was itself extended, see below).
-  - `NoteClassifier.classify()`: parses `obj.get("action_type")`, maps any value not in
-    `{SWAP, LOAD_INCREASE, LOAD_DECREASE, REP_CHANGE, OTHER}` (including absent/`None`) to
-    `"OTHER"` — mirrors the existing unknown-`classification`→error / missing-field defaulting
-    pattern used elsewhere in this function.
-  - `classify_session_notes()`: `classification_meta` now includes an `"action_type"` key
-    alongside `proposed_change`/`confidence`/`rationale`.
-- `tests/test_note_classifier.py`: extended —
-  - `test_config_change_extracts_proposed_change` now also asserts `action_type == "SWAP"`.
-  - `test_action_type_round_trips_for_each_enum_value` (parametrized SWAP/LOAD_INCREASE/
-    LOAD_DECREASE/REP_CHANGE/OTHER) — each canned Gemini response round-trips through `classify()`.
-  - `test_unknown_action_type_defaults_to_other` — a bogus `action_type` string from Gemini
-    degrades to `"OTHER"` rather than raising.
-  - `test_missing_action_type_defaults_to_other` — an absent `action_type` key (e.g. an older
-    prompt/response shape) defaults to `"OTHER"`.
-- `tests/test_note_classify_persist.py`: `test_classify_session_notes_persists_classification_and_meta`
-  extended to pass `action_type="SWAP"` into the `NoteClassification(...)` call and assert
-  `note.classification_meta["action_type"] == "SWAP"` is persisted.
-
-`GeminiProposer` (the generation path, `ironlog/generation/gemini.py`) was not touched.
-
-### TDD sequence
-1. Wrote the failing tests first (7 new/extended assertions across the two test files).
-2. Confirmed failure:
-   ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classifier.py tests/test_note_classify_persist.py'
-   ```
-   → 9 failed, 9 passed (all failures were `AttributeError: no attribute 'action_type'` or the
-   `NoteClassification.__init__()` positional-arg-count `TypeError`, as expected pre-implementation).
-3. Implemented the schema/instruction/dataclass/parse/persist changes above.
-4. Re-ran targeted + regression:
-   ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q tests/test_note_classifier.py tests/test_note_classify_persist.py tests/test_generation_gemini.py'
-   ```
-   → **24 passed**, 0 failed.
-5. Full suite:
-   ```
-   ssh myflix 'cd ~/projects/IronLog-V2 && .venv/bin/pytest -q'
-   ```
-   → **415 passed** (baseline 408 + 7 new tests), 0 failed, 0 regressions.
-
-### Concerns
-None. `action_type` is additive to the schema/dataclass/persisted JSON — no existing consumer
-of `classification_meta` asserts an exact key set, and the `NoteClassification` field has a
-default so no other call site needed updating besides the one deliberately extended above.
+- `/home/jstout/projects/IronLog-V2-wt-stab-d2/.superpowers/sdd/task-2-report.md` (this file) — new
+- No other files were modified. `git status` in the worktree shows only this new untracked file.

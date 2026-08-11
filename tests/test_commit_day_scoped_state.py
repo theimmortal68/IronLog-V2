@@ -124,8 +124,9 @@ def test_commit_advances_only_the_committing_days_ht_row(gen_db):
         }
 
     before = _rows_by_day()
+    # 2026-08-11 (STAB maintenance-block redesign, Task 2): D2's Hip Thrust
+    # T1b tier is removed entirely -- D2 no longer seeds an HT row.
     assert before == {
-        "D2 Lower A": (205.0, [1]),
         "D5 Lower B": (205.0, [1]),
         "D6 Weak Points": (155.0, [1]),
     }
@@ -150,16 +151,16 @@ def test_commit_advances_only_the_committing_days_ht_row(gen_db):
     assert after["D6 Weak Points"] == (155.0, [1]), (
         f"D6's own row should hold at current value on its own commit, got {after['D6 Weak Points']}"
     )
-    # D2 and D5 must be byte-identical to before — a D6 commit must NEVER
-    # touch another day's MovementState row.
-    assert after["D2 Lower A"] == before["D2 Lower A"], (
-        "committing D6 corrupted D2's HT row — day-blind write regression"
-    )
+    # D5 must be byte-identical to before — a D6 commit must NEVER touch
+    # another day's MovementState row. (2026-08-11: D2's HT row no longer
+    # exists at all -- see the "before" comment above -- so there's nothing
+    # left to protect on D2's side; the "no stray row created" count check
+    # below still guards against a D6 commit accidentally re-creating one.)
     assert after["D5 Lower B"] == before["D5 Lower B"], (
         "committing D6 corrupted D5's HT row — day-blind write regression"
     )
-    # Still exactly 3 rows — no stray row created, no collapse to fewer rows.
-    assert len(after) == 3
+    # Still exactly 2 rows — no stray row created, no collapse to fewer rows.
+    assert len(after) == 2
 
 
 def test_commit_advances_only_the_committing_days_scalar_row(gen_db):

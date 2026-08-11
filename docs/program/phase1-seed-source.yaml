@@ -32,17 +32,26 @@ days:
     # both drop out of D1's real Wk1 execution, no replacement.
 
   d2:  # Lower A — shoe: Adipower II (all tiers; corrected 2026-07-14, was mistakenly Metcon 9)
+    # 2026-08-11 (STAB maintenance-block redesign, Task 2): T1 rep range
+    # drop 6-8 -> 4-6 (matches every other T1 primary). T1b (Hip Thrust)
+    # REMOVED ENTIRELY -- not in the FINAL source doc's D2 session. T2 GS
+    # fully turned over to Matrix Machine Sissy Squat / Nordic Curl Max
+    # [Ares] (Lying Leg Curl, Scout Reverse Hyper drop out of D2). T3 GS
+    # gains Hybrid Board Calf Raise, drops Reverse Nordic Curl; rest 75 -> 60
+    # (FINAL doc states 60s explicitly for D2's T3 GS, matches D5's already-
+    # correct T3 GS rest). New T4_STRAIGHT tier for D2's mandatory core slot
+    # (Ab Trainer Decline Sit-up).
     T1_STRAIGHT: {group_key: "T1", rest: 150, shoe: "Adipower II", anchor: true, ex: [
-      {m: belt_squat, reps: [6,8], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
-    T1b: {group_key: "T1b", rest: 120, shoe: "Adipower II", anchor: true, ex: [
-      {m: hip_thrust_d2, reps: [6,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223 (<225 clamp). 2026-07-26: rep range widened 8-8 -> 6-8 (standard RPE_8_STANDARD-style rep range; advance still gates only on hitting rep_high=8, per _clean/hit_target)
+      {m: belt_squat, reps: [4,6], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [
-      {m: leg_curl_d2, reps: [8,12], rule: rpe_8_standard},  # 2026-07-22: replaced assisted_nordic_curl_d2; needs-calibration (no prior history). 2026-07-26: renamed to "Lying Leg Curl [GHR]" -- same Hyper Pro rack equipment (id=8) as Belt Squat, zero logged history, safe rename.
-      {m: scout_reverse_hyper_bilateral_d2, reps: [8,12], rule: fixed_load, load: 180}]}  # 2026-07-22: corrected from stale rep_ladder to match the live progression_rule fix (movement 19)
-    T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Adipower II", ex: [
+      {m: matrix_machine_sissy_squat, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (bodyweight first, add DBs once easy). knee_modality=SISSY on the TierExercise (program_seed.py) -- closes the program's previously-unfilled SISSY weekly target.
+      {m: nordic_curl_max_d2, reps: [6,8], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,55,50,45,40,35,30,25,20,15,10,5,0]}]}  # 2026-08-11: new, Ares cable weighted assist (60lb LOCKED, chest/shoulder attach, NOT monster bands). knee_modality=NORDIC on the TierExercise -- same Movement row reused by D5/Task 4 (independent day-scoped assist track), each day's TierExercise tags its own knee_modality.
+    T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Adipower II", ex: [
       {m: atg_split_squat, reps: [8,12], rule: rpe_8_standard, load: 25, unilateral: true},
-      {m: cable_tib_raise_d2, reps: [10,15], rule: rpe_8_standard, load: 25},
-      {m: reverse_nordic_assisted_d2, reps: [8,12], rule: rpe_8_standard, load: 0}]}  # 2026-07-22: added to restore D2's 3rd knee-modality slot. 2026-07-24: rep range corrected 8-10 -> 8-12; converted from assisted to loaded double-progression (bodyweight start, load once 12 reps clears), both D2 and D5
+      {m: hybrid_board_calf_raise_d2, reps: [10,15], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (test_loadability per FINAL doc)
+      {m: cable_tib_raise_d2, reps: [10,15], rule: rpe_8_standard, load: 25}]}
+    T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
+      {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: rep_ladder_at_cap}]}  # 2026-08-11: new, D2's mandatory core slot (spine flexion, bodyweight first, add plate at chest once 3x15 clears). Mirrors D1's Ab Wheel Rollout shape (PROTOCOL/STRAIGHT movement, REP_LADDER-driven).
 
   d4:  # Upper B / Pull — shoe: Metcon 9 (no swap). T2/T3 swap applied (SA-DB-Row->T2, Andreoni->T3).
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [

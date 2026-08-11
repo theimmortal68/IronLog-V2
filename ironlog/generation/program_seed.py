@@ -51,6 +51,10 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Assisted Nordic":                              "Nordic Curl [GHR]",
     "Scout Reverse Hyper (180 cap)":               "Reverse Hyper [REV_HYPER]",
     "Cable Tib Raise":                              "Cable Tibialis Raise",
+    "Matrix Machine Sissy Squat":                   "Matrix Machine Sissy Squat",
+    "Nordic Curl Max":                               "Nordic Curl Max [Ares]",
+    "Hybrid Board Calf Raise D2":                   "Hybrid Board Calf Raise [D2]",
+    "Ab Trainer Decline Sit-up":                    "Ab Trainer Decline Sit-up",
     # ── D4 Upper Pull ────────────────────────────────────────────────────────
     "Wide-Grip Pull-up":                             "Wide-Grip Pull-up [TOWER]",
     "Meadows Row":                                  "Meadows Row [OB + LM]",
@@ -501,40 +505,92 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — Belt Squat (anchor; meso-2 rotation → Back Squat)
+    # T1 — Belt Squat (anchor; meso-2 rotation → Back Squat). 2026-08-11:
+    # global T1/T1b rep range drop 6-8 -> 4-6 (maintenance block, matches
+    # every other day's T1 in this redesign). Belt Squat itself is otherwise
+    # unchanged (still 260 cap, still STRAIGHT scheme, REP_LADDER rule).
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=150, shoe="Adipower II")
     d2_t1 = _add_te(db, t1.id, "d2_t1", "Belt Squat", lib, 1, "anchor",
-                    pattern="squat", rep_low=6, rep_high=8, rpe_cap=8.0,
+                    pattern="squat", rep_low=4, rep_high=6, rpe_cap=8.0,
                     scheme="STRAIGHT")
     _add_mr(db, d2_t1, 2, "Back Squat", lib)
 
-    # T1b — Barbell Hip Thrust (anchor)
-    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=120, shoe="Adipower II")
-    _add_te(db, t1b.id, "d2_t1b", "Barbell Hip Thrust (220 cap)", lib, 1, "anchor",
-            pattern="hip_thrust", rep_low=6, rep_high=8, rpe_cap=8.0,
-            scheme="COMPOSITE")
+    # T1b (Barbell Hip Thrust) is REMOVED ENTIRELY -- 2026-08-11 STAB
+    # maintenance-block redesign, Task 2. Not just the movement: the whole
+    # tier drops (docs/program/source/2026-08-10-maintenance-block-seed-data-
+    # FINAL.md's D2 section has no Hip Thrust anywhere). No Tier or
+    # TierExercise row is created for it. The Movement itself
+    # (Hip Thrust [HIP_THRUST]) stays ACTIVE in the library -- it's still
+    # wired on D5 and D6 -- just unwired from D2. The orphaned MovementState
+    # row at the old d2_t1b slot is left in place, not deleted, per the
+    # never-delete-orphans convention (this is the first of three Hip Thrust
+    # removals across this redesign -- D5/D6 follow in later tasks).
 
-    # T2 GS — Leg Curl / Scout Reverse Hyper
-    t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
-    _add_te(db, t2.id, "d2_t2a", "Lying Leg Curl [GHR]", lib, 1, "free",
-            rep_low=8, rep_high=12,
+    # T2 GS — Matrix Machine Sissy Squat / Nordic Curl Max [Ares]. 2026-08-11:
+    # full T2 GS turnover -- Lying Leg Curl [GHR] and Scout Reverse Hyper
+    # (180 cap) both drop out of D2 entirely (old d2_t2a/d2_t2b slots
+    # vacated, not reused), replaced by two brand-new movements matching the
+    # FINAL doc's real T2 GS composition. Both new slots are needs-
+    # calibration (zero prior history, no BASELINES entry -- baseline_seed.py).
+    # Nordic Curl Max [Ares] carries knee_modality=NORDIC on this
+    # TierExercise (plan-owner directive, 2026-08-11): it's a literal Nordic
+    # curl variant and the program's only other NORDIC-tagged slot is D5's
+    # d5_t2c, against KNEE_TARGETS["NORDIC"]=2/week -- this closes that gap.
+    # Same Movement row is referenced again by D5/Task 4 (shared identity,
+    # day-scoped MovementState) -- Task 4 must independently tag ITS
+    # TierExercise knee_modality=NORDIC too; knee_modality lives on
+    # TierExercise per-slot, not on Movement, so this tag does not carry
+    # forward automatically. Matrix Machine Sissy Squat carries
+    # knee_modality=SISSY (plan-owner directive) -- matches the FINAL doc's
+    # own knee_health_note on this movement (VMO/deep knee flexion) and is
+    # the program's first-ever wired SISSY slot (KNEE_TARGETS["SISSY"]=1/week,
+    # previously unmet program-wide).
+    t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
+    _add_te(db, t2.id, "d2_t2d", "Matrix Machine Sissy Squat", lib, 1, "free",
+            knee_modality=KneeModality.SISSY, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d2_t2b", "Scout Reverse Hyper (180 cap)", lib, 2, "free",
-            pattern="reverse_hyper", rep_low=8, rep_high=12, scheme="REP_AT_CAP")
+    _add_te(db, t2.id, "d2_t2e", "Nordic Curl Max", lib, 2, "free",
+            knee_modality=KneeModality.NORDIC, rep_low=6, rep_high=8,
+            scheme="REP_RATIO")
 
-    # T3 GS — ATG Split Squat / Cable Tib Raise / Reverse Nordic (assisted)
-    # (2026-07-22: Reverse Nordic added as D2's 3rd knee-modality slot,
-    # replacing the knee-slot count lost when d2_t2a became Leg Curl.)
-    t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Adipower II")
+    # T3 GS — ATG Split Squat (unchanged) / Hybrid Board Calf Raise [D2]
+    # (new) / Cable Tib Raise (unchanged). 2026-08-11: Reverse Nordic Curl
+    # [GHR] (old d2_t3c) drops out of D2 entirely -- not in the FINAL doc's
+    # D2 T3 GS composition (still wired on D5, unaffected). ATG Split Squat
+    # and Cable Tib Raise keep their existing stable slot_ids (d2_t3a/d2_t3b)
+    # unchanged -- they're retained movements, not new ones, so the never-
+    # reassign-slot_id convention doesn't apply (that rule is about not
+    # giving an OLD slot_id to a DIFFERENT movement, not about renaming a
+    # movement's own stable identity). Hybrid Board Calf Raise [D2] gets a
+    # fresh slot_id (d2_t3d), no knee_modality (calf work, not part of the
+    # docs/06 §4 knee taxonomy). Rest 75 -> 60: the FINAL doc explicitly
+    # states "T3 GS -- 3 items, 60s rest, 3 rounds" for D2 (current 75s was
+    # pre-existing staleness this task reconciles away), corroborated by D5's
+    # already-implemented T3 GS at rest_seconds=60 for the identical tier
+    # shape.
+    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Adipower II")
     _add_te(db, t3.id, "d2_t3a", "ATG Split Squat", lib, 1, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d2_t3b", "Cable Tib Raise", lib, 2, "free",
+    _add_te(db, t3.id, "d2_t3d", "Hybrid Board Calf Raise D2", lib, 2, "free",
+            pattern="calf", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t3.id, "d2_t3b", "Cable Tib Raise", lib, 3, "free",
             knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d2_t3c", "Reverse Nordic (assisted)", lib, 3, "free",
-            knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
+
+    # T4 straight (NEW tier, 2026-08-11) — Ab Trainer Decline Sit-up. D2's
+    # mandatory core slot (spine flexion, bodyweight) -- FINAL doc's
+    # core_distribution table assigns D2 "ab_trainer_decline_situp". Solo
+    # exercise in a non-GIANT_SET tier -> tier_role="anchor" (schema
+    # convention: T1/T1b's solo exercises are anchors too; "free"/"semi" are
+    # GIANT_SET-member concepts). scheme="REP_LADDER" mirrors D1's Ab Wheel
+    # Rollout (d1_t3d) -- same PROTOCOL/STRAIGHT-movement-driven-by-
+    # rep_ladder_at_cap shape. Tier orders renumber sequentially now that
+    # T1b is gone: T1=1, T2 GS=2, T3 GS=3, T4=4.
+    t4 = _add_tier(db, pd.id, "T4", 4, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Adipower II")
+    _add_te(db, t4.id, "d2_t4a", "Ab Trainer Decline Sit-up", lib, 1, "anchor",
+            pattern="core", rep_low=10, rep_high=15, scheme="REP_LADDER")
 
 
 # ---------------------------------------------------------------------------

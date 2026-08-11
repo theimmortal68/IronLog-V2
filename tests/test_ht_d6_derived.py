@@ -82,13 +82,18 @@ def test_d6_derived_from_unified_advancement(gen_db_calibrated):
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    # Seed D2 unified
-    d2_slot = gen_db.exec(
+    # Seed D5 unified. 2026-08-11 (STAB maintenance-block redesign, Task 2):
+    # was D2 Lower A -- D2's Hip Thrust T1b tier is removed entirely (D2 no
+    # longer has any Hip Thrust TierExercise to repurpose), so this synthetic
+    # "unified" source slot moves to D5's still-live Hip Thrust slot instead.
+    # D5's real TierExercise is monkey-patched with unified_ht_group="main"
+    # for this test only, same pattern as the old D2 substitution.
+    d5_slot = gen_db.exec(
         select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D2 Lower A", TierExercise.movement_id == ht_mv.id)
+        .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)
     ).one()
-    d2_slot.unified_ht_group = "main"
-    gen_db.add(d2_slot)
+    d5_slot.unified_ht_group = "main"
+    gen_db.add(d5_slot)
 
     # Seed D6 derived
     d6_slot = gen_db.exec(
@@ -107,7 +112,7 @@ def test_d6_derived_from_unified_advancement(gen_db_calibrated):
         ht_band_config=[1, 2],
     )
     gen_db.add(unified_state)
-    
+
     # Seed D6 state
     ms_d6 = MovementState(
         movement_id=ht_mv.id,
@@ -119,12 +124,12 @@ def test_d6_derived_from_unified_advancement(gen_db_calibrated):
     gen_db.add(ms_d6)
     gen_db.commit()
 
-    # Log clean D2 session
-    _stage_clean_ht_advance(gen_db, ht_mv.id, "D2 Lower A", 180.0, [1, 2], wk)
-    
-    # Generate & commit D2
-    sk2 = lay_skeleton("D2 Lower A", gen_db)
-    ctx2 = resolve_context("D2 Lower A", sk2, gen_db, wk)
+    # Log clean D5 session
+    _stage_clean_ht_advance(gen_db, ht_mv.id, "D5 Lower B", 180.0, [1, 2], wk)
+
+    # Generate & commit D5
+    sk2 = lay_skeleton("D5 Lower B", gen_db)
+    ctx2 = resolve_context("D5 Lower B", sk2, gen_db, wk)
     assembled2 = assemble(program_selections(sk2), sk2, ctx2, gen_db)
     commit_session(
         assembled2, gen_db,
@@ -186,12 +191,15 @@ def test_d6_no_touch_on_dirty_unified_session(gen_db_calibrated):
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    d2_slot = gen_db.exec(
+    # 2026-08-11 (STAB maintenance-block redesign, Task 2): was D2 Lower A --
+    # see the identical substitution + rationale in
+    # test_d6_derived_from_unified_advancement above.
+    d5_slot = gen_db.exec(
         select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D2 Lower A", TierExercise.movement_id == ht_mv.id)
+        .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)
     ).one()
-    d2_slot.unified_ht_group = "main"
-    gen_db.add(d2_slot)
+    d5_slot.unified_ht_group = "main"
+    gen_db.add(d5_slot)
 
     d6_slot = gen_db.exec(
         select(TierExercise).join(Tier).join(ProgramDay)
@@ -208,7 +216,7 @@ def test_d6_no_touch_on_dirty_unified_session(gen_db_calibrated):
         ht_band_config=[1, 2],
     )
     gen_db.add(unified_state)
-    
+
     ms_d6 = MovementState(
         movement_id=ht_mv.id,
         day_id="D6 Weak Points",
@@ -219,11 +227,11 @@ def test_d6_no_touch_on_dirty_unified_session(gen_db_calibrated):
     gen_db.add(ms_d6)
     gen_db.commit()
 
-    # Log dirty D2 session
-    _stage_dirty_ht_session(gen_db, ht_mv.id, "D2 Lower A", 180.0, [1, 2], wk)
-    
-    sk2 = lay_skeleton("D2 Lower A", gen_db)
-    ctx2 = resolve_context("D2 Lower A", sk2, gen_db, wk)
+    # Log dirty D5 session
+    _stage_dirty_ht_session(gen_db, ht_mv.id, "D5 Lower B", 180.0, [1, 2], wk)
+
+    sk2 = lay_skeleton("D5 Lower B", gen_db)
+    ctx2 = resolve_context("D5 Lower B", sk2, gen_db, wk)
     assembled2 = assemble(program_selections(sk2), sk2, ctx2, gen_db)
     commit_session(
         assembled2, gen_db,

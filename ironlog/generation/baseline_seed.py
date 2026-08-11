@@ -72,15 +72,31 @@ from ironlog.models.session import (
 # relocated from its old d1_t4b slot into T3 GS) has NO entry --
 # bodyweight/REP_LADDER, matches the fact it never had a scalar baseline
 # at its old slot_id either.
+#
+# 2026-08-11 (STAB maintenance-block redesign, Task 2 -- D2 rewritten to
+# match the FINAL doc's real D2 session): d2_t1b (Hip Thrust, "ht" 205 +
+# #0 Orange) REMOVED -- T1b tier dropped entirely, not just the movement,
+# first of three Hip Thrust removals across this redesign (D5/D6 follow in
+# later tasks). d2_t2b (Scout Reverse Hyper, "load" 180) REMOVED -- that
+# movement drops out of D2's wiring entirely (T2 GS turned over to Matrix
+# Machine Sissy Squat / Nordic Curl Max [Ares], both brand new, zero prior
+# history, NO BASELINES entry -- needs-calibration is correct). d2_t3c
+# (Reverse Nordic, "load" 0) REMOVED -- not in the FINAL doc's D2 T3 GS,
+# still wired on D5 unaffected. All three removed slot_ids' underlying
+# MovementState rows are left in place, not deleted, per the never-delete-
+# orphans convention. New d2_t3d (Hybrid Board Calf Raise [D2]) and d2_t4a
+# (Ab Trainer Decline Sit-up, new T4 straight tier) also have NO entry --
+# both brand new, zero prior history. d2_t1 (Belt Squat, 260) and d2_t3a/
+# d2_t3b (ATG Split Squat 25 / Cable Tib Raise 25) are UNCHANGED -- retained
+# movements at their existing stable slot_ids, only their rep ranges (T1)
+# or tier rest_seconds (T3, see program_seed.py) changed.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
     "d1_t2e": ("load", 20, None),
     "d1_t3c": ("load", 70, None),
-    "d2_t1": ("load", 260, None), "d2_t1b": ("ht", 205, "#0 Orange"),
-    "d2_t2b": ("load", 180, None),
+    "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None), "d2_t3b": ("load", 25, None),
-    "d2_t3c": ("load", 0, None),
     "d4_t2a": ("load", 35, None), "d4_t2b": ("load", 40, None),
     "d4_t2c": ("assist", 10, None), "d4_t3a": ("load", 10, None),
     "d4_t3b": ("load", 70, None),

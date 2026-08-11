@@ -1,15 +1,19 @@
 """test_generation_day_scoped_state.py — Task 5: day-scope MovementState load
-in resolve_context so movements shared across days (Hip Thrust D2/D5/D6,
-Reverse Hyper, Nordic, Cable Tib) don't collide to one last-wins row.
+in resolve_context so movements shared across days (Hip Thrust -- D5/D6 as
+of 2026-08-11, D2's T1b tier was removed entirely in the STAB maintenance-
+block redesign's Task 2 -- plus Reverse Hyper, Nordic, Cable Tib) don't
+collide to one last-wins row.
 
 Anchors on seed_movement_baselines (Task 4), which seeds per-day
-(movement_id, day_id) MovementState rows for HT: D2 Lower A=205,
-D5 Lower B=205, D6 Weak Points=155 (see BASELINES d2_t1b/d5_t1b/d6_g1c
-in ironlog/generation/baseline_seed.py). D2 and D5 share the same
-baseline value (2026-07-06 athlete directive: D2 raised 180->205 to
-match D5) — the day-scoping guarantee this test proves is that D2 and D5
-resolve as INDEPENDENT rows that happen to prescribe the same seeded setup,
-not that every day's value is numerically distinct.
+(movement_id, day_id) MovementState rows for HT: D5 Lower B=205,
+D6 Weak Points=155 (see BASELINES d5_t1b/d6_g1c in
+ironlog/generation/baseline_seed.py). D2's Hip Thrust baseline (formerly
+d2_t1b=205, shared with D5 per the 2026-07-06 athlete directive raising D2
+to match D5) no longer exists — D2's Hip Thrust T1b tier was dropped
+entirely, 2026-08-11 STAB redesign Task 2 (Removed: Hip Thrust, the whole
+tier, not just the movement). The day-scoping guarantee this test proves is
+now a 2-way (D5/D6) independence check: D5 and D6 resolve as INDEPENDENT
+MovementState rows for the same underlying Hip Thrust Movement.
 
 Uses lay_skeleton -> resolve_context -> program_selections -> assemble
 directly (the same pattern as test_ht_write_boundary.py), NOT the full
@@ -107,31 +111,27 @@ def _stage_clean_ht_advance(db, movement_id, day_role, plates, config):
 def test_ht_load_is_day_scoped(gen_db):
     seed_movement_baselines(gen_db)
 
-    # Independence check FIRST, at the MovementState-row level: d2_t1b/d5_t1b/
-    # d6_g1c all key off the SAME underlying HT movement, so if day-scoping
-    # regressed to a single last-wins row we'd see 1 row, not 3. This stays
-    # meaningful even though D2 and D5 now share the same seeded value (205)
-    # and therefore compute the same next-setup below (165) — the guarantee is
-    # independent rows, not distinct numbers.
+    # Independence check FIRST, at the MovementState-row level: d5_t1b/d6_g1c
+    # key off the SAME underlying HT movement, so if day-scoping regressed to
+    # a single last-wins row we'd see 1 row, not 2.
     te = {t.slot_id: t for t in gen_db.exec(select(TierExercise)).all()}
-    ht_movement_id = te["d2_t1b"].movement_id
-    assert te["d5_t1b"].movement_id == ht_movement_id
+    ht_movement_id = te["d5_t1b"].movement_id
     assert te["d6_g1c"].movement_id == ht_movement_id
     ht_states = gen_db.exec(
         select(MovementState).where(MovementState.movement_id == ht_movement_id)
     ).all()
-    assert len(ht_states) == 3
-    assert len({s.day_id for s in ht_states}) == 3
+    assert len(ht_states) == 2
+    assert len({s.day_id for s in ht_states}) == 2
     assert {s.day_id: s.ht_plates for s in ht_states} == {
-        "D2 Lower A": 205, "D5 Lower B": 205, "D6 Weak Points": 155,
+        "D5 Lower B": 205, "D6 Weak Points": 155,
     }
 
-    # HT baselines by day: D2=205, D5=205, D6=155 (seed_movement_baselines,
-    # BASELINES d2_t1b/d5_t1b/d6_g1c, all on band #0 Orange [id=1, bottom_lb=18,
+    # HT baselines by day: D5=205, D6=155 (seed_movement_baselines,
+    # BASELINES d5_t1b/d6_g1c, both on band #0 Orange [id=1, bottom_lb=18,
     # peak_lb=45]). assemble() now PRESCRIBES THE CURRENT (seeded) setup on the
     # planned sets — no auto-advance at prescription (2026-07-06 athlete
     # directive: Week 1 shows exactly the seeded setup). So the prescribed plates
-    # equal the seeded baselines verbatim: D2=205, D5=205, D6=155, all still on
+    # equal the seeded baselines verbatim: D5=205, D6=155, both still on
     # Orange. A clean analyzed session for the same day STAGES the next setup
     # for commit in prospective_ht_setups (the ht_next_setup values), checked
     # separately below.
@@ -141,20 +141,16 @@ def test_ht_load_is_day_scoped(gen_db):
     # only if the resulting bottom-clamp (plates + band rest) stays <= 225;
     # otherwise it searches band inventory for the smallest peak strictly above
     # the current peak (tiebreak: fewest bands). D6 (155) stays on Orange at +5
-    # (160: 160+18=178 <= 225). D2 and D5 (both 205) would need 210+18=228 > 225
-    # on Orange, so both swap to band #1 Red [id=2, bottom_lb=36, peak_lb=90] at
-    # 165 plates (165+90=255, the smallest peak exceeding the prior 205+45=250)
-    # — confirmed by direct execution, not guessed. D2 and D5 share the same
-    # seeded baseline (per the 2026-07-06 athlete directive raising D2 to match
-    # D5); the day-scoping guarantee this test proves is that they are
-    # independently-resolved rows, not that every day's number differs. Before
-    # the original (Task 5) fix, all three days collapsed to one last-inserted
-    # row's value regardless of which day was actually being generated.
+    # (160: 160+18=178 <= 225). D5 (205) would need 210+18=228 > 225 on Orange,
+    # so it swaps to band #1 Red [id=2, bottom_lb=36, peak_lb=90] at 165 plates
+    # (165+90=255, the smallest peak exceeding the prior 205+45=250) —
+    # confirmed by direct execution, not guessed. Before the original (Task 5)
+    # fix, both days collapsed to one last-inserted row's value regardless of
+    # which day was actually being generated.
     ht_movement = gen_db.exec(select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")).one()
     inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
                  for bp in gen_db.exec(select(BandPair)).all()]
     for role, cur_plates, next_plates in [
-        ("D2 Lower A", 205, 165),
         ("D5 Lower B", 205, 165),
         # 2026-07-26 (spec 52): D6's HT is now a pure derived value (80% of the unified D2/D5 group)
         # and never earns an independent advance -- this test's expectation was updated accordingly, not weakened.

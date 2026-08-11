@@ -55,7 +55,10 @@ def test_total_count_103(seeded):
     # 2026-08-10: +3 (STAB maintenance-block redesign, D1 reconciled to
     # already-executed Wk1 reality): Better Fly Standing Lateral Raise [FT],
     # Stryker Pad Seated OHP [DB], Matrix Machine Preacher Curl [EZ]: 115 -> 118.
-    assert len(_all(seeded)) == 118
+    # 2026-08-11: +4 (STAB maintenance-block redesign, Task 2, D2 rewritten
+    # to match the FINAL doc): Matrix Machine Sissy Squat, Nordic Curl Max
+    # [Ares], Hybrid Board Calf Raise [D2], Ab Trainer Decline Sit-up: 118 -> 122.
+    assert len(_all(seeded)) == 122
 
 
 def test_status_counts(seeded):
@@ -70,7 +73,10 @@ def test_status_counts(seeded):
     # 2026-07-26: +1 ACTIVE Pull-up - Neutral Grip (Paused), 3-way pull-up split.
     # 2026-08-10: +3 ACTIVE (STAB redesign): Better Fly Standing Lateral
     # Raise, Stryker Pad Seated OHP, Matrix Machine Preacher Curl: 108 -> 111.
-    assert c[Status.ACTIVE] == 111
+    # 2026-08-11: +4 ACTIVE (STAB redesign, Task 2): Matrix Machine Sissy
+    # Squat, Nordic Curl Max [Ares], Hybrid Board Calf Raise [D2], Ab Trainer
+    # Decline Sit-up: 111 -> 115.
+    assert c[Status.ACTIVE] == 115
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

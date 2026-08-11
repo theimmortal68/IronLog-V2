@@ -1,4 +1,20 @@
 """test_ht_unification.py — Spec 50: D2/D5 unified Hip Thrust progression.
+
+2026-08-11 (STAB maintenance-block redesign, Task 2): D2's Hip Thrust T1b
+tier was removed entirely (not just the movement) -- D2 no longer has any
+real Hip Thrust TierExercise to tag unified_ht_group="main" onto. This spec
+tests a generic mechanism (two+ TierExercises sharing one HtProgressionState
+row via a string tag), not something structurally tied to D2 specifically,
+so test_unified_ht_shared_read/test_unified_ht_shared_advance now use
+_synthetic_ht_slot() to attach a throwaway Hip-Thrust TierExercise onto D2's
+real ProgramDay (D2 the training day still exists, only its real Hip Thrust
+wiring was dropped) instead of reading a real (now-nonexistent) d2_t1b slot.
+Repurposing D6's real slot instead was considered and rejected: D6's
+TierExercise carries derived_from_unified_group (not unified_ht_group) as a
+load-bearing production invariant, asserted directly by this same file's
+test_d6_ht_is_not_unified -- tagging it unified_ht_group here would
+contradict that invariant's premise, even though each test gets its own
+fresh gen_db_calibrated instance.
 """
 from sqlmodel import select
 
@@ -8,23 +24,40 @@ from ironlog.generation.fallback import program_selections
 from ironlog.generation.loop import commit_session
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.models.library import Movement, MovementState, HtProgressionState
-from ironlog.models.program import ProgramDay, Tier, TierExercise
+from ironlog.models.program import ProgramDay, Tier, TierExercise, TierKind
 
 from tests.test_ht_composite_wiring import _first_ht_working_set, _stage_clean_ht_advance
+
+
+def _synthetic_ht_slot(gen_db, day_role, movement_id, slot_id):
+    """Attach a throwaway Hip-Thrust TierExercise (own Tier, tier_order=99 so
+    it never collides with the day's real tiers) onto the given day_role's
+    real ProgramDay, purely so this file's generic unified_ht_group
+    mechanism tests have two independent slots to tag -- see module
+    docstring."""
+    pd = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == day_role)).one()
+    tier = Tier(program_day_id=pd.id, tier_label="TEST-HT", tier_order=99,
+                tier_kind=TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120)
+    gen_db.add(tier)
+    gen_db.flush()
+    te = TierExercise(tier_id=tier.id, slot_id=slot_id, movement_id=movement_id,
+                       exercise_order=1, tier_role="anchor", scheme="COMPOSITE")
+    gen_db.add(te)
+    gen_db.flush()
+    return te
+
 
 def test_unified_ht_shared_read(gen_db_calibrated):
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])
 
     # 1. Seed TierExercise.unified_ht_group="main" on D2's and D5's HT slots
+    # (D2's is synthetic -- see module docstring; D5's is the real slot).
     ht_mv = gen_db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    d2_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D2 Lower A", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    d2_slot = _synthetic_ht_slot(gen_db, "D2 Lower A", ht_mv.id, "test_unified_d2_ht")
     d5_slot = gen_db.exec(
         select(TierExercise).join(Tier).join(ProgramDay)
         .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)
@@ -72,10 +105,8 @@ def test_unified_ht_shared_advance(gen_db_calibrated):
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    d2_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D2 Lower A", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    # D2's slot is synthetic -- see module docstring.
+    d2_slot = _synthetic_ht_slot(gen_db, "D2 Lower A", ht_mv.id, "test_unified_d2_ht")
     d5_slot = gen_db.exec(
         select(TierExercise).join(Tier).join(ProgramDay)
         .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)

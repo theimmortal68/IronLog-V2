@@ -3,8 +3,9 @@ test_baseline_seed.py — day-scoped MovementState baseline seeding gate.
 
 Verifies seed_movement_baselines() upserts calibrated baselines keyed on
 (movement_id, day_id=day_role), so movements shared across days (e.g. the
-Hip Thrust composite on D2/D5/D6) keep independent tracks rather than
-collapsing onto a single MovementState row.
+Hip Thrust composite -- D5/D6 as of 2026-08-11, D2's T1b tier was removed
+entirely in the STAB maintenance-block redesign's Task 2) keep independent
+tracks rather than collapsing onto a single MovementState row.
 
 NO from __future__ import annotations (project-wide constraint).
 """
@@ -27,14 +28,15 @@ def test_baselines_seeded_day_scoped(gen_db):
     d6ht = te["d6_g1c"]
     st = by_key[(d6ht.movement_id, "D6 Weak Points")]
     assert st.ht_plates == 155 and st.ht_band_config == [orange.id]
-    # three independent HT tracks exist (D2/D5/D6), NOT one collapsed row.
-    # D2 and D5 now share the same baseline value (205), so the guarantee that
-    # matters is 3 SEPARATE rows keyed by distinct day_id (not that all three
-    # values are distinct) — assert row count/day-keys explicitly, then values.
+    # two independent HT tracks exist (D5/D6), NOT one collapsed row.
+    # 2026-08-11 (STAB maintenance-block redesign, Task 2): D2's Hip Thrust
+    # T1b tier is REMOVED ENTIRELY (not just a value change) -- D2 no longer
+    # seeds an HT row at all, so this drops from a 3-way (D2/D5/D6) to a
+    # 2-way (D5/D6) independence check.
     ht_rows = [s for s in states if s.ht_plates is not None]
-    assert len(ht_rows) == 3
-    assert len({s.day_id for s in ht_rows}) == 3
-    assert sorted(s.ht_plates for s in ht_rows) == [155, 205, 205]
+    assert len(ht_rows) == 2
+    assert len({s.day_id for s in ht_rows}) == 2
+    assert sorted(s.ht_plates for s in ht_rows) == [155, 205]
 
 
 def test_reset_clears_transactional_keeps_baselines(gen_db, logged_session_id):

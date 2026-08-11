@@ -45,9 +45,23 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # anywhere in the program (matches D4's Wide-Grip Pull-up below), so it
 # reads needs-cal until a real session logs an unassisted rep max, same as
 # D4's.
+#
+# 2026-08-11 (STAB maintenance-block redesign, Task 2): D2's "Lying Leg Curl
+# [GHR]" needs-cal entry is REMOVED (not merged) -- that movement drops out
+# of D2's wiring entirely (T2 GS turned over to Matrix Machine Sissy Squat /
+# Nordic Curl Max [Ares]) and isn't referenced anywhere else in the program,
+# so it's no longer generated at all. D2 now picks up FOUR needs-cal
+# entries instead -- all four new D2 movements (Matrix Machine Sissy Squat,
+# Nordic Curl Max [Ares], Hybrid Board Calf Raise [D2], Ab Trainer Decline
+# Sit-up), each brand new with zero prior training history, matching this
+# session's established convention (no BASELINES entry for genuinely new
+# movements).
 EXPECTED_NEEDS_CAL = {
     "D1 Upper Push": {"Wide-Grip Pull-up [TOWER]"},
-    "D2 Lower A": {"Lying Leg Curl [GHR]"},
+    "D2 Lower A": {
+        "Matrix Machine Sissy Squat", "Nordic Curl Max [Ares]",
+        "Hybrid Board Calf Raise [D2]", "Ab Trainer Decline Sit-up",
+    },
     "D4 Upper Pull": {"Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "PureTorque Pro Rotation"},
     "D6 Weak Points": {"Cable Bicep Curl [FT]", "Pull-up - Neutral Grip (Paused) [TOWER]"},
 }

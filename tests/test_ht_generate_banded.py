@@ -1,22 +1,24 @@
 """test_ht_generate_banded.py — Task 5b: banded HT must survive the REAL
 generate_session path.
 
-Task 4 seeds banded HT (`ht_band_config=[orange_id]`) for D2/D5/D6 via
-seed_movement_baselines. But build_validation_context (repair.py) left
-ValidationContext.band_bottom_lb EMPTY, so _check_ht_safety's
-HT_BAND_NOT_REGISTERED fired for every banded HT set -> structurally-invalid
-session -> fallback -> raise. This proves the full generate_session path now
-produces a valid, non-fallback session for all three banded HT days.
+Task 4 seeds banded HT (`ht_band_config=[orange_id]`) for D5/D6 (formerly
+also D2 — D2's Hip Thrust T1b tier was removed entirely, 2026-08-11 STAB
+maintenance-block redesign Task 2) via seed_movement_baselines. But
+build_validation_context (repair.py) left ValidationContext.band_bottom_lb
+EMPTY, so _check_ht_safety's HT_BAND_NOT_REGISTERED fired for every banded
+HT set -> structurally-invalid session -> fallback -> raise. This proves the
+full generate_session path now produces a valid, non-fallback session for
+both remaining banded HT days.
 
 Expected plates are the SEEDED current values (2026-07-06 athlete directive:
 Week 1 prescribes exactly the seeded setup — no auto-advance at prescription;
 see test_week1_prescribes_seeded_current_setup). The assembler prescribes the
 current seeded setup on the planned sets and STAGES the next setup for commit,
-so Week 1 shows D2=205+Orange, D5=205+Orange, D6=155+Orange verbatim. D2/D5's
-seeded Orange bottom (205+18=223) is exactly the case that motivates raising
+so Week 1 shows D5=205+Orange, D6=155+Orange verbatim. D5's seeded Orange
+bottom (205+18=223) is exactly the case that motivates raising
 ValidationContext.ht_bottom_clamp 220->225 — this test proves the seeded
 setup no longer HT_BAND_NOT_REGISTERED/HT_BOTTOM_OVER_LIMIT rejects anywhere
-along the path (223 <= 225), for any of the three days' band assignments.
+along the path (223 <= 225), for either remaining day's band assignment.
 
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
@@ -100,8 +102,8 @@ def _stage_clean_ht_advance(db, movement_id, day_role, plates, config, week_keye
 def test_banded_ht_generates_valid_all_days(gen_db):
     seed_movement_baselines(gen_db)
     # Seeded current setups (prescribe-current; no auto-advance at prescription).
+    # 2026-08-11: D2 dropped (D2's Hip Thrust T1b tier removed entirely).
     for role, plates in [
-        ("D2 Lower A", 205),
         ("D5 Lower B", 205),
         ("D6 Weak Points", 155),
     ]:
@@ -144,12 +146,14 @@ def test_week1_prescribes_seeded_current_setup(gen_db):
     at commit (see test_commit_advances_ht_state), so Week 2 shows the advanced
     setup, but Week 1 shows the seed verbatim.
 
-    Seeded baselines (baseline_seed.BASELINES): D2 d2_t1b = 205 + #0 Orange,
-    D5 d5_t1b = 205 + #0 Orange, D6 d6_g1c = 155 + #0 Orange. Before the
-    prescribe-current fix, the assembler advanced at prescription time and this
-    session showed the +1 setup instead (205 -> swap to Red 165; 155 -> 160) —
-    this test asserts the raw seeded setup, so it fails against that old
-    behavior and passes once the assembler prescribes current.
+    Seeded baselines (baseline_seed.BASELINES): D5 d5_t1b = 205 + #0 Orange,
+    D6 d6_g1c = 155 + #0 Orange. (Formerly also D2 d2_t1b = 205 + #0 Orange —
+    D2's Hip Thrust T1b tier was removed entirely, 2026-08-11 STAB
+    maintenance-block redesign Task 2.) Before the prescribe-current fix, the
+    assembler advanced at prescription time and this session showed the +1
+    setup instead (205 -> swap to Red 165; 155 -> 160) — this test asserts
+    the raw seeded setup, so it fails against that old behavior and passes
+    once the assembler prescribes current.
 
     Driven through the REAL generate_session path (banded HT validates now that
     the clamp is 225), asserting both plates AND that the band stays Orange.
@@ -157,7 +161,6 @@ def test_week1_prescribes_seeded_current_setup(gen_db):
     seed_movement_baselines(gen_db)
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
     for role, seeded_plates in [
-        ("D2 Lower A", 205),
         ("D5 Lower B", 205),
         ("D6 Weak Points", 155),
     ]:
@@ -193,15 +196,18 @@ def test_commit_advances_ht_state(gen_db):
     the advanced setup, while THIS session prescribed the seeded current
     (test_week1_prescribes_seeded_current_setup).
 
-    Seeded D2 = 205 + Orange advances to 165 + Red (210+Orange bottom 228 > 225
+    Seeded D5 = 205 + Orange advances to 165 + Red (210+Orange bottom 228 > 225
     clamp forces a reconfigure to the smallest-peak band). This is the OTHER
     half of the prescribe-current fix: prescription = current, prospective /
     commit = next.
 
-    Single day (D2): commit_session writes the HT setup to the first
-    MovementState row for the movement (its writer is day-agnostic — a
-    pre-existing behavior out of this fix's scope), so this drives one commit and
-    asserts against the prospective map + the row commit actually wrote.
+    Single day (D5, was D2 -- 2026-08-11: D2's Hip Thrust T1b tier was
+    removed entirely, STAB maintenance-block redesign Task 2, so this now
+    exercises D5's still-live Hip Thrust slot instead): commit_session writes
+    the HT setup to the first MovementState row for the movement (its writer
+    is day-agnostic — a pre-existing behavior out of this fix's scope), so
+    this drives one commit and asserts against the prospective map + the row
+    commit actually wrote.
     """
     from ironlog.engine.band_composite import Band, ht_next_setup
     from ironlog.generation.loop import commit_session
@@ -216,12 +222,12 @@ def test_commit_advances_ht_state(gen_db):
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    _stage_clean_ht_advance(gen_db, ht_mv.id, "D2 Lower A", 205.0, [orange.id], WEEK_KEYER)
+    _stage_clean_ht_advance(gen_db, ht_mv.id, "D5 Lower B", 205.0, [orange.id], WEEK_KEYER)
 
-    sk = lay_skeleton("D2 Lower A", gen_db)
+    sk = lay_skeleton("D5 Lower B", gen_db)
     stub = StubProposer(program_selections(sk))
-    outcome = generate_session("D2 Lower A", gen_db, stub, WEEK_KEYER)
-    assert outcome.assembled is not None, "D2 Lower A: no assembled session"
+    outcome = generate_session("D5 Lower B", gen_db, stub, WEEK_KEYER)
+    assert outcome.assembled is not None, "D5 Lower B: no assembled session"
 
     # The assembler STAGES the advanced (next) setup as prospective, even though
     # it PRESCRIBED the current seeded setup on the planned sets.
@@ -310,9 +316,10 @@ def test_load_override_bumps_ht_plates_day_scoped(gen_db):
     safely under the clamp.
 
     Also proves the override is day-scoped by construction (a SlotMovementOverride
-    is keyed on tier_exercise_id, and D2/D5/D6 Hip Thrust are three distinct
-    TierExercise rows) -- generating D2/D6 in the same test must show their own
-    unaffected seeded plates (205/155), not D5's overridden 206.
+    is keyed on tier_exercise_id, and D5/D6 Hip Thrust -- formerly also D2,
+    see the module docstring for the 2026-08-11 T1b removal -- are distinct
+    TierExercise rows) -- generating D6 in the same test must show its own
+    unaffected seeded plates (155), not D5's overridden 206.
     """
     from ironlog.models.enums import OverrideType
     from ironlog.models.program import SlotMovementOverride, TierExercise
@@ -334,7 +341,7 @@ def test_load_override_bumps_ht_plates_day_scoped(gen_db):
     ))
     gen_db.commit()
 
-    expected_plates = {"D2 Lower A": 205.0, "D5 Lower B": 206.0, "D6 Weak Points": 155.0}
+    expected_plates = {"D5 Lower B": 206.0, "D6 Weak Points": 155.0}
     for role, plates in expected_plates.items():
         sk = lay_skeleton(role, gen_db)
         stub = StubProposer(program_selections(sk))

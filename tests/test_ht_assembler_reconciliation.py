@@ -21,7 +21,10 @@ from ironlog.models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog,
 )
 
-DAY_ROLE = "D2 Lower A"
+# 2026-08-11 (STAB maintenance-block redesign, Task 2): was "D2 Lower A" --
+# D2's Hip Thrust T1b tier was removed entirely, so this generic HT
+# reconciliation test now exercises D5's still-live Hip Thrust slot instead.
+DAY_ROLE = "D5 Lower B"
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
 
 

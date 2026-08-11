@@ -36,6 +36,10 @@ CHANGED_REP_TARGETS = {
     "d1_t3a": (4, 6),
     "d1_t3c": (8, 12),
     "d1_t3d": (8, 12),
+    # 2026-08-11 (STAB maintenance-block redesign, Task 2): d2_t1 (Belt Squat
+    # anchor) moves from UNCHANGED_REP_TARGETS to here -- T1's rep range
+    # dropped 6-8 -> 4-6, matching every other T1 primary in this redesign.
+    "d2_t1": (4, 6),
     "d2_t3a": (8, 12),
     "d2_t3b": (10, 15),
     "d4_t1": (6, 8),
@@ -57,7 +61,6 @@ CHANGED_REP_TARGETS = {
 
 # slot_id -> (rep_low, rep_high) — anchor slots reconciled to the YAML.
 UNCHANGED_REP_TARGETS = {
-    "d2_t1": (6, 8),      # Belt Squat anchor
     "d5_t1": (6, 8),      # RDL anchor
 }
 
@@ -70,9 +73,14 @@ TIER_REST_MAP = {
     # ("D1 Upper Push", "T4 GS") removed 2026-08-10 (STAB maintenance-block
     # redesign) -- D1's T4 GS tier no longer exists.
     ("D2 Lower A", "T1"): 150,
-    ("D2 Lower A", "T1b"): 120,
+    # ("D2 Lower A", "T1b") removed 2026-08-11 (STAB maintenance-block
+    # redesign, Task 2) -- D2's Hip Thrust T1b tier no longer exists.
     ("D2 Lower A", "T2 GS"): 90,
-    ("D2 Lower A", "T3 GS"): 75,
+    ("D2 Lower A", "T3 GS"): 60,
+    # ("D2 Lower A", "T4") added 2026-08-11, new straight tier
+    # (Ab Trainer Decline Sit-up); tier_label "T4" not "T4 GS" (not a
+    # GIANT_SET), so it's a distinct key from the "*_GS" convention below.
+    ("D2 Lower A", "T4"): 90,
     ("D4 Upper Pull", "T1"): 120,
     ("D4 Upper Pull", "T1b"): 180,
     ("D4 Upper Pull", "T2 GS"): 90,

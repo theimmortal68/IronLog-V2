@@ -32,8 +32,11 @@ WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
 
 def test_run_analysis_never_writes_ht_setup(gen_db_calibrated):
     gen_db = gen_db_calibrated
-    sk = lay_skeleton("D2 Lower A", gen_db)
-    ctx = resolve_context("D2 Lower A", sk, gen_db, WEEK_KEYER)
+    # 2026-08-11 (STAB maintenance-block redesign, Task 2): was "D2 Lower A"
+    # -- D2's Hip Thrust T1b tier was removed entirely, so this generic HT
+    # write-boundary test now exercises D5's still-live Hip Thrust slot.
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, WEEK_KEYER)
     sel = program_selections(sk)
     assembled = assemble(sel, sk, ctx, gen_db)
 

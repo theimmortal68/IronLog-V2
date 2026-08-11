@@ -18,6 +18,14 @@ Named tests:
 
 NO from __future__ import annotations (project-wide constraint).
 gen_db / gen_db_calibrated fixtures auto-discovered from conftest.py.
+
+2026-08-11 (STAB maintenance-block redesign, Task 2): every "D2 Lower A"
+day_role in this file was changed to "D5 Lower B" -- D2's Hip Thrust T1b
+tier was removed entirely (not just the movement), so D2 no longer has any
+Hip Thrust TierExercise to exercise this file's generic HT-plumbing tests
+against. D5's still-live Hip Thrust slot is a drop-in replacement; none of
+these tests assert anything D2-specific (rep range, Belt Squat, etc.), they
+use the day purely as a vehicle to exercise HT assembly/commit logic.
 """
 from datetime import date
 
@@ -137,11 +145,11 @@ def test_assembled_ht_carries_plates_and_config(gen_db_calibrated):
     gen_db.add(st)
     gen_db.commit()
     _stage_clean_ht_advance(
-        gen_db, ht_mv.id, "D2 Lower A", st.ht_plates, st.ht_band_config, wk,
+        gen_db, ht_mv.id, "D5 Lower B", st.ht_plates, st.ht_band_config, wk,
     )
 
-    sk = lay_skeleton("D2 Lower A", gen_db)
-    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
     sel = program_selections(sk)
 
     assembled = assemble(sel, sk, ctx, gen_db)
@@ -178,8 +186,8 @@ def test_uncalibrated_ht_does_not_fabricate_plates(gen_db):
     fabricated, and no entry recorded in prospective_ht_setups. Mirrors the
     non-HT needs-calibration path's "never fabricate a floor" guarantee."""
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    sk = lay_skeleton("D2 Lower A", gen_db)
-    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
     sel = program_selections(sk)
 
     assembled = assemble(sel, sk, ctx, gen_db)
@@ -203,8 +211,8 @@ def test_assemble_does_not_write_ht_setup(gen_db_calibrated):
     write ht_plates/ht_band_config — only commit_session may (Option-C)."""
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    sk = lay_skeleton("D2 Lower A", gen_db)
-    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
     sel = program_selections(sk)
 
     before = {s.movement_id: (s.ht_plates, s.ht_band_config)
@@ -222,8 +230,8 @@ def test_assemble_does_not_write_ht_setup(gen_db_calibrated):
 def test_commit_persists_ht_setup(gen_db_calibrated):
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    sk = lay_skeleton("D2 Lower A", gen_db)
-    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
     sel = program_selections(sk)
     assembled = assemble(sel, sk, ctx, gen_db)
 
@@ -351,11 +359,11 @@ def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
 
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     _stage_clean_ht_advance(
-        gen_db, ht_mv.id, "D2 Lower A", 180.0, [orange.id], wk,
+        gen_db, ht_mv.id, "D5 Lower B", 180.0, [orange.id], wk,
     )
 
-    sk = lay_skeleton("D2 Lower A", gen_db)
-    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
     sel = program_selections(sk)
     assembled = assemble(sel, sk, ctx, gen_db)
 

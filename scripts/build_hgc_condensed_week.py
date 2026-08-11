@@ -28,12 +28,19 @@ RATIONALE = "HGC condensed week"
 # "Stryker Pad Seated OHP [DB]", "Incline DB Press [DB + BENCH]" ->
 # "Matrix Machine Preacher Curl [EZ]". Dates/rationale/ordering are
 # historical bookkeeping and are left unchanged.
+#
+# 2026-08-11 (STAB maintenance-block redesign, Task 2): D2's T2 GS also
+# turned over entirely (Lying Leg Curl [GHR] / Scout Reverse Hyper both
+# dropped, T1b Hip Thrust tier removed entirely), so the single-movement
+# 7/28 D2 entry below is repointed to "Nordic Curl Max [Ares]" -- the new
+# T2 GS movement closest in role to the dropped Lying Leg Curl (hamstring-
+# focused accessory), and not already referenced by the 7/27 D2 entry above.
 MINI_SESSIONS = [
     (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Stryker Pad Seated OHP [DB]"]),
     (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Cable Tibialis Raise"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
     (date(2026, 7, 28), "D5 Lower B", ["RDL [PB]", "Hip Thrust [HIP_THRUST]", "Reverse Nordic Curl [GHR]"]),
-    (date(2026, 7, 28), "D2 Lower A", ["Lying Leg Curl [GHR]"]),
+    (date(2026, 7, 28), "D2 Lower A", ["Nordic Curl Max [Ares]"]),
     (date(2026, 7, 28), "D6 Weak Points", ["DB Seal Row [DB + UTIL_SEAT]", "Lateral Raise [FT]"]),
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
     (date(2026, 7, 29), "D4 Upper Pull", ["Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "PureTorque Pro Rotation"]),

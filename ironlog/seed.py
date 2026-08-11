@@ -205,6 +205,18 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          assist_ladder=[20, 15, 10, 5, 0],
          knee_modality=KneeModality.KOT, min_step=2.5, load_floor=0, primary_muscle="QUADS", secondary_muscles=[]),
+    # 2026-08-11: new D2 T2 GS movement (maintenance block, STAB redesign,
+    # Task 2). Ares cable weighted assist (60lb, LOCKED), NOT monster bands --
+    # supersedes the old band-based Nordic assist recommendation (docs/program/
+    # source/2026-08-10-maintenance-block-seed-data-FINAL.md "Key Nordic Curl
+    # Update"). Attach point is upper body (chest/shoulder), not hip/low back
+    # (proved inefficient in testing). Shares identity with D5's Task 4 slot
+    # (same Movement row, independent day-scoped MovementState/assist track).
+    dict(name="Nordic Curl Max [Ares]", base_name="Nordic Curl Max",
+         region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["FT", "NORDIC_MAX"],
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         assist_ladder=[60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0],
+         primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES"]),
     dict(name="Pull-up [TOWER + TUBES]", base_name="Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
@@ -302,6 +314,26 @@ MOVEMENTS = [
          status=Status.ACTIVE, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10, primary_muscle="QUADS", secondary_muscles=["GLUTES", "ADDUCTORS"]),
+    # 2026-08-11: new D2 T2 GS movement (maintenance block, STAB redesign,
+    # Task 2). Bodyweight first, add DBs once easy (per FINAL doc). Its
+    # TierExercise carries knee_modality=SISSY (program_seed.py) -- the FINAL
+    # doc's own knee_health_note on this movement ("trains VMO, deep knee
+    # flexion") and the program's previously-unfilled SISSY weekly target
+    # (KNEE_TARGETS, context.py) both point at this slot.
+    dict(name="Matrix Machine Sissy Squat", base_name="Matrix Machine Sissy Squat",
+         region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["MATRIX"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         primary_muscle="QUADS", secondary_muscles=[]),
+    # 2026-08-11: new D2 T3 GS movement (maintenance block, STAB redesign,
+    # Task 2). Hybrid Board equipment note only -- same LADDER/DOUBLE_PROGRESSION
+    # shape as Calf Raise [GHR]/Hyper Pro Calf Raise; no knee_modality (calf
+    # work, not part of the docs/06 §4 knee taxonomy).
+    dict(name="Hybrid Board Calf Raise [D2]", base_name="Hybrid Board Calf Raise",
+         region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         primary_muscle="CALVES", secondary_muscles=[]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Upper accessories — LADDER / DOUBLE_PROGRESSION  (ACTIVE)
@@ -544,6 +576,15 @@ MOVEMENTS = [
     # ─────────────────────────────────────────────────────────────────────────
     # Core — PROTOCOL  (ACTIVE)
     # ─────────────────────────────────────────────────────────────────────────
+    # 2026-08-11: new D2 T4 (new straight tier) movement (maintenance block,
+    # STAB redesign, Task 2). D2's mandatory core slot -- spine flexion,
+    # bodyweight first, add plate on chest once 3x15 clears (per FINAL doc).
+    # Mirrors Ab Wheel [WHEEL]'s PROTOCOL/STRAIGHT shape (bodyweight, no
+    # scalar load track, REP_LADDER-driven via rep_ladder_at_cap mapping).
+    dict(name="Ab Trainer Decline Sit-up", base_name="Ab Trainer Decline Sit-up",
+         region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
+         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
+         primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Ab Wheel [WHEEL]", base_name="Ab Wheel",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["WHEEL"],
          progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT, primary_muscle="ABS", secondary_muscles=[]),
