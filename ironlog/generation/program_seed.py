@@ -88,6 +88,20 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     # ── D6 Weak Points ───────────────────────────────────────────────────────
     # 2026-07-26: 3-way pull-up split -- D6 no longer shares D4's Wide-Grip
     # Pull-up, gets its own neutral-grip-paused movement.
+    #
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): D6's Hip Thrust
+    # (d6_g1c) removed entirely -- 3rd and final removal of this redesign
+    # (D2 Task 2, D5 Task 4, D6 here); D6's own T1 tier (Dips) eliminated,
+    # Dips folds into GS1 alongside the pull-up and the new close-grip bench;
+    # GS2 fully turned over (Reverse Hyper Recovery/DB Seal Row/Lateral Raise
+    # all drop out -- NOTE: the task-5-brief.md's "Removed" list mislabeled
+    # T-Bar Row Wide / Cable V-Bar Pushdown as "GS2's current members" and
+    # omitted GS2's real members entirely -- actual current-state code has
+    # T-Bar Row Wide / Cable V-Bar Pushdown in GS3, not GS2; verified against
+    # ironlog/generation/program_seed.py's pre-Task-5 _seed_d6, corrected
+    # here per this task's own "verify against actual code" instruction).
+    # Cable Bicep Curl (old d6_g1d) also drops out, replaced by Better Fly
+    # Cable Bicep Curl in GS2.
     "Pull-up - Neutral Grip (Paused)":               "Pull-up - Neutral Grip (Paused) [TOWER]",
     "Dips":                                         "Dips [TOWER + TUBES]",
     "Cable Bicep Curl":                             "Cable Bicep Curl [FT]",
@@ -98,6 +112,28 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Cable V-Bar Pushdown":                         "Cable V-Bar Pushdown [FT]",
     "Reverse Hyper Recovery":                       "Reverse Hyper Recovery [REV_HYPER]",
     "Face Pull":                                    "Face Pull [FT]",
+    # 2026-08-12 (Task 5): "Close-Grip Bench Camber-14" REUSES the existing
+    # "Swiss Bar CG Press [SB]" movement (derived_from Bench Press [PB],
+    # start_ratio 0.90 -- 155 * 0.90 = 139.5, dead center of the FINAL doc's
+    # own wk1_calibration_estimate 135-145) rather than creating a new
+    # movement. This deliberately deviates from task-5-brief.md, which
+    # called for a NEW movement ("3rd grip variant alongside D1's 21" and
+    # D4's 7""); the repo's own established precedent (D1 Bench Press's 21"
+    # grip note, D4's Lying Tricep Extension [SB] reused as-is for its 7"
+    # grip -- see that movement's seed.py comment: "grip is a PHYSICAL-SETUP
+    # DETAIL, not a schema field or a new movement identity... matches the
+    # EZ-curl-family precedent of separate rows only where named grip
+    # variants actually COEXIST and need disambiguation, which isn't the
+    # case here") says grip width alone does NOT warrant a new Movement row,
+    # and "Swiss Bar CG Press [SB]" (unwired anywhere in the current program)
+    # is exactly the close-grip-bench-on-the-camber-bar movement already in
+    # the library. Was never wired anywhere in the program before this task.
+    "Close-Grip Bench Camber-14":                   "Swiss Bar CG Press [SB]",
+    "Better Fly Cable Bicep Curl":                  "Better Fly Cable Bicep Curl [FT]",
+    "Stryker Pad CSR Cables":                       "Stryker Pad CSR Cables [FT]",
+    "Better Fly Rear Delt Extension":               "Better Fly Rear Delt Extension [FT]",
+    "Better Fly OH Tricep Extension":               "Better Fly OH Tricep Extension [FT]",
+    "AbMat Ab Bench Pad Cable Crunch":              "AbMat Ab Bench Pad Cable Crunch [FT]",
     # ── Meso-2 rotation variants ─────────────────────────────────────────────
     "Back Squat":                                   "Back Squat [PB]",
     "Pendlay Row":                                  "Pendlay Row - Medium [OB]",
@@ -748,6 +784,17 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # instruction): it becomes progressively more orphaned/frozen now that
     # neither D2 nor D5 has a live `unified_ht_group="main"` TierExercise
     # to keep it updated, which is expected, not a bug to fix here.
+    #
+    # UPDATE (Task 5, 2026-08-12): D6's derived HT slot (d6_g1c) referenced
+    # above is now ALSO removed (see _seed_d6 below) -- the 3rd and final Hip
+    # Thrust removal across this redesign. Zero TierExercise rows anywhere in
+    # the program now set derived_from_unified_group or unified_ht_group; the
+    # HtProgressionState("main") row and the whole derive-push loop in
+    # loop.py's commit_session are now fully orphaned/dead code paths (never
+    # fire -- confirmed loop.py's `derived_tes` query against an empty result
+    # set is a clean no-op, does not raise). Left in place per this task's
+    # explicit instruction; flagged for Task 7 (final verification) to note
+    # as a cleanup candidate, not something to remove here.
 
     # T2 GS — Nordic Max Bulgarian Split Squat / Nordic Curl Max [Ares] /
     # Better Fly Kickback. 2026-08-12: full T2 GS turnover -- Bulgarian
@@ -847,46 +894,92 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — Dips (bodyweight + band assist). 2026-07-26: moved out of GS1
-    # (athlete directive) into its own T1 straight-set slot, 6-8 reps.
-    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
-    _add_te(db, t1.id, "d6_t1", "Dips", lib, 1, "anchor",
-            pattern="vertical_push", rep_low=6, rep_high=8,
-            scheme="STRAIGHT")
-
-    # GS1 — Pull-up / Hip Thrust / Cable Bicep Curl (fills Dips' vacated slot)
-    gs1 = _add_tier(db, pd.id, "GS1", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    # 2026-07-26: 3-way pull-up split (athlete directive) -- D6 gets its own
-    # neutral-grip-paused variant, no longer shares D4's Wide-Grip Pull-up.
+    # 2026-08-12 (maintenance block, STAB redesign, Task 5): D6's standalone
+    # T1 tier (Dips) is ELIMINATED ENTIRELY -- the FINAL doc's D6 section has
+    # NO standalone T1 tier at all; Dips folds back into GS1 (3 items: pull-
+    # up, dips, close-grip bench), matching GS1's original pre-2026-07-26
+    # shape. Tier orders renumber sequentially now that T1 is gone: GS1=1,
+    # GS2=2, GS3=3 (matches D2/D5's identical renumbering precedent when
+    # they lost a leading tier).
+    #
+    # d6_g1a (pull-up) is UNCHANGED -- this deliberately deviates from
+    # task-5-brief.md and the coordinator's structural note, both of which
+    # said to repoint this slot from "Pull-up - Neutral Grip (Paused)
+    # [TOWER]" to a "Wide-Grip Pull-up [TOWER + TUBES]" movement. That exact
+    # movement name has NEVER existed in this repo (confirmed via `git log
+    # --all -S`) and was never built "earlier this session" as the brief
+    # claimed -- the actual 3-way pull-up split (commit be2ae80) is "D1
+    # assisted, D4 wide-grip, D6 neutral+pause"; D6 has always been the
+    # neutral-grip-paused variant, never wide-grip (that was D4's, since
+    # dropped in Task 3 for Better Fly Lat Pulldown). The currently-wired
+    # "Pull-up - Neutral Grip (Paused) [TOWER]" at 5-8 reps / REP_RATIO /
+    # PULL_UP_ROLLING_MAX already EXACTLY matches the FINAL doc's D6
+    # `pull_up_d6` entry (rep_low 5, rep_high 8, progression_rule
+    # pull_up_rolling_max, protocol weekly_max_tracker) -- confirmed via
+    # rule_wiring.py's YAML_M_TO_LIBRARY, which already correctly maps
+    # "pull_up_neutral_paused_d6" to this exact movement. No slot_id or
+    # movement_id change needed for d6_g1a; only its tier position/order
+    # changes (T1 tier removed, GS1 becomes tier_order=1).
+    gs1 = _add_tier(db, pd.id, "GS1", 1, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, gs1.id, "d6_g1a", "Pull-up - Neutral Grip (Paused)", lib,
             1, "anchor", pattern="vertical_pull", rep_low=5, rep_high=8,
             scheme="REP_RATIO")
-    _add_te(db, gs1.id, "d6_g1c", "Hip Thrust (D5 × 0.80, FIXED)", lib, 2, "free",
-            pattern="hip_thrust", rep_low=12, rep_high=12, scheme="FIXED",
-            derived_from_unified_group="main", derive_ratio=0.8)
-    _add_te(db, gs1.id, "d6_g1d", "Cable Bicep Curl", lib, 3, "free",
-            pattern="bicep_curl", rep_low=8, rep_high=12,
+    # Dips -- moves from its own vacated T1 tier (d6_t1) into GS1. Per the
+    # never-reassign-slot_id convention (D1's Ab Wheel Rollout precedent:
+    # a tier move gets a FRESH slot_id even for an unchanged movement), this
+    # is a new slot "d6_g1e" -- d6_t1 (and the earlier-vacated d6_g1b) stay
+    # vacated, not reused. Reps 6-8 -> 8-12, scheme STRAIGHT ->
+    # DOUBLE_PROGRESSION, rule assistance_reduction -> rpe_8_standard,
+    # matching the Movement-level ASSISTED->LADDER conversion in
+    # ironlog/seed.py (see that file's comment for the full reasoning: FINAL
+    # doc's D6 dips equipment lists NO assistance gear and current_load: 150
+    # is the movement's exact original pre-2026-07-26 cable-loaded baseline).
+    _add_te(db, gs1.id, "d6_g1e", "Dips", lib, 2, "free",
+            pattern="vertical_push", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
+    # Close-Grip Bench Camber-14 -- NEW to D6's wiring, REUSES the existing
+    # unwired "Swiss Bar CG Press [SB]" movement (see PROGRAM_TO_LIBRARY
+    # comment above for the full reasoning). T1-like compound rep range
+    # (4-6) per the FINAL doc, RPE_8_STANDARD double-progression.
+    _add_te(db, gs1.id, "d6_g1f", "Close-Grip Bench Camber-14", lib, 3, "free",
+            pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
             scheme="DOUBLE_PROGRESSION")
 
-    # GS2 — Reverse Hyper Recovery / DB Seal Row / Lateral Raise
-    gs2 = _add_tier(db, pd.id, "GS2", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, gs2.id, "d6_g2a", "Reverse Hyper Recovery", lib, 1, "free",
-            pattern="reverse_hyper", rep_low=15, rep_high=20, scheme="FIXED",
-            rpe_cap=6.0)
-    _add_te(db, gs2.id, "d6_g2b", "DB Seal Row", lib, 2, "free",
+    # GS2 -- FULL turnover (2026-08-12, Task 5). Reverse Hyper Recovery,
+    # DB Seal Row, and Lateral Raise (old d6_g2a/b/c) all drop out of D6's
+    # wiring entirely -- none referenced by any other day, so all three
+    # become fully unwired (Movement rows stay ACTIVE in the library,
+    # MovementState rows at their old slot_ids left in place, per the
+    # never-delete-orphans convention). Old slot_ids d6_g2a/b/c VACATED, not
+    # reused -- new members get fresh slots d6_g2d/e/f. All three new
+    # movements are needs-calibration (zero prior history).
+    gs2 = _add_tier(db, pd.id, "GS2", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    _add_te(db, gs2.id, "d6_g2d", "Better Fly Cable Bicep Curl", lib, 1, "free",
+            pattern="bicep_curl", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, gs2.id, "d6_g2e", "Stryker Pad CSR Cables", lib, 2, "free",
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, gs2.id, "d6_g2c", "Lateral Raise", lib, 3, "free",
-            pattern="lateral_raise", rep_low=10, rep_high=15,
+    _add_te(db, gs2.id, "d6_g2f", "Better Fly Rear Delt Extension", lib, 3, "free",
+            pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 
-    # GS3 — Face Pull / Cable V-Bar Pushdown / T-Bar Row Wide
-    gs3 = _add_tier(db, pd.id, "GS3", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
+    # GS3 -- Face Pull RETAINED (unchanged slot_id d6_g3a, existing movement)
+    # but rep range corrected 15-20 -> 10-15 per the FINAL doc's face_pull
+    # entry (rep_low 10, rep_high 15) -- same treatment as D5's retained
+    # Reverse Nordic Curl slot (d5_t3b), which also kept its slot_id while
+    # gaining a fresh exercise_order/rep range. Cable V-Bar Pushdown and
+    # T-Bar Row Wide (old d6_g3b/c) drop out of D6's wiring entirely -- not
+    # in the FINAL doc's D6 GS3 composition, no other day references them.
+    # Old slot_ids d6_g3b/c VACATED, not reused -- new members get fresh
+    # slots d6_g3d/e.
+    gs3 = _add_tier(db, pd.id, "GS3", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, gs3.id, "d6_g3a", "Face Pull", lib, 1, "free",
-            pattern="rear_delt", rep_low=15, rep_high=20,
+            pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, gs3.id, "d6_g3b", "Cable V-Bar Pushdown", lib, 2, "semi",
-            pattern="triceps", rep_low=8, rep_high=12, scheme="SINGLE_SESSION")
-    _add_te(db, gs3.id, "d6_g3c", "T-Bar Row Wide", lib, 3, "semi",
-            pattern="horizontal_pull", rep_low=8, rep_high=12,
+    _add_te(db, gs3.id, "d6_g3d", "Better Fly OH Tricep Extension", lib, 2, "free",
+            pattern="tricep_extension", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, gs3.id, "d6_g3e", "AbMat Ab Bench Pad Cable Crunch", lib, 3, "free",
+            pattern="core", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")

@@ -126,24 +126,40 @@ days:
     T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
       {m: ab_trainer_russian_twist_d5, reps: [10,15], rule: rep_ladder_at_cap}]}  # 2026-08-12: new, D5's mandatory core slot (rotational pattern). Mirrors D2's Ab Trainer Decline Sit-up shape (PROTOCOL/STRAIGHT movement, REP_LADDER-driven).
 
-  d6:  # Weak Points — EXECUTED Sat 2026-07-05, loads locked. Z2 (backward 3min@5°@1.5 / forward 12min@5°@3.0) deferred (not engine-managed).
-    # 2026-07-26: Dips moved out of GS1 into its own T1 straight-set slot
-    # (athlete directive) -- converted from cable-loaded (Andreoni bar) to
-    # bodyweight + band assist, 6-8 reps, starting band = Green (40 lb).
-    T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      {m: dips, reps: [6,8], rule: assistance_reduction, assist_level: 40}]}
+  d6:  # Weak Points — 2026-08-12 (maintenance block, STAB redesign, Task 5): T1
+    # straight tier (Dips) ELIMINATED ENTIRELY -- FINAL doc's D6 has no
+    # standalone T1; Dips folds back into GS1. Z2 (backward 3min@5°@1.5 /
+    # forward 12min@5°@3.0) deferred (not engine-managed).
     GS1: {group_key: "GS1", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      # 2026-07-26: 3-way pull-up split (athlete directive) -- D6 gets its
-      # own neutral-grip-paused movement, no longer shares D4's Wide-Grip
-      # Pull-up. Needs-calibration (brand new movement, zero prior history).
+      # pull_up_neutral_paused_d6 UNCHANGED (see program_seed.py's _seed_d6
+      # comment -- this already matches the FINAL doc's D6 pull-up entry
+      # exactly; the brief's claimed "Wide-Grip Pull-up [TOWER + TUBES]"
+      # repoint was a factual error, corrected here per this task's own
+      # verify-against-code instruction).
       {m: pull_up_neutral_paused_d6, reps: [5,8], rule: pull_up_rolling_max},
-      {m: hip_thrust_d6, reps: [12,12], rule: rule_driven_fixed_increment, ht_plates: 155, ht_band_config: [orange], derived_from_unified_group: main, derive_ratio: 0.8},  # D5x0.80 (~192 target); 155 bar + Orange Shorty Monster = peak 200 / bottom 173 (<225 GMWD cap); Wk1 executed 200 plates-only (misload), Wk2+ banded
-      {m: cable_bicep_curl_d6, reps: [8,12], rule: rpe_8_standard}]}  # 2026-07-26: fills Dips' vacated 3rd GS1 slot -- program had zero dedicated bicep isolation work anywhere; needs-calibration (no prior history)
+      # dips: reverted from bodyweight+band-assist back to cable-loaded
+      # (see ironlog/seed.py's Dips comment for the full reasoning --
+      # current_load: 150 is the movement's original pre-2026-07-26
+      # baseline, not a fresh estimate). Moves from its own vacated T1 tier
+      # into GS1's 2nd slot.
+      {m: dips, reps: [8,12], rule: rpe_8_standard, load: 150},
+      # close_grip_bench_camber_14_d6: NEW to D6, reuses the existing
+      # "Swiss Bar CG Press [SB]" movement (see program_seed.py's
+      # PROGRAM_TO_LIBRARY comment) -- needs-calibration, wk1_calibration_
+      # estimate 135-145 per the FINAL doc (135 <= 155*0.90=139.5 <= 145).
+      {m: close_grip_bench_camber_14_d6, reps: [4,6], rule: rpe_8_standard}]}
+    # GS2: FULL turnover -- hip_thrust_d6 (3rd/final Hip Thrust removal this
+    # redesign), reverse_hyper_recovery, db_seal_row, lateral_raise_ares all
+    # drop out entirely. All three new members are needs-calibration (zero
+    # prior history).
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: reverse_hyper_recovery, reps: [15,20], rule: fixed_load, load: 90, rpe_cap: 6},  # MOVED from GS3
-      {m: db_seal_row, reps: [8,12], rule: rpe_8_standard, load: 30},   # 30/hand
-      {m: lateral_raise_ares, reps: [10,15], rule: rpe_8_standard, load: 10}]}
+      {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
+      {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
+      {m: better_fly_rear_delt_ext_d6, reps: [10,15], rule: rpe_8_standard}]}
+    # GS3: Face Pull retained (rep range corrected 15-20 -> 10-15 per the
+    # FINAL doc). cable_v_bar_pushdown and t_bar_row_wide_kleva drop out
+    # entirely, replaced by two new needs-calibration movements.
     GS3: {group_key: "GS3", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: face_pull, reps: [15,20], rule: rpe_8_standard, load: 30},
-      {m: cable_v_bar_pushdown, reps: [8,12], rule: single_session_progression, load: 60},
-      {m: t_bar_row_wide_kleva, reps: [8,12], rule: rpe_8_standard, load: 105}]}  # MOVED from GS2
+      {m: face_pull, reps: [10,15], rule: rpe_8_standard, load: 30},
+      {m: better_fly_oh_tricep_ext_d6, reps: [8,12], rule: rpe_8_standard},
+      {m: abmat_ab_bench_pad_cable_crunch_d6, reps: [10,15], rule: rpe_8_standard}]}

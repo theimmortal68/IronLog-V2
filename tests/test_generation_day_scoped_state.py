@@ -18,6 +18,16 @@ pattern) and manually seeds its MovementState at the same 205+Orange values
 the old real d5_t1b baseline used, instead of relying on
 seed_movement_baselines to populate D5's row.
 
+2026-08-12 (Task 5): D6's real d6_g1c slot is ALSO removed entirely now --
+the LAST real Hip Thrust TierExercise anywhere in the program is gone (3rd
+and final Hip Thrust removal across this redesign). D6's leg of this test
+now also attaches a synthetic, test-only TierExercise onto D6's real
+ProgramDay, seeded at the same 155+Orange values the old real d6_g1c
+baseline used AND carrying the same derived_from_unified_group="main"/
+derive_ratio=0.8 shape (d6_g1c was always a DERIVED slot, which is why its
+own leg of this test asserts next_plates == cur_plates, never advancing
+independently -- a plain synthetic slot would break that expectation).
+
 Uses lay_skeleton -> resolve_context -> program_selections -> assemble
 directly (the same pattern as test_ht_write_boundary.py), NOT the full
 generate_session() -> validate() path: build_validation_context()
@@ -129,14 +139,25 @@ def test_ht_load_is_day_scoped(gen_db):
         movement_id=ht_mv_for_synthetic.id, day_id="D5 Lower B",
         ht_plates=205.0, ht_band_config=[orange.id],
     ))
+    # D6's real d6_g1c slot was ALSO removed entirely (Task 5, 2026-08-12) --
+    # attach a synthetic D6 slot too, carrying the same DERIVED shape d6_g1c
+    # used to carry (see module docstring).
+    d6_te = _synthetic_plain_ht_slot(gen_db, "D6 Weak Points", ht_mv_for_synthetic.id, "test_dayscope_d6_ht")
+    d6_te.derived_from_unified_group = "main"
+    d6_te.derive_ratio = 0.8
+    gen_db.add(d6_te)
+    gen_db.add(MovementState(
+        movement_id=ht_mv_for_synthetic.id, day_id="D6 Weak Points",
+        ht_plates=155.0, ht_band_config=[orange.id],
+    ))
     gen_db.commit()
 
-    # Independence check FIRST, at the MovementState-row level: the
-    # synthetic D5 slot / d6_g1c key off the SAME underlying HT movement, so
-    # if day-scoping regressed to a single last-wins row we'd see 1 row, not 2.
+    # Independence check FIRST, at the MovementState-row level: the two
+    # synthetic slots key off the SAME underlying HT movement, so if
+    # day-scoping regressed to a single last-wins row we'd see 1 row, not 2.
     te = {t.slot_id: t for t in gen_db.exec(select(TierExercise)).all()}
     ht_movement_id = te["test_dayscope_d5_ht"].movement_id
-    assert te["d6_g1c"].movement_id == ht_movement_id
+    assert te["test_dayscope_d6_ht"].movement_id == ht_movement_id
     ht_states = gen_db.exec(
         select(MovementState).where(MovementState.movement_id == ht_movement_id)
     ).all()

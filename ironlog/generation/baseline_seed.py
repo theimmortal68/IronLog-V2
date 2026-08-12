@@ -141,6 +141,37 @@ from ironlog.models.session import (
 # TIB slot is replaced program-wide by Hybrid Board Tib Raise [D2] at a
 # fresh slot_id (d2_t3e, never-reassign-slot_id), needs-calibration, zero
 # prior history, no BASELINES entry. d2_t1/d2_t3a are UNCHANGED.
+#
+# 2026-08-12 (STAB maintenance-block redesign, Task 5 -- D6 rewritten to
+# match the FINAL doc's real D6 session): d6_t1 ("assist" 40, Dips) REMOVED
+# -- T1 tier dropped entirely, Dips folds back into GS1 at a fresh slot
+# (d6_g1e, never-reassign-slot_id) with a NEW "load" 150 baseline (reverted
+# to cable-loaded, see ironlog/seed.py's Dips comment -- this is the
+# movement's exact original pre-2026-07-26 baseline, not a fresh
+# calibration guess). d6_g1c ("ht" 155 + #0 Orange, Hip Thrust) REMOVED --
+# 3rd and final Hip Thrust removal across this redesign (D2 Task 2, D5 Task
+# 4, D6 here); this was the LAST Hip Thrust BASELINES entry in the program,
+# now zero remain. d6_g1d ("load" not set -- Cable Bicep Curl never had an
+# entry) REMOVED -- drops out of D6 entirely, replaced by Better Fly Cable
+# Bicep Curl at a fresh slot (d6_g2d), needs-calibration, no entry. d6_g2a
+# ("load" 90, Reverse Hyper Recovery), d6_g2b ("load" 30, DB Seal Row),
+# d6_g2c ("load" 10, Lateral Raise) all REMOVED -- GS2 fully turned over to
+# Better Fly Cable Bicep Curl / Stryker Pad CSR Cables / Better Fly Rear
+# Delt Extension, all needs-calibration at fresh slots (d6_g2d/e/f), no
+# BASELINES entry. d6_g3b ("load" 60, Cable V-Bar Pushdown) and d6_g3c
+# ("load" 105, T-Bar Row Wide) REMOVED -- drop out of D6's GS3 entirely,
+# replaced by Better Fly OH Tricep Extension / AbMat Ab Bench Pad Cable
+# Crunch at fresh slots (d6_g3d/e), both needs-calibration, no entry.
+# New d6_g1f (Close-Grip Bench Camber-14, reused "Swiss Bar CG Press [SB]"
+# movement) has NO entry -- FINAL doc gives only a wk1_calibration_estimate
+# range (135-145), not a locked value, so needs-calibration is correct.
+# d6_g1a (Pull-up - Neutral Grip (Paused), no entry -- PULL_UP_ROLLING_MAX
+# tracks via unassisted_max_rolling, not a BASELINES scalar) and d6_g3a
+# (Face Pull, "load" 30) are UNCHANGED -- retained movements at their
+# existing stable slot_ids; d6_g3a's rep range widened (15-20 -> 10-15,
+# program_seed.py) but its slot_id and calibrated load carry forward
+# unaffected. All six removed slot_ids' underlying MovementState rows are
+# left in place, not deleted, per the never-delete-orphans convention.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
@@ -150,10 +181,7 @@ BASELINES = {
     "d2_t3a": ("load", 25, None),
     "d4_t3a": ("load", 10, None),
     "d5_t3b": ("load", 0, None),
-    "d6_t1": ("assist", 40, None), "d6_g1c": ("ht", 155, "#0 Orange"),
-    "d6_g2a": ("load", 90, None), "d6_g2b": ("load", 30, None),
-    "d6_g2c": ("load", 10, None), "d6_g3a": ("load", 30, None),
-    "d6_g3b": ("load", 60, None), "d6_g3c": ("load", 105, None),
+    "d6_g1e": ("load", 150, None), "d6_g3a": ("load", 30, None),
 }
 
 

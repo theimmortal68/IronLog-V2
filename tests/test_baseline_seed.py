@@ -15,6 +15,18 @@ to a single-row check. The day-scoped-state MECHANISM itself is still
 exercised (with manually-staged rows, not through seed_movement_baselines)
 by test_generation_day_scoped_state.py / test_commit_day_scoped_state.py.
 
+2026-08-12 (Task 5): D6's d6_g1c is ALSO removed entirely now -- the LAST
+Hip Thrust BASELINES entry in the program is gone, 3rd and final Hip Thrust
+removal across this redesign. There is no longer ANY "ht" type entry
+anywhere in baseline_seed.BASELINES, so seed_movement_baselines() never
+produces an HT-shaped MovementState row through the real production path
+at all. This test's HT-specific assertions are removed (same treatment as
+test_rule_wiring.py's now-"unused rule family" entries) -- the scalar-load
+assertion (d1_t1, unaffected) is the only thing left to check here beyond
+confirming zero HT rows get produced. Day-scoped HT mechanics
+(manually-staged) are still covered by test_generation_day_scoped_state.py /
+test_commit_day_scoped_state.py, per the paragraph above.
+
 NO from __future__ import annotations (project-wide constraint).
 """
 from sqlmodel import select
@@ -31,18 +43,11 @@ def test_baselines_seeded_day_scoped(gen_db):
     # scalar load lands on the right (movement, day)
     d1t1 = te["d1_t1"]
     assert by_key[(d1t1.movement_id, "D1 Upper Push")].current_load == 155
-    # HT gets plates + band config = [orange id]
-    orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
-    d6ht = te["d6_g1c"]
-    st = by_key[(d6ht.movement_id, "D6 Weak Points")]
-    assert st.ht_plates == 155 and st.ht_band_config == [orange.id]
-    # 2026-08-12 (Task 4): D5's Hip Thrust T1b tier is ALSO removed entirely
-    # now -- D6's d6_g1c is the ONLY Hip Thrust BASELINES entry left. See
-    # module docstring for why the 2-way independence check moved elsewhere.
+    # No "ht" type BASELINES entry remains anywhere in the program (see
+    # module docstring) -- confirm the real seeding path produces zero
+    # HT-shaped rows now, rather than silently leaving stale coverage.
     ht_rows = [s for s in states if s.ht_plates is not None]
-    assert len(ht_rows) == 1
-    assert ht_rows[0].day_id == "D6 Weak Points"
-    assert ht_rows[0].ht_plates == 155
+    assert ht_rows == []
 
 
 def test_reset_clears_transactional_keeps_baselines(gen_db, logged_session_id):

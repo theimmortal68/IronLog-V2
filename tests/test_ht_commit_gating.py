@@ -8,6 +8,8 @@ from ironlog.generation.loop import commit_session
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.models.library import Movement, MovementState
 
+from tests.test_ht_composite_wiring import _synthetic_plain_ht_slot
+
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
 DAY_ROLE = "D6 Weak Points"
 
@@ -16,6 +18,24 @@ def _ht_movement(db):
     return db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
+
+
+def _seed_d6_ht(db):
+    """2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real
+    d6_g1c slot (the last real Hip Thrust TierExercise anywhere in the
+    program, previously populated automatically by seed_movement_baselines'
+    BASELINES["d6_g1c"] entry) is removed entirely. Attaches a synthetic
+    plain HT slot to D6's real ProgramDay and seeds its MovementState at
+    the exact same values the old real baseline carried (155.0 plates,
+    band id 1 = "#0 Orange") so this file's gating assertions are
+    unaffected."""
+    movement = _ht_movement(db)
+    _synthetic_plain_ht_slot(db, DAY_ROLE, movement.id, "test_commit_gating_d6_ht")
+    db.add(MovementState(
+        movement_id=movement.id, day_id=DAY_ROLE,
+        ht_plates=155.0, ht_band_config=[1],
+    ))
+    db.commit()
 
 
 def _ht_state(db):
@@ -45,6 +65,7 @@ def _ht_sets(assembled, movement_id):
 
 def test_assemble_holds_ht_setup_when_no_pending_advance(gen_db):
     seed_movement_baselines(gen_db)
+    _seed_d6_ht(gen_db)
     movement = _ht_movement(gen_db)
     state = _ht_state(gen_db)
     assert state.ht_plates == 155.0
@@ -78,6 +99,7 @@ def test_assemble_holds_ht_setup_when_no_pending_advance(gen_db):
 
 def test_commit_applies_pending_ht_setup_once_and_clears_it(gen_db):
     seed_movement_baselines(gen_db)
+    _seed_d6_ht(gen_db)
     movement = _ht_movement(gen_db)
     state = _ht_state(gen_db)
     state.pending_ht_plates = 160.0

@@ -21,6 +21,8 @@ from ironlog.models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog,
 )
 
+from tests.test_ht_composite_wiring import _synthetic_plain_ht_slot
+
 # 2026-08-11 (STAB maintenance-block redesign, Task 2): was "D2 Lower A" --
 # D2's Hip Thrust T1b tier was removed entirely, so this generic HT
 # reconciliation test used D5's still-live Hip Thrust slot instead.
@@ -31,6 +33,13 @@ from ironlog.models.session import (
 # (non-unified) branch, which doesn't care whether the slot also carries
 # `derived_from_unified_group` -- unlike test_ht_composite_wiring.py's two
 # run_analysis/advance()-driven tests, d6_g1c is a fine drop-in here.
+#
+# 2026-08-12 (Task 5): D6's real d6_g1c slot is ALSO removed entirely now --
+# the LAST real Hip Thrust TierExercise anywhere in the program is gone.
+# Every test below attaches a synthetic plain HT slot to D6's real
+# ProgramDay via `_seed_d6_ht_slot` (mirrors test_ht_commit_gating.py's
+# `_seed_d6_ht`) before calling `_set_current_ht_setup`, which needs an
+# existing day-scoped MovementState row to update.
 DAY_ROLE = "D6 Weak Points"
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
 
@@ -39,6 +48,16 @@ def _ht_movement(db):
     return db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
+
+
+def _seed_d6_ht_slot(db):
+    movement = _ht_movement(db)
+    _synthetic_plain_ht_slot(db, DAY_ROLE, movement.id, "test_ht_reconciliation_d6_ht")
+    db.add(MovementState(
+        movement_id=movement.id, day_id=DAY_ROLE,
+        ht_plates=155.0, ht_band_config=[],
+    ))
+    db.commit()
 
 
 def _band(db, label):
@@ -132,6 +151,7 @@ def _ht_sets(assembled, movement_id):
 
 def test_same_config_felt_peak_floors_next_setup_from_performed_plates(gen_db):
     seed_movement_baselines(gen_db)
+    _seed_d6_ht_slot(gen_db)
     hip_thrust = _ht_movement(gen_db)
     red = _band(gen_db, "#1 Red")
     _set_current_ht_setup(gen_db, hip_thrust.id, 165.0, [red.id])
@@ -159,6 +179,7 @@ def test_same_config_felt_peak_floors_next_setup_from_performed_plates(gen_db):
 
 def test_different_logged_config_does_not_reconcile(gen_db):
     seed_movement_baselines(gen_db)
+    _seed_d6_ht_slot(gen_db)
     hip_thrust = _ht_movement(gen_db)
     orange = _band(gen_db, "#0 Orange")
     red = _band(gen_db, "#1 Red")
@@ -182,6 +203,7 @@ def test_different_logged_config_does_not_reconcile(gen_db):
 
 def test_no_prior_completed_session_leaves_ht_setup_unchanged(gen_db):
     seed_movement_baselines(gen_db)
+    _seed_d6_ht_slot(gen_db)
     hip_thrust = _ht_movement(gen_db)
     red = _band(gen_db, "#1 Red")
     _set_current_ht_setup(gen_db, hip_thrust.id, 165.0, [red.id])

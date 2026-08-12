@@ -31,10 +31,17 @@ below (mirrors test_ht_composite_wiring.py's `_synthetic_plain_ht_slot` +
 test_ht_unification.py's `_synthetic_ht_slot` pattern) and manually seeds its
 MovementState at the same 205+Orange values the old real d5_t1b baseline
 used, instead of relying on seed_movement_baselines to populate D5's row.
-D6's real d6_g1c slot is UNCHANGED and still fine for the tests that only
-check the PRESCRIBED (current) setup, not an independently-advanced one --
-see test_ht_composite_wiring.py's module docstring for why a DERIVED slot
-(D6) cannot stand in for D5's independent-advance tests specifically.
+2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real d6_g1c slot
+is ALSO removed entirely now -- 3rd and final Hip Thrust removal across
+this redesign (D2 Task 2, D5 Task 4, D6 here). Every test below that
+exercised D6's real slot now uses `_seed_synthetic_d6_ht` (same pattern as
+`_seed_synthetic_d5_ht`), seeded at D6's old real baseline (155 + #0
+Orange). Unlike D5's synthetic slot, D6's synthetic slot is PLAIN (not
+derived), which is fine for these tests -- see test_ht_composite_wiring.py's
+module docstring for why a DERIVED slot couldn't stand in for D5's
+independent-advance tests specifically; that reasoning doesn't block D6's
+synthetic replacement here since these tests only check D6's PRESCRIBED
+(current) setup, not an independently-advanced one.
 
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
@@ -74,6 +81,32 @@ def _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=None):
     te = _synthetic_plain_ht_slot(gen_db, "D5 Lower B", ht_mv.id, D5_HT_SLOT_ID)
     st = MovementState(
         movement_id=ht_mv.id, day_id="D5 Lower B",
+        ht_plates=plates, ht_band_config=list(band_config or []),
+    )
+    gen_db.add(st)
+    gen_db.commit()
+    return te, ht_mv
+
+
+D6_HT_SLOT_ID = "test_generate_banded_d6_ht"
+
+
+def _seed_synthetic_d6_ht(gen_db, plates=155.0, band_config=None):
+    """Attach a synthetic, plain Hip-Thrust TierExercise to D6's real
+    ProgramDay and seed its MovementState at the given setup.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real d6_g1c
+    slot (the LAST real Hip Thrust TierExercise anywhere in the program) is
+    removed entirely -- 3rd and final Hip Thrust removal across this
+    redesign. Replaces the old real d6_g1c slot + BASELINES entry (155 +
+    #0 Orange) the same way _seed_synthetic_d5_ht replaced D5's in Task 4.
+    """
+    ht_mv = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+    te = _synthetic_plain_ht_slot(gen_db, "D6 Weak Points", ht_mv.id, D6_HT_SLOT_ID)
+    st = MovementState(
+        movement_id=ht_mv.id, day_id="D6 Weak Points",
         ht_plates=plates, ht_band_config=list(band_config or []),
     )
     gen_db.add(st)
@@ -141,6 +174,7 @@ def test_banded_ht_generates_valid_all_days(gen_db):
     seed_movement_baselines(gen_db)
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
     _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
+    _seed_synthetic_d6_ht(gen_db, plates=155.0, band_config=[orange.id])
     # Seeded current setups (prescribe-current; no auto-advance at prescription).
     # 2026-08-11/2026-08-12: D2 and D5 both dropped their real Hip Thrust
     # TierExercise (Tasks 2/4); D5's is now a synthetic slot (see module docstring).
@@ -204,6 +238,7 @@ def test_week1_prescribes_seeded_current_setup(gen_db):
     seed_movement_baselines(gen_db)
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
     _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
+    _seed_synthetic_d6_ht(gen_db, plates=155.0, band_config=[orange.id])
     for role, seeded_plates in [
         ("D5 Lower B", 205),
         ("D6 Weak Points", 155),
@@ -374,6 +409,7 @@ def test_load_override_bumps_ht_plates_day_scoped(gen_db):
     seed_movement_baselines(gen_db)
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
     d5_ht_te, _mv = _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
+    _seed_synthetic_d6_ht(gen_db, plates=155.0, band_config=[orange.id])
 
     note = Note(text="ready to go up 5lbs on Day 5")
     gen_db.add(note)

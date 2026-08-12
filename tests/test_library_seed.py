@@ -71,7 +71,14 @@ def test_total_count_103(seeded):
     # Board Tib Raise [D2] (1, D2 follow-up correction replacing Cable Tib
     # Raise): 127 -> 135. (Nordic Curl Max [Ares] is REUSED, same shared
     # Movement row as D2's, not a new row -- no count change.)
-    assert len(_all(seeded)) == 135
+    # 2026-08-12: +5 (STAB maintenance-block redesign, Task 5, D6 rewritten
+    # to match the FINAL doc): Better Fly Cable Bicep Curl [FT], Stryker Pad
+    # CSR Cables [FT], Better Fly Rear Delt Extension [FT], Better Fly OH
+    # Tricep Extension [FT], AbMat Ab Bench Pad Cable Crunch [FT]: 135 -> 140.
+    # (Swiss Bar CG Press [SB] is REUSED for D6's new close-grip-bench slot,
+    # not a new row -- no count change. Dips [TOWER + TUBES] reverted from
+    # ASSISTED to LADDER, same Movement row -- no count change either.)
+    assert len(_all(seeded)) == 140
 
 
 def test_status_counts(seeded):
@@ -93,7 +100,10 @@ def test_status_counts(seeded):
     # Better Fly Lat Pulldown [FT], Stryker Pad CSR Barbell [PB], Better Fly
     # Cable Pullover [FT], Ab Trainer Hanging Leg Raise: 115 -> 120.
     # 2026-08-12: +8 ACTIVE (STAB redesign, Task 4 + D2 addendum): 120 -> 128.
-    assert c[Status.ACTIVE] == 128
+    # 2026-08-12: +5 ACTIVE (STAB redesign, Task 5, D6): Better Fly Cable
+    # Bicep Curl, Stryker Pad CSR Cables, Better Fly Rear Delt Extension,
+    # Better Fly OH Tricep Extension, AbMat Ab Bench Pad Cable Crunch: 128 -> 133.
+    assert c[Status.ACTIVE] == 133
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 
@@ -178,8 +188,17 @@ def test_golive_library_additions(gen_db):
     assert by_name["Lat Prayer [ANDREONI + FT]"].status == Status.ACTIVE
     dips = by_name["Dips [TOWER + TUBES]"]
     assert dips.status == Status.ACTIVE
-    assert dips.progression_mode == ProgressionMode.ASSISTED
-    assert dips.scheme == Scheme.STRAIGHT
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): Dips reverted
+    # from bodyweight+band-assist (ASSISTED/STRAIGHT) back to cable-loaded
+    # (LADDER/DOUBLE_PROGRESSION) -- see ironlog/seed.py's Dips comment.
+    # assist_ladder is kept for historical reference, unused once
+    # progression_mode is LADDER (same treatment as "Reverse Nordic Curl
+    # [GHR]"'s identical 2026-07-24 assisted->loaded conversion).
+    assert dips.progression_mode == ProgressionMode.LADDER
+    assert dips.scheme == Scheme.DOUBLE_PROGRESSION
+    assert dips.increment_ladder == [5]
+    assert dips.min_step == 5
+    assert dips.load_floor == 10
     assert dips.assist_ladder == [40, 30, 18, 9, 0]
     assert "TOWER" in dips.equipment_tags and "TUBES" in dips.equipment_tags
 

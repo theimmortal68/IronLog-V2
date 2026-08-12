@@ -53,16 +53,34 @@ RATIONALE = "HGC condensed week"
 # wiring. D2's 7/27 entry's "Cable Tibialis Raise" -> "Hybrid Board Tib
 # Raise [D2]" (small standalone D2 fix bundled into this task, Cable Tib
 # Raise replaced program-wide).
+#
+# 2026-08-12 (STAB maintenance-block redesign, Task 5): D6's T1 tier
+# (Dips) eliminated -- Dips folds into GS1, same movement name ("Dips
+# [TOWER + TUBES]"), still resolves unchanged in the 7/29 entry below
+# despite the underlying progression config reverting to cable-loaded (see
+# ironlog/seed.py). GS2 fully turned over (DB Seal Row / Lateral Raise
+# dropped) -- 7/28 entry repointed to "Stryker Pad CSR Cables [FT]"
+# (closest-role replacement for DB Seal Row, both horizontal_pull) and
+# "Better Fly Rear Delt Extension [FT]" (closest-role replacement for
+# Lateral Raise, both shoulder isolation). GS3's Cable V-Bar Pushdown and
+# T-Bar Row - Wide dropped -- 7/29 entry repointed to "Better Fly OH
+# Tricep Extension [FT]" (closest-role replacement for Cable V-Bar
+# Pushdown, both tricep isolation) and "AbMat Ab Bench Pad Cable Crunch
+# [FT]" (T-Bar Row - Wide's role has no direct GS3 successor; this is the
+# one remaining new D6 movement not already referenced elsewhere in this
+# entry, same fallback pattern as Task 4's Better Fly Kickback pick
+# above). Face Pull [FT] (7/27 entry) is unchanged, already IS D6's real
+# GS3 wiring (only its rep range changed, which this script doesn't carry).
 MINI_SESSIONS = [
     (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Stryker Pad Seated OHP [DB]"]),
     (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Hybrid Board Tib Raise [D2]"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
     (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [DB]", "Better Fly Kickback [FT]", "Reverse Nordic Curl [GHR]"]),
     (date(2026, 7, 28), "D2 Lower A", ["Nordic Curl Max [Ares]"]),
-    (date(2026, 7, 28), "D6 Weak Points", ["DB Seal Row [DB + UTIL_SEAT]", "Lateral Raise [FT]"]),
+    (date(2026, 7, 28), "D6 Weak Points", ["Stryker Pad CSR Cables [FT]", "Better Fly Rear Delt Extension [FT]"]),
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
     (date(2026, 7, 29), "D4 Upper Pull", ["Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]", "PureTorque Pro Rotation"]),
-    (date(2026, 7, 29), "D6 Weak Points", ["Dips [TOWER + TUBES]", "T-Bar Row - Wide [OB + KLEVA + LM]", "Cable V-Bar Pushdown [FT]"]),
+    (date(2026, 7, 29), "D6 Weak Points", ["Dips [TOWER + TUBES]", "Better Fly OH Tricep Extension [FT]", "AbMat Ab Bench Pad Cable Crunch [FT]"]),
     (date(2026, 7, 29), "D1 Upper Push", ["Matrix Machine Preacher Curl [EZ]"]),
     (date(2026, 7, 29), "D5 Lower B", ["Nordic Max Bulgarian Split Squat"]),
 ]

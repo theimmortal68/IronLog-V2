@@ -42,7 +42,23 @@ def _synthetic_ht_slot(gen_db, day_role, movement_id, slot_id):
     it never collides with the day's real tiers) onto the given day_role's
     real ProgramDay, purely so this file's generic unified_ht_group
     mechanism tests have two independent slots to tag -- see module
-    docstring."""
+    docstring.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real d6_g1c
+    was the LAST real Hip Thrust TierExercise anywhere in the program;
+    Task 5 removes it too. wire_progression_rules() only sets
+    Movement.progression_rule for movements referenced by a live YAML `ex:`
+    entry, so "Hip Thrust [HIP_THRUST]" no longer gets RULE_DRIVEN stamped
+    automatically. Since every real call site here passes Hip Thrust's own
+    movement_id, this helper now stamps it directly -- centralizes the fix
+    instead of repeating it at every call site."""
+    from ironlog.models.enums import ProgressionRule as _PR
+    from ironlog.models.library import Movement as _Movement
+    mv = gen_db.get(_Movement, movement_id)
+    if mv is not None and mv.progression_rule is None:
+        mv.progression_rule = _PR.RULE_DRIVEN.value
+        gen_db.add(mv)
+        gen_db.flush()
     pd = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == day_role)).one()
     tier = Tier(program_day_id=pd.id, tier_label="TEST-HT", tier_order=99,
                 tier_kind=TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120)
@@ -161,6 +177,17 @@ def test_unified_ht_shared_advance(gen_db_calibrated):
 
 
 def test_d6_ht_is_not_unified(gen_db_calibrated):
+    """2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real Hip
+    Thrust slot (d6_g1c) is REMOVED ENTIRELY -- 3rd and final Hip Thrust
+    removal across this redesign (D2 Task 2, D5 Task 4, D6 here). Zero real
+    Hip Thrust TierExercise rows remain anywhere in the program. This test's
+    invariant ("a derived-from-unified-group slot is never itself tagged
+    unified_ht_group, and never independently advances") is still real
+    engine behavior worth covering, so it now uses a synthetic D6 slot
+    (_synthetic_ht_slot, same pattern as test_unified_ht_shared_read/
+    test_unified_ht_shared_advance above) replicating D6's old real shape
+    (derived_from_unified_group="main", derive_ratio=0.8) instead of reading
+    the now-nonexistent real slot."""
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])
 
@@ -169,10 +196,11 @@ def test_d6_ht_is_not_unified(gen_db_calibrated):
     ).one()
 
     # D6 should NOT be unified
-    d6_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D6 Weak Points", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    d6_slot = _synthetic_ht_slot(gen_db, "D6 Weak Points", ht_mv.id, "test_d6_not_unified_ht")
+    d6_slot.derived_from_unified_group = "main"
+    d6_slot.derive_ratio = 0.8
+    gen_db.add(d6_slot)
+    gen_db.commit()
     assert d6_slot.unified_ht_group is None
 
     # Ensure day-scoped MovementState exists

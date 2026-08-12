@@ -872,16 +872,79 @@ MOVEMENTS = [
     # straight-set slot at 6-8 reps. Band assist ladder mirrors Reverse
     # Nordic Curl's old lb-based convention (higher lb = more assist = easier;
     # advancing walks toward LOWER lb, terminal = fully unassisted).
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): REVERTED back to
+    # cable-loaded LADDER/DOUBLE_PROGRESSION -- FINAL doc's D6 GS1 `dips`
+    # entry lists equipment [andreoni_bar, multifunction_tower, ares_cable],
+    # load_type: cable, current_load: 150 -- NO assistance equipment
+    # (mingmc_sling/red_band) at all, unlike the same doc's D6 pull-up entry
+    # which does list band-assist gear. current_load: 150 is not a fresh
+    # estimate -- it's the EXACT original cable-loaded baseline this same
+    # movement carried before the 2026-07-26 band-assist experiment (see the
+    # docstring comment above, "d6_g1b baseline seeds current_load=150").
+    # Reverts to that same original config: increment_ladder=[5], min_step=5,
+    # load_floor=10 (was progression_mode=LADDER/scheme=DOUBLE_PROGRESSION
+    # before 2026-07-26; matches the identical assisted->loaded conversion
+    # precedent already established for "Reverse Nordic Curl [GHR]" 2026-07-24,
+    # same Movement row, same name/m-id, only the progression config changes).
+    # assist_ladder kept for historical reference; unused once progression_mode
+    # is LADDER (RPE_8_STANDARD never reads it). Dips also moves from its own
+    # standalone T1 tier back into GS1 (see program_seed.py _seed_d6) -- the
+    # FINAL doc's D6 has no standalone T1 tier at all.
     # progression_rule is NOT set here -- seed()'s dict->Movement constructor
     # doesn't read that key at all; the real source of truth is rule_wiring.py
     # (derive_movement_rules/wire_progression_rules), driven by
-    # phase1-seed-source.yaml's `rule:` field. See that yaml + rule_wiring.py
-    # for the actual ASSISTANCE_REDUCTION / RPE_8_STANDARD wiring.
+    # phase1-seed-source.yaml's `rule:` field.
     dict(name="Dips [TOWER + TUBES]", base_name="Dips",
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="TOWER", tags=["TOWER", "TUBES"],
-         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.STRAIGHT,
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5], min_step=5, load_floor=10,
          assist_ladder=[40, 30, 18, 9, 0], primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
+    # ─────────────────────────────────────────────────────────────────────────
+    # New D6 GS2/GS3 movements (2026-08-12, STAB maintenance-block redesign,
+    # Task 5) -- FINAL doc's D6 GS2 full turnover + GS3 partial turnover.
+    # All needs-calibration (zero prior history; FINAL doc gives
+    # wk1_calibration_estimate ranges, not locked current_load values, unlike
+    # Dips above). Same LADDER/DOUBLE_PROGRESSION [FT]-bracket shape as the
+    # Better Fly / Stryker Pad families established in Tasks 1/3/4.
+    # ─────────────────────────────────────────────────────────────────────────
+    dict(name="Better Fly Cable Bicep Curl [FT]", base_name="Better Fly Cable Bicep Curl",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="BICEPS", secondary_muscles=[]),
+    # Chest-supported row, Ares cable (not the D4 barbell variant) -- distinct
+    # resistance curve per the FINAL doc's `differs_from_d4: cable_resistance_
+    # curve` note. Same MID_BACK/LATS/REAR_DELT/BICEPS muscle mapping as
+    # Stryker Pad CSR Barbell [PB].
+    dict(name="Stryker Pad CSR Cables [FT]", base_name="Stryker Pad CSR Cables",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "STRYKER_PAD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=20,
+         primary_muscle="MID_BACK", secondary_muscles=["LATS", "REAR_DELT", "BICEPS"]),
+    dict(name="Better Fly Rear Delt Extension [FT]", base_name="Better Fly Rear Delt Extension",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="REAR_DELT", secondary_muscles=["SIDE_DELT"]),
+    # Overhead tricep extension, Better Fly cuff at the high pulley (FINAL
+    # doc's `vertical_press_exposure: true` -- OH endurance/stability role).
+    dict(name="Better Fly OH Tricep Extension [FT]", base_name="Better Fly OH Tricep Extension",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="TRICEPS", secondary_muscles=["FRONT_DELT"]),
+    # Spine-flexion cable crunch, AbMat specialty pad + Ares cable + Ab
+    # Trainer apparatus (FINAL doc's `core_pattern: spine_flexion_specialty_
+    # pad`) -- D6's mandatory core slot. Cable-loaded (unlike the bodyweight
+    # PROTOCOL/STRAIGHT Ab Trainer movements on D2/D4/D5), so this gets the
+    # same LADDER/DOUBLE_PROGRESSION [FT]-bracket shape as the rest of this
+    # block, not the PROTOCOL shape.
+    dict(name="AbMat Ab Bench Pad Cable Crunch [FT]", base_name="AbMat Ab Bench Pad Cable Crunch",
+         region=Region.CORE, status=Status.ACTIVE, load_code="FT", tags=["FT", "AB_TRAINER"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Cable Bicep Curl [FT]", base_name="Cable Bicep Curl",
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="FT", tags=["FT"],

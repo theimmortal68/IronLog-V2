@@ -123,11 +123,27 @@ def test_commit_advances_only_the_committing_days_ht_row(gen_db):
     # Attach a synthetic, test-only PLAIN slot on D5's real ProgramDay (same
     # pattern as test_generation_day_scoped_state.py) so this test still has
     # a second real row to prove a D6 commit doesn't corrupt.
+    #
+    # 2026-08-12 (Task 5): D6's real d6_g1c slot is ALSO removed entirely now
+    # -- the LAST real Hip Thrust TierExercise anywhere in the program is
+    # gone. Attach a synthetic D6 slot too, carrying the SAME
+    # derived_from_unified_group="main"/derive_ratio=0.8 shape the real
+    # d6_g1c slot used to carry -- this test's whole point ("D6's own row
+    # should hold at current value on its own commit") depends on D6 being a
+    # DERIVED slot (never independently advances), not a plain one.
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
     _synthetic_plain_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_commit_dayscope_d5_ht")
     gen_db.add(MovementState(
         movement_id=ht_mv.id, day_id="D5 Lower B",
         ht_plates=205.0, ht_band_config=[orange.id],
+    ))
+    d6_te = _synthetic_plain_ht_slot(gen_db, "D6 Weak Points", ht_mv.id, "test_commit_dayscope_d6_ht")
+    d6_te.derived_from_unified_group = "main"
+    d6_te.derive_ratio = 0.8
+    gen_db.add(d6_te)
+    gen_db.add(MovementState(
+        movement_id=ht_mv.id, day_id="D6 Weak Points",
+        ht_plates=155.0, ht_band_config=[orange.id],
     ))
     gen_db.commit()
 

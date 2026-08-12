@@ -67,16 +67,24 @@ def test_invalid_day_role_raises(gen_db):
         lay_skeleton("X Nonexistent", gen_db)
 
 
-def test_d6_t1_anchor_preserved_and_gs1_anchor_folds_into_giant_tier(gen_db):
-    """D6 keeps T1 Dips as anchor and folds GS1's Pull-up into the giant tier."""
+def test_d6_has_no_t1_anchor_and_gs1_anchor_folds_into_giant_tier(gen_db):
+    """2026-08-12 (STAB maintenance-block redesign, Task 5): D6's standalone
+    T1 tier (Dips) is ELIMINATED ENTIRELY -- the FINAL doc's D6 has no
+    standalone T1 at all; Dips folds back into GS1 alongside the pull-up and
+    the new close-grip bench. D6 now has ZERO true anchor tiers (GS1's
+    Pull-up keeps tier_role="anchor" but folds into the giant tier, same as
+    before -- tier_role="anchor" only becomes a real Skeleton anchor when
+    tier_kind != GIANT_SET, per skeleton.py's lay_skeleton)."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    assert sk.anchor_movement_ids == [_movement_id(gen_db, "Dips [TOWER + TUBES]")]
-    assert [(m.tier_label, m.rep_low, m.rep_high) for m in sk.anchor_meta] == [("T1", 6, 8)]
+    assert sk.anchor_movement_ids == []
+    assert sk.anchor_meta == []
     # 2026-07-26: 3-way pull-up split (athlete directive) -- D6's Pull-up
     # slot is now its own neutral-grip-paused movement, no longer sharing
-    # D4's Wide-Grip Pull-up.
+    # D4's Wide-Grip Pull-up. UNCHANGED by Task 5 (see program_seed.py's
+    # _seed_d6 comment -- the brief's claimed repoint to "Wide-Grip Pull-up
+    # [TOWER + TUBES]" was a factual error).
     assert slots["d6_g1a"].program_movement_id == _movement_id(gen_db, "Pull-up - Neutral Grip (Paused) [TOWER]")
     assert slots["d6_g1a"].is_giant_tier is True
     assert slots["d6_g1a"].group_key == "GS1"
@@ -85,11 +93,15 @@ def test_d6_t1_anchor_preserved_and_gs1_anchor_folds_into_giant_tier(gen_db):
 
 
 def test_d6_gs1_slots_share_giant_tier_group(gen_db):
-    """All D6 GS1 slots assemble into the same GIANT_SET tier group."""
+    """All D6 GS1 slots assemble into the same GIANT_SET tier group.
+
+    2026-08-12 (Task 5): GS1 is now Pull-up / Dips / Close-Grip Bench
+    Camber-14 (d6_g1a/e/f) -- Hip Thrust (d6_g1c) and Cable Bicep Curl
+    (d6_g1d) removed."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    for slot_id in ("d6_g1a", "d6_g1c", "d6_g1d"):
+    for slot_id in ("d6_g1a", "d6_g1e", "d6_g1f"):
         assert slots[slot_id].is_giant_tier is True
         assert slots[slot_id].group_key == "GS1"
 
@@ -103,8 +115,9 @@ def test_d6_gs1_anchor_kind_is_accessory(gen_db):
 
 
 def test_d6_gs1_slot_order_preserves_pullup_first(gen_db):
-    """D6 GS1 keeps Pull-up first in the shared giant set."""
+    """D6 GS1 keeps Pull-up first in the shared giant set, followed by
+    Dips then Close-Grip Bench Camber-14 (2026-08-12, Task 5)."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     gs1_slots = [s.slot_id for s in sk.adaptive_slots if s.group_key == "GS1"]
 
-    assert gs1_slots == ["d6_g1a", "d6_g1c", "d6_g1d"]
+    assert gs1_slots == ["d6_g1a", "d6_g1e", "d6_g1f"]

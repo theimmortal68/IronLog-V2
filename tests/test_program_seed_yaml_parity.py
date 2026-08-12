@@ -108,6 +108,13 @@ YAML_M_TO_LIBRARY = {
     "face_pull":                        "Face Pull [FT]",
     "cable_v_bar_pushdown":             "Cable V-Bar Pushdown [FT]",
     "t_bar_row_wide_kleva":             "T-Bar Row - Wide [OB + KLEVA + LM]",
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5)
+    "close_grip_bench_camber_14_d6":    "Swiss Bar CG Press [SB]",
+    "better_fly_cable_bicep_curl_d6":   "Better Fly Cable Bicep Curl [FT]",
+    "stryker_pad_csr_cables_d6":        "Stryker Pad CSR Cables [FT]",
+    "better_fly_rear_delt_ext_d6":      "Better Fly Rear Delt Extension [FT]",
+    "better_fly_oh_tricep_ext_d6":      "Better Fly OH Tricep Extension [FT]",
+    "abmat_ab_bench_pad_cable_crunch_d6": "AbMat Ab Bench Pad Cable Crunch [FT]",
 }
 
 # meso-variant ids used inside `meso: {...}` dicts -> canonical library name

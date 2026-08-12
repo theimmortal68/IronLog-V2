@@ -98,7 +98,28 @@ EXPECTED_NEEDS_CAL = {
         "Hybrid Board Calf Raise [D5]", "Hybrid Board Tib Raise [D5]",
         "Better Fly Hip Adduction [FT]", "Ab Trainer Russian Twist",
     },
-    "D6 Weak Points": {"Cable Bicep Curl [FT]", "Pull-up - Neutral Grip (Paused) [TOWER]"},
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): D6 reconciled to
+    # the FINAL doc's real D6 session. "Cable Bicep Curl [FT]" drops out of
+    # D6's wiring entirely (removed from this set -- it's simply not
+    # programmed on D6 anymore, so verify_all_days never reports it at all).
+    # "Pull-up - Neutral Grip (Paused) [TOWER]" is UNCHANGED, still needs-cal
+    # (PULL_UP_ROLLING_MAX tracks via unassisted_max_rolling, not a scalar
+    # BASELINES entry -- never had one). Dips [TOWER + TUBES] is NO LONGER
+    # needs-cal (reverted to cable-loaded, current_load=150 baseline -- see
+    # ironlog/seed.py's Dips comment). 6 new movements, all needs-cal, zero
+    # prior history: Swiss Bar CG Press [SB] (reused, never wired before),
+    # Better Fly Cable Bicep Curl [FT], Stryker Pad CSR Cables [FT], Better
+    # Fly Rear Delt Extension [FT], Better Fly OH Tricep Extension [FT],
+    # AbMat Ab Bench Pad Cable Crunch [FT].
+    "D6 Weak Points": {
+        "Pull-up - Neutral Grip (Paused) [TOWER]",
+        "Swiss Bar CG Press [SB]",
+        "Better Fly Cable Bicep Curl [FT]",
+        "Stryker Pad CSR Cables [FT]",
+        "Better Fly Rear Delt Extension [FT]",
+        "Better Fly OH Tricep Extension [FT]",
+        "AbMat Ab Bench Pad Cable Crunch [FT]",
+    },
 }
 
 
@@ -114,13 +135,18 @@ def test_golive_all_days_generate_clean(gen_db):
         assert report[role]["loaded_slots"] > 0
 
 
-def test_d6_dips_resolves_seeded_assist_level(gen_db):
-    """D6 Dips now starts as bodyweight + band assist in its own T1 slot.
+def test_d6_dips_resolves_seeded_current_load(gen_db):
+    """D6 Dips now starts cable-loaded again, in GS1 (folded back in from its
+    since-eliminated standalone T1 slot).
 
-    docs/program/phase1-seed-source.yaml gives d6_t1 assist_level=40. The
-    go-live baseline must seed that into MovementState.assist_level, not the
-    obsolete d6_g1b cable current_load, and generation must prescribe 40 on
-    the assisted scalar path.
+    2026-08-12 (STAB maintenance-block redesign, Task 5): reverted from the
+    2026-07-26 bodyweight+band-assist experiment back to cable-loaded --
+    the FINAL doc's D6 GS1 `dips` entry lists NO assistance equipment and
+    gives `current_load: 150`, which is the movement's own original
+    pre-2026-07-26 baseline (see ironlog/seed.py's Dips comment for the full
+    reasoning). baseline_seed.BASELINES["d6_g1e"] now seeds current_load=150
+    (not assist_level), and generation must prescribe 150 on the loaded
+    scalar path.
     """
     from sqlmodel import select
 
@@ -146,8 +172,8 @@ def test_d6_dips_resolves_seeded_assist_level(gen_db):
             MovementState.day_id == "D6 Weak Points",
         )
     ).one()
-    assert state.assist_level == 40
-    assert state.current_load is None
+    assert state.current_load == 150
+    assert state.assist_level is None
 
     dips_exercises = [
         ex
@@ -159,7 +185,7 @@ def test_d6_dips_resolves_seeded_assist_level(gen_db):
     for ex in dips_exercises:
         assert ex.planned_sets, "Dips slot has no planned sets"
         for ps in ex.planned_sets:
-            assert ps.target_load == 40, (
-                f"Dips planned set target_load={ps.target_load!r}, expected 40 "
-                "(seeded assist_level from baseline_seed BASELINES['d6_t1'])"
+            assert ps.target_load == 150, (
+                f"Dips planned set target_load={ps.target_load!r}, expected 150 "
+                "(seeded current_load from baseline_seed BASELINES['d6_g1e'])"
             )

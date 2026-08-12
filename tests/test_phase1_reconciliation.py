@@ -84,11 +84,29 @@ CHANGED_REP_TARGETS = {
     "d5_t3f": (10, 15),
     "d5_t3g": (10, 15),
     "d5_t4a": (10, 15),
-    "d6_t1": (6, 8),      # 2026-07-26: Dips moved d6_g1b -> T1, athlete directive
-    "d6_g1d": (8, 12),    # 2026-07-26: Cable Bicep Curl fills Dips' vacated GS1 slot
-    "d6_g2b": (8, 12),
-    "d6_g3a": (15, 20),  # 2026-07-25: athlete directive, Face Pull 10-15 -> 15-20 reps
-    "d6_g3c": (8, 12),
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): D6 reconciled to
+    # the FINAL doc's real D6 session. D6's standalone T1 tier (Dips)
+    # eliminated entirely -- "d6_t1" no longer exists, Dips folds into GS1
+    # at a fresh slot "d6_g1e" (8-12, was 6-8 at d6_t1). GS1 gains a 3rd
+    # member, "d6_g1f" (Close-Grip Bench Camber-14, reused "Swiss Bar CG
+    # Press [SB]"), 4-6 reps. GS1's d6_g1a (Pull-up) UNCHANGED (5-8, not
+    # listed here). Hip Thrust (d6_g1c) and Cable Bicep Curl (d6_g1d) both
+    # removed -- no longer listed. GS2 fully turned over: old d6_g2a/b/c
+    # (Reverse Hyper Recovery / DB Seal Row / Lateral Raise) all vacated,
+    # replaced by fresh d6_g2d/e/f (Better Fly Cable Bicep Curl / Stryker
+    # Pad CSR Cables / Better Fly Rear Delt Extension). GS3: d6_g3a (Face
+    # Pull) rep range corrected 15-20 -> 10-15 (FINAL doc); old d6_g3b/c
+    # (Cable V-Bar Pushdown / T-Bar Row Wide) vacated, replaced by fresh
+    # d6_g3d/e (Better Fly OH Tricep Extension / AbMat Ab Bench Pad Cable
+    # Crunch).
+    "d6_g1e": (8, 12),
+    "d6_g1f": (4, 6),
+    "d6_g2d": (10, 15),
+    "d6_g2e": (8, 12),
+    "d6_g2f": (10, 15),
+    "d6_g3a": (10, 15),
+    "d6_g3d": (8, 12),
+    "d6_g3e": (10, 15),
 }
 
 # slot_id -> (rep_low, rep_high) — anchor slots reconciled to the YAML.
@@ -128,7 +146,10 @@ TIER_REST_MAP = {
     # ("D5 Lower B", "T4") added 2026-08-12, new straight tier (Ab Trainer
     # Russian Twist); tier_label "T4" not "T4 GS" (not a GIANT_SET).
     ("D5 Lower B", "T4"): 90,
-    ("D6 Weak Points", "T1"): 120,
+    # ("D6 Weak Points", "T1") removed 2026-08-12 (STAB maintenance-block
+    # redesign, Task 5) -- D6's standalone T1 tier (Dips) no longer exists;
+    # Dips folds back into GS1 (3rd and final Hip Thrust removal + T1
+    # elimination across this redesign).
     ("D6 Weak Points", "GS1"): 90,
     ("D6 Weak Points", "GS2"): 90,
     ("D6 Weak Points", "GS3"): 60,
@@ -218,6 +239,35 @@ def test_unilateral_flags(gen_db):
 
 def test_reverse_hyper_recovery_rpe_cap(gen_db):
     # Reverse Hyper Recovery moved GS3 -> GS2 in the YAML reconciliation; its
-    # rpe_cap=6.0 now lives on d6_g2a.
+    # rpe_cap=6.0 lived on d6_g2a.
+    #
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): d6_g2a no longer
+    # exists -- GS2 fully turned over (Reverse Hyper Recovery drops out of
+    # D6's wiring entirely, replaced by Better Fly Cable Bicep Curl /
+    # Stryker Pad CSR Cables / Better Fly Rear Delt Extension, none of which
+    # carry a non-default rpe_cap). This was the ONLY rpe_cap != 8.0 example
+    # anywhere in the real program. Attaches a synthetic TierExercise (own
+    # Tier, tier_order=99, matching the established synthetic-slot pattern
+    # used throughout the HT test files) reusing the same still-ACTIVE-but-
+    # unwired Reverse Hyper Recovery movement and its original rpe_cap=6.0,
+    # to keep this wiring-level check (distinct from test_assembler_
+    # fidelity.py's end-to-end generation check of the same scenario).
+    from ironlog.models.program import TierKind
+
+    rhr = gen_db.exec(
+        select(Movement).where(Movement.name == "Reverse Hyper Recovery [REV_HYPER]")
+    ).one()
+    pd = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == "D6 Weak Points")).one()
+    tier = Tier(program_day_id=pd.id, tier_label="TEST-RPE", tier_order=99,
+                tier_kind=TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    gen_db.add(tier)
+    gen_db.flush()
+    gen_db.add(TierExercise(
+        tier_id=tier.id, slot_id="test_rhr_rpe_cap", movement_id=rhr.id,
+        exercise_order=1, tier_role="free", pattern="reverse_hyper",
+        rep_low=15, rep_high=20, scheme="FIXED", rpe_cap=6.0,
+    ))
+    gen_db.commit()
+
     tes = {te.slot_id: te for te in gen_db.exec(select(TierExercise)).all()}
-    assert tes["d6_g2a"].rpe_cap == 6.0
+    assert tes["test_rhr_rpe_cap"].rpe_cap == 6.0

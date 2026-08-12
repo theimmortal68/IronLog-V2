@@ -135,6 +135,15 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "better_fly_hip_adduction_d5":       "Better Fly Hip Adduction [FT]",
     "ab_trainer_russian_twist_d5":       "Ab Trainer Russian Twist",
     # ── d6 Weak Points ───────────────────────────────────────────────────────
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): hip_thrust_d6
+    # (3rd/final Hip Thrust removal this redesign), reverse_hyper_recovery,
+    # db_seal_row, lateral_raise_ares, cable_v_bar_pushdown, t_bar_row_wide_
+    # kleva all drop out of D6's real wiring (kept below, their Movement rows
+    # stay ACTIVE/unwired, never deleted). "dips" is UNCHANGED as an m-id
+    # (same movement/name) but its rule changes assistance_reduction ->
+    # rpe_8_standard (see ironlog/seed.py's Dips comment). "face_pull" is
+    # UNCHANGED (same movement, same rule, only its TierExercise rep range
+    # changes -- rep range isn't part of rule wiring).
     "pull_up_neutral_paused_d6":         "Pull-up - Neutral Grip (Paused) [TOWER]",
     "dips":                              "Dips [TOWER + TUBES]",
     "cable_bicep_curl_d6":               "Cable Bicep Curl [FT]",
@@ -144,6 +153,12 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "lateral_raise_ares":                "Lateral Raise [FT]",
     "face_pull":                         "Face Pull [FT]",
     "cable_v_bar_pushdown":              "Cable V-Bar Pushdown [FT]",
+    "close_grip_bench_camber_14_d6":     "Swiss Bar CG Press [SB]",
+    "better_fly_cable_bicep_curl_d6":    "Better Fly Cable Bicep Curl [FT]",
+    "stryker_pad_csr_cables_d6":         "Stryker Pad CSR Cables [FT]",
+    "better_fly_rear_delt_ext_d6":       "Better Fly Rear Delt Extension [FT]",
+    "better_fly_oh_tricep_ext_d6":       "Better Fly OH Tricep Extension [FT]",
+    "abmat_ab_bench_pad_cable_crunch_d6": "AbMat Ab Bench Pad Cable Crunch [FT]",
     "t_bar_row_wide_kleva":              "T-Bar Row - Wide [OB + KLEVA + LM]",
 }
 

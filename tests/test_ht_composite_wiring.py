@@ -79,7 +79,22 @@ def _synthetic_plain_ht_slot(gen_db, day_role, movement_id, slot_id):
     test_assembler_does_not_prescribe_a_retired_band, which needs a slot
     that independently wear-gates against a retired band (see module
     docstring: D6's real d6_g1c is a DERIVED slot and intentionally skips
-    that gating)."""
+    that gating).
+
+    2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real d6_g1c
+    was the LAST real Hip Thrust TierExercise anywhere in the program;
+    Task 5 removes it too. wire_progression_rules() only sets
+    Movement.progression_rule for movements referenced by a live YAML `ex:`
+    entry, so "Hip Thrust [HIP_THRUST]" no longer gets RULE_DRIVEN stamped
+    automatically. Since every real call site here passes Hip Thrust's own
+    movement_id, this helper now stamps it directly -- centralizes the fix
+    instead of repeating it at every call site."""
+    from ironlog.models.enums import ProgressionRule as _PR
+    mv = gen_db.get(Movement, movement_id)
+    if mv is not None and mv.progression_rule is None:
+        mv.progression_rule = _PR.RULE_DRIVEN.value
+        gen_db.add(mv)
+        gen_db.flush()
     pd = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == day_role)).one()
     tier = Tier(program_day_id=pd.id, tier_label="TEST-HT", tier_order=99,
                 tier_kind=TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120)
@@ -240,7 +255,20 @@ def test_uncalibrated_ht_does_not_fabricate_plates(gen_db):
     """A fully uncalibrated HT movement (no current_load, no ht_plates) must be
     assembled needs-calibration-style: no target_plates/band_config/target_felt_peak
     fabricated, and no entry recorded in prospective_ht_setups. Mirrors the
-    non-HT needs-calibration path's "never fabricate a floor" guarantee."""
+    non-HT needs-calibration path's "never fabricate a floor" guarantee.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real Hip
+    Thrust slot (d6_g1c) is removed entirely -- D6 no longer has ANY real
+    Hip Thrust TierExercise for this test's "assembled into at least one
+    set" premise to exercise. Uses a synthetic, deliberately UNCALIBRATED
+    (no MovementState created for it) plain HT slot on D6's real ProgramDay
+    instead -- exactly what this test needs to exercise.
+    """
+    ht_mv_pre = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+    _synthetic_plain_ht_slot(gen_db, "D6 Weak Points", ht_mv_pre.id, "test_uncalibrated_d6_ht")
+
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D6 Weak Points", gen_db)
     ctx = resolve_context("D6 Weak Points", sk, gen_db, wk)
@@ -284,16 +312,29 @@ def test_assemble_does_not_write_ht_setup(gen_db_calibrated):
 # ---------------------------------------------------------------------------
 
 def test_commit_persists_ht_setup(gen_db_calibrated):
+    """2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real Hip
+    Thrust slot (d6_g1c) is removed entirely -- uses a synthetic plain HT
+    slot on D6's real ProgramDay instead (this test exercises generic
+    commit/persist mechanics, unaffected by derived-vs-plain status, per
+    the module docstring)."""
     gen_db = gen_db_calibrated
+    ht_mv = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+    _synthetic_plain_ht_slot(gen_db, "D6 Weak Points", ht_mv.id, "test_commit_persists_d6_ht")
+    st_seed = MovementState(
+        movement_id=ht_mv.id, day_id="D6 Weak Points",
+        ht_plates=155.0, ht_band_config=[],
+    )
+    gen_db.add(st_seed)
+    gen_db.commit()
+
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D6 Weak Points", gen_db)
     ctx = resolve_context("D6 Weak Points", sk, gen_db, wk)
     sel = program_selections(sk)
     assembled = assemble(sel, sk, ctx, gen_db)
 
-    ht_mv = gen_db.exec(
-        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
-    ).one()
     expected_plates, expected_config = assembled.prospective_ht_setups[ht_mv.id]
 
     commit_session(
@@ -303,7 +344,10 @@ def test_commit_persists_ht_setup(gen_db_calibrated):
     )
 
     st = gen_db.exec(
-        select(MovementState).where(MovementState.movement_id == ht_mv.id)
+        select(MovementState).where(
+            MovementState.movement_id == ht_mv.id,
+            MovementState.day_id == "D6 Weak Points",
+        )
     ).one()
     assert st.ht_plates == expected_plates
     assert st.ht_band_config == expected_config

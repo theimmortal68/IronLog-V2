@@ -55,10 +55,21 @@ def test_named_movements_map_to_expected_rules(gen_db):
         # itself switched to Wide-Grip Pull-up [TOWER] (unassisted dead-hang,
         # PULL_UP_ROLLING_MAX), so "Pull-up [TOWER + TUBES]" is no longer
         # programmed on ANY day and carries no wired progression_rule.
-        # ASSISTANCE_REDUCTION's spot-check moves to "Dips [TOWER + TUBES]"
-        # (D6 d6_t1, still real and wired).
-        "Dips [TOWER + TUBES]":        ProgressionRule.ASSISTANCE_REDUCTION.value,
-        "Hip Thrust [HIP_THRUST]":     ProgressionRule.RULE_DRIVEN.value,
+        # 2026-08-12 (STAB maintenance-block redesign, Task 5): Dips reverted
+        # from bodyweight+band-assist back to cable-loaded (RPE_8_STANDARD),
+        # so it no longer carries ASSISTANCE_REDUCTION -- see ironlog/seed.py's
+        # Dips comment. ASSISTANCE_REDUCTION's spot-check moves to "Nordic
+        # Curl Max [Ares]" (D2 d2_t2e / D5 d5_t2e, still real and wired, ARES
+        # cable weighted assist).
+        "Dips [TOWER + TUBES]":        ProgressionRule.RPE_8_STANDARD.value,
+        "Nordic Curl Max [Ares]":      ProgressionRule.ASSISTANCE_REDUCTION.value,
+        # 2026-08-12 (STAB maintenance-block redesign, Task 5): D6's Hip
+        # Thrust slot (d6_g1c) removed -- 3rd and final Hip Thrust removal
+        # across this redesign (D2 Task 2, D5 Task 4, D6 here). Hip Thrust
+        # [HIP_THRUST] is no longer programmed on ANY day, so it carries no
+        # wired progression_rule. RULE_DRIVEN is now an unused rule family
+        # (no spot-check example needed here, matches the INCLINE_REDUCTION/
+        # BODY_POSITION precedent already in this dict).
         # 2026-08-11 (STAB maintenance-block redesign, Task 3): "Face-Up
         # Incline Knee Raise" (formerly D4's d4_t2c, `rule: incline_reduction`)
         # drops out of D4's wiring entirely -- it was already unwired from D1
@@ -66,8 +77,21 @@ def test_named_movements_map_to_expected_rules(gen_db):
         # no wired progression_rule. INCLINE_REDUCTION is now an unused rule
         # family (no spot-check example needed here, matches the BODY_POSITION
         # precedent below).
-        "Cable V-Bar Pushdown [FT]":   ProgressionRule.SINGLE_SESSION.value,
-        "Reverse Hyper Recovery [REV_HYPER]": ProgressionRule.FIXED_LOAD.value,
+        # 2026-08-12 (STAB maintenance-block redesign, Task 5): Cable V-Bar
+        # Pushdown drops out of D6's wiring entirely (GS3 turned over to
+        # Better Fly OH Tricep Extension / AbMat Ab Bench Pad Cable Crunch).
+        # It is no longer programmed on any day, so it carries no wired
+        # progression_rule. SINGLE_SESSION is now an unused rule family in
+        # real production wiring -- see test_second_rule_type_single_session_
+        # advances above, which stamps the rule directly to keep testing the
+        # rule TYPE.
+        #
+        # 2026-08-12 (STAB maintenance-block redesign, Task 5): Reverse Hyper
+        # Recovery also drops out of D6's wiring entirely (GS2 fully turned
+        # over). It is no longer programmed on any day, so it carries no
+        # wired progression_rule. FIXED_LOAD is now an unused rule family in
+        # real production wiring (no spot-check example needed here, matches
+        # the SINGLE_SESSION precedent immediately above).
         # 2026-08-12 (STAB maintenance-block redesign, Task 4): "Light Reverse
         # Hyper [REV_HYPER]" (D5's old T2 GS scout_reverse_hyper_bilateral_
         # d5_90cap slot) drops out of D5's wiring entirely -- D5's T2 GS fully
@@ -99,17 +123,24 @@ def test_derive_movement_rules_is_internally_consistent():
     resolves to a real enum member (halt-and-flag would raise otherwise)."""
     from ironlog.generation.rule_wiring import derive_movement_rules
     rules = derive_movement_rules()
-    # Hip Thrust carries rule_driven (D2/D5) AND rule_driven_fixed_increment (D6),
-    # both of which resolve to RULE_DRIVEN — the consistency check must accept this.
-    assert rules["Hip Thrust [HIP_THRUST]"] == ProgressionRule.RULE_DRIVEN
+    # 2026-08-12 (STAB maintenance-block redesign, Task 5): D6's Hip Thrust
+    # slot (d6_g1c, rule_driven_fixed_increment) removed -- 3rd and final Hip
+    # Thrust removal across this redesign (D2's rule_driven dropped in Task
+    # 2, D5 never carried Hip Thrust, D6 here). Hip Thrust [HIP_THRUST] is no
+    # longer programmed on ANY day, so it has no entry in `rules` at all.
+    assert "Hip Thrust [HIP_THRUST]" not in rules
     # 2026-08-10 (STAB maintenance-block redesign): D1's pull-up slot itself
     # switched to Wide-Grip Pull-up [TOWER] (unassisted dead-hang), so
     # "Pull-up [TOWER + TUBES]" is no longer programmed on any day and has no
     # entry in `rules` at all (derive_movement_rules only maps movements that
-    # are actually wired to a slot). "Dips [TOWER + TUBES]" (D6 d6_t1) is now
-    # the real, wired ASSISTANCE_REDUCTION example.
+    # are actually wired to a slot).
     assert "Pull-up [TOWER + TUBES]" not in rules
-    assert rules["Dips [TOWER + TUBES]"] == ProgressionRule.ASSISTANCE_REDUCTION
+    # 2026-08-12 (Task 5): Dips reverted from ASSISTANCE_REDUCTION to
+    # RPE_8_STANDARD (cable-loaded again) -- see ironlog/seed.py's Dips
+    # comment. "Nordic Curl Max [Ares]" (D2/D5, still real and wired) is now
+    # the real, wired ASSISTANCE_REDUCTION example.
+    assert rules["Dips [TOWER + TUBES]"] == ProgressionRule.RPE_8_STANDARD
+    assert rules["Nordic Curl Max [Ares]"] == ProgressionRule.ASSISTANCE_REDUCTION
     assert rules["Wide-Grip Pull-up [TOWER]"] == ProgressionRule.PULL_UP_ROLLING_MAX
 
 
@@ -221,11 +252,23 @@ def test_clean_bench_session_earns_load_step(gen_db):
 
 def test_second_rule_type_single_session_advances(gen_db):
     """Prove the wiring is not Bench-specific: a single_session movement
-    (Cable V-Bar Pushdown, D6 GS3) earns a load step after ONE qualifying session.
+    (Cable V-Bar Pushdown) earns a load step after ONE qualifying session.
 
     Re-pointed (K2): was asserting current_increment_tier == 1 (the same step-size
     semantics bug). A single-session clean advance earns pending_load_delta (the
     coarse increment), tier untouched.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 5): Cable V-Bar
+    Pushdown dropped out of D6's real wiring entirely (GS3 turned over to
+    Better Fly OH Tricep Extension / AbMat Ab Bench Pad Cable Crunch) --
+    SINGLE_SESSION is no longer live-wired anywhere in the program, so
+    Movement.progression_rule is no longer auto-derived for this movement.
+    This test only cares about proving the SINGLE_SESSION rule TYPE fires
+    correctly (not this specific movement's live wiring), so it stamps the
+    rule directly on the still-ACTIVE-but-unwired Movement row -- same
+    treatment as the file's own precedent for testing a rule family with no
+    remaining real production example (see test_named_movements_map_to_
+    expected_rules's INCLINE_REDUCTION/BODY_POSITION comments above).
     """
     from ironlog.generation.baseline_seed import seed_movement_baselines
     seed_movement_baselines(gen_db)
@@ -233,6 +276,9 @@ def test_second_rule_type_single_session_advances(gen_db):
     vbar = gen_db.exec(
         select(Movement).where(Movement.name == "Cable V-Bar Pushdown [FT]")
     ).one()
+    vbar.progression_rule = ProgressionRule.SINGLE_SESSION.value
+    gen_db.add(vbar)
+    gen_db.commit()
     assert vbar.progression_rule == ProgressionRule.SINGLE_SESSION.value
     ladder = vbar.increment_ladder or []
     expected_step = ladder[0] if ladder else None

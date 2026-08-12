@@ -96,11 +96,12 @@ def test_d6_derived_from_unified_advancement(gen_db_calibrated):
     d5_slot.unified_ht_group = "main"
     gen_db.add(d5_slot)
 
-    # Seed D6 derived
-    d6_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D6 Weak Points", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    # Seed D6 derived. 2026-08-12 (STAB maintenance-block redesign, Task 5):
+    # D6's real Hip Thrust slot (d6_g1c) is REMOVED ENTIRELY -- 3rd and
+    # final Hip Thrust removal across this redesign. D6 no longer has any
+    # real Hip Thrust TierExercise either, so this uses a synthetic slot on
+    # D6's real ProgramDay too, same pattern as D5's leg above.
+    d6_slot = _synthetic_ht_slot(gen_db, "D6 Weak Points", ht_mv.id, "test_d6derived_d6_ht")
     d6_slot.derived_from_unified_group = "main"
     d6_slot.derive_ratio = 0.8
     gen_db.add(d6_slot)
@@ -153,16 +154,16 @@ def test_d6_derived_from_unified_advancement(gen_db_calibrated):
 
 
 def test_d6_suppresses_independent_advance(gen_db_calibrated):
+    """2026-08-12 (Task 5): D6's real Hip Thrust slot removed -- uses a
+    synthetic slot, same pattern as test_d6_derived_from_unified_advancement
+    above."""
     gen_db = gen_db_calibrated
-    
+
     ht_mv = gen_db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    d6_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D6 Weak Points", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    d6_slot = _synthetic_ht_slot(gen_db, "D6 Weak Points", ht_mv.id, "test_d6suppress_d6_ht")
     d6_slot.derived_from_unified_group = "main"
     d6_slot.derive_ratio = 0.8
     gen_db.add(d6_slot)
@@ -199,10 +200,9 @@ def test_d6_no_touch_on_dirty_unified_session(gen_db_calibrated):
     d5_slot.unified_ht_group = "main"
     gen_db.add(d5_slot)
 
-    d6_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D6 Weak Points", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    # 2026-08-12 (Task 5): D6's real Hip Thrust slot removed -- synthetic,
+    # same pattern as D5's leg above.
+    d6_slot = _synthetic_ht_slot(gen_db, "D6 Weak Points", ht_mv.id, "test_d6derived_d6_ht_2")
     d6_slot.derived_from_unified_group = "main"
     d6_slot.derive_ratio = 0.8
     gen_db.add(d6_slot)

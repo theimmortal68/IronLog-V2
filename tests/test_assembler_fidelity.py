@@ -72,13 +72,40 @@ def test_rest_seconds_propagated_giant_set(gen_db):
 
 
 def test_rpe_from_reverse_hyper_recovery_cap(gen_db):
-    """RevHyper-Recovery (d6_g2a, TierExercise.rpe_cap=6.0) -> every WORKING set's
-    target_rpe == 6.0, not the phase-policy band default."""
+    """RevHyper-Recovery (TierExercise.rpe_cap=6.0) -> every WORKING set's
+    target_rpe == 6.0, not the phase-policy band default.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 5): D6's real d6_g2a
+    slot (Reverse Hyper Recovery) drops out of D6's wiring entirely -- GS2
+    fully turned over to Better Fly Cable Bicep Curl / Stryker Pad CSR
+    Cables / Better Fly Rear Delt Extension, none of which carry a non-
+    default rpe_cap. Reverse Hyper Recovery [REV_HYPER] was the ONLY
+    rpe_cap != 8.0 example anywhere in the real program, so this test now
+    attaches a synthetic GIANT_SET TierExercise (own Tier, tier_order=99,
+    matching this file's/test_ht_*.py's established synthetic-slot
+    pattern) onto D6's real ProgramDay, reusing the same still-ACTIVE-but-
+    unwired Movement and its original rpe_cap=6.0/rest=90 shape, to keep
+    testing that the assembler actually reads a non-default rpe_cap rather
+    than falling back to the phase-policy band default."""
+    from ironlog.models.program import ProgramDay, Tier, TierExercise, TierKind
+
+    rhr_id = _movement_id(gen_db, "Reverse Hyper Recovery [REV_HYPER]")
+    pd = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == "D6 Weak Points")).one()
+    tier = Tier(program_day_id=pd.id, tier_label="TEST-RPE", tier_order=99,
+                tier_kind=TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    gen_db.add(tier)
+    gen_db.flush()
+    gen_db.add(TierExercise(
+        tier_id=tier.id, slot_id="test_rpe_cap_d6_rhr", movement_id=rhr_id,
+        exercise_order=1, tier_role="free", pattern="reverse_hyper",
+        rep_low=15, rep_high=20, scheme="FIXED", rpe_cap=6.0,
+    ))
+    gen_db.commit()
+
     out = generate_session("D6 Weak Points", gen_db, _proposer_for("D6 Weak Points", gen_db), _week_keyer)
     assert out.exhausted is False
     sess = out.assembled.session
 
-    rhr_id = _movement_id(gen_db, "Reverse Hyper Recovery [REV_HYPER]")
     ex, group = _exercise_and_group(sess, rhr_id)
 
     assert ex.planned_sets, "Reverse Hyper Recovery must assemble sets"
