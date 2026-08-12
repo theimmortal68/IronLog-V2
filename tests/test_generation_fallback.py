@@ -369,12 +369,31 @@ def test_last_valid_matches_prior_meso_rotation_variant_after_reorder(gen_db):
 
     (2026-08-11, STAB maintenance-block redesign, Task 3: repointed from D4's
     d4_t2a/b/c to D5's d5_t2a/b/c. D4's T2 GS was fully turned over per the FINAL doc
-    and no longer carries any meso rotation; D5's d5_t2b remains the program's
-    adaptive-slot ("free" role) meso-rotation example, unaffected by this task.)
+    and no longer carries any meso rotation; D5's d5_t2b was the program's
+    adaptive-slot ("free" role) meso-rotation example, unaffected by that task.
+
+    2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over
+    (d5_t2a/b/c no longer exist, replaced by d5_t2d/e/f) -- there is no real
+    adaptive-role meso rotation left anywhere in the program. Repointed to
+    d5_t2d/e/f with a synthetic, test-only MesoRotation inserted on d5_t2e
+    (Nordic Curl Max [Ares]), mirroring the identical fix in
+    test_generation_context.py / test_slot_override_skeleton.py.
     """
+    from ironlog.models.library import Movement
+    from ironlog.models.program import MesoRotation, TierExercise
+
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    old_order = {"d5_t2a": 1, "d5_t2b": 2, "d5_t2c": 3}
-    current_order = {"d5_t2c": 1, "d5_t2a": 2, "d5_t2b": 3}
+    d5_t2e = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2e")
+    ).one()
+    single_leg = gen_db.exec(
+        select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
+    ).one()
+    gen_db.add(MesoRotation(tier_exercise_id=d5_t2e.id, meso_number=2, movement_id=single_leg.id))
+    gen_db.commit()
+
+    old_order = {"d5_t2d": 1, "d5_t2e": 2, "d5_t2f": 3}
+    current_order = {"d5_t2f": 1, "d5_t2d": 2, "d5_t2e": 3}
 
     _set_slot_orders(gen_db, old_order)
     old_sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
@@ -406,12 +425,29 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
 
     (2026-08-11, STAB maintenance-block redesign, Task 3: repointed from D4's
     d4_t2a to D5's d5_t2b. D4's T2 GS was fully turned over per the FINAL doc and no
-    longer carries any meso rotation; D5's d5_t2b remains the program's adaptive-slot
-    ("free" role) meso-rotation example, unaffected by this task.)
+    longer carries any meso rotation; D5's d5_t2b was the program's adaptive-slot
+    ("free" role) meso-rotation example, unaffected by that task.
+
+    2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over (d5_t2b
+    no longer exists, replaced by d5_t2d/e/f) -- there is no real adaptive-
+    role meso rotation left anywhere in the program. Repointed to d5_t2e
+    with a synthetic, test-only MesoRotation inserted first (then deleted,
+    as this test's own scenario requires), mirroring the identical fix in
+    the reorder test above.
     """
+    from ironlog.models.library import Movement
     from ironlog.models.program import MesoRotation, TierExercise
 
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    d5_t2e = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2e")
+    ).one()
+    single_leg = gen_db.exec(
+        select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
+    ).one()
+    gen_db.add(MesoRotation(tier_exercise_id=d5_t2e.id, meso_number=2, movement_id=single_leg.id))
+    gen_db.commit()
+
     old_sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
     old_slots = [s for s in old_sk.adaptive_slots if s.kind in ("giant", "knee")]
     old_movement_by_slot = {s.slot_id: s.program_movement_id for s in old_slots}
@@ -422,11 +458,8 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
         [old_movement_by_slot[s.slot_id] for s in old_slots],
     )
 
-    d5_t2b = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2b")
-    ).one()
     rotation = gen_db.exec(
-        select(MesoRotation).where(MesoRotation.tier_exercise_id == d5_t2b.id)
+        select(MesoRotation).where(MesoRotation.tier_exercise_id == d5_t2e.id)
     ).one()
     gen_db.delete(rotation)
     gen_db.commit()
@@ -440,7 +473,7 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
         s.slot_id: old_movement_by_slot.get(s.slot_id, s.program_movement_id)
         for s in current_slots
     }
-    current_movement_by_slot["d5_t2b"] = d5_t2b.movement_id
+    current_movement_by_slot["d5_t2e"] = d5_t2e.movement_id
 
     assert last_valid_selections(current_sk, ctx, gen_db) == _expected_last_valid(
         current_slots,

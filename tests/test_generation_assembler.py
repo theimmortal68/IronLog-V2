@@ -133,17 +133,19 @@ def test_d5_knee_modality_giant_tiers_stay_grouped(gen_db_calibrated):
     ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
     res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
 
+    # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5's T2/T3 GS
+    # composition rewritten to match the FINAL doc's real D5 session.
     t2 = _giant_group_by_label(res.session, "T2 GS")
     assert _names_for_group(t2, gen_db) == [
-        "Bulgarian Split Squat [DB]",
-        "Light Reverse Hyper [REV_HYPER]",
-        "Nordic Curl [GHR]",
+        "Nordic Max Bulgarian Split Squat",
+        "Nordic Curl Max [Ares]",
+        "Better Fly Kickback [FT]",
     ]
 
     t3 = _giant_group_by_label(res.session, "T3 GS")
     assert _names_for_group(t3, gen_db) == [
-        "Poliquin Step-up",
         "Reverse Nordic Curl [GHR]",
-        "Cable Tibialis Raise",
-        "Calf Raise [GHR]",
+        "Hybrid Board Calf Raise [D5]",
+        "Hybrid Board Tib Raise [D5]",
+        "Better Fly Hip Adduction [FT]",
     ]

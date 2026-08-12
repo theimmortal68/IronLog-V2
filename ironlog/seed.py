@@ -217,6 +217,82 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
          assist_ladder=[60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0],
          primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES"]),
+    # 2026-08-12: new D5 T1 movement (maintenance block, STAB redesign,
+    # Task 4). Unilateral DB RDL, B-stance (front foot flat, back foot on
+    # ball for balance) -- replaces RDL [PB] as D5's T1 anchor (RDL [PB]
+    # itself stays ACTIVE/wired nowhere now, not deleted -- D5's own
+    # meso-2 rotation, and any other reference elsewhere, may still need
+    # it). Needs-calibration start, zero prior history.
+    dict(name="Kickstand RDL [DB]", base_name="Kickstand RDL",
+         region=Region.LOWER, status=Status.ACTIVE, load_code="DB", tags=["DB"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
+         primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES", "SPINAL_ERECTORS"]),
+    # 2026-08-12: new D5 T2 GS movement (Task 4). Nordic Max attachment +
+    # MX100 DBs, unilateral. Needs-calibration start, zero prior history.
+    dict(name="Nordic Max Bulgarian Split Squat", base_name="Nordic Max Bulgarian Split Squat",
+         region=Region.LOWER, status=Status.ACTIVE, load_code="DB", tags=["DB", "NORDIC_MAX"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
+         primary_muscle="QUADS", secondary_muscles=["GLUTES", "HAMSTRINGS"]),
+    # 2026-08-12: new D5 T2 GS movement (Task 4). Better Fly cuff, cable at
+    # LOW pulley (distinct attach point from Better Fly Lat Pulldown's high
+    # pulley / Better Fly Cable Pullover's mid pulley), glute isolation, no
+    # spinal load. Needs-calibration start, zero prior history.
+    dict(name="Better Fly Kickback [FT]", base_name="Better Fly Kickback",
+         region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, unilateral=True,
+         primary_muscle="GLUTES", secondary_muscles=[]),
+    # 2026-08-12: new D5 T3 GS movement (Task 4). Genuinely SEPARATE Movement
+    # row from D2's "Hybrid Board Calf Raise [D2]" -- resolved per the real
+    # merged precedent (D2's own row is day-suffixed, not shared), NOT the
+    # FINAL doc's ambiguous identical "independent_track" phrasing alone.
+    # Same LADDER/DOUBLE_PROGRESSION shape as the D2 sibling. Needs-
+    # calibration start, zero prior history.
+    dict(name="Hybrid Board Calf Raise [D5]", base_name="Hybrid Board Calf Raise",
+         region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         primary_muscle="CALVES", secondary_muscles=[]),
+    # 2026-08-12: new D5 T3 GS movement (Task 4, plan-owner addendum after
+    # the TIB-frequency NEEDS_CONTEXT round-trip). Cable Tib Raise is being
+    # replaced program-wide by this Hybrid Board equipment variant -- D2
+    # gets its own separate "[D2]" row (see below, small standalone fix on
+    # this same branch), D5 gets this one. Genuinely separate Movement row
+    # per day, same treatment as Hybrid Board Calf Raise above (NOT shared
+    # like Nordic Curl Max). knee_modality lives on the TierExercise
+    # (program_seed.py), per-slot, not on this Movement row -- matches the
+    # Task 2 convention for Nordic Curl Max [Ares] / Matrix Machine Sissy
+    # Squat (the OLD Cable Tibialis Raise movement being retired here baked
+    # knee_modality onto the Movement row itself -- that's the superseded
+    # pattern). Needs-calibration start, zero prior history.
+    dict(name="Hybrid Board Tib Raise [D5]", base_name="Hybrid Board Tib Raise",
+         region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         primary_muscle="TIBIALIS", secondary_muscles=[]),
+    # 2026-08-12: new D5 T3 GS movement (Task 4). Better Fly cuff + Ares
+    # cable, unilateral, rotates with (future, not-yet-wired) hip abduction
+    # weekly per the FINAL doc's rotation_partner note -- out of this task's
+    # scope, no abduction movement created. Needs-calibration start, zero
+    # prior history.
+    dict(name="Better Fly Hip Adduction [FT]", base_name="Better Fly Hip Adduction",
+         region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, unilateral=True,
+         primary_muscle="ADDUCTORS", secondary_muscles=["GLUTES"]),
+    # 2026-08-12: new D5 T4 tier movement (Task 4). D5's mandatory core
+    # slot (rotational pattern) -- Ab Trainer decline setup (Config B),
+    # differs from D4's Cable Woodchopper in mechanics (Ab Trainer decline
+    # vs standing cable) and from D2's Ab Trainer Decline Sit-up in pattern
+    # (rotation vs spine flexion). Mirrors D2/D4's Ab Trainer family shape
+    # (PROTOCOL/STRAIGHT, bodyweight, REP_LADDER-driven via TierExercise
+    # scheme). Needs-calibration start, zero prior history.
+    dict(name="Ab Trainer Russian Twist", base_name="Ab Trainer Russian Twist",
+         region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
+         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
+         primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Pull-up [TOWER + TUBES]", base_name="Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
@@ -334,6 +410,21 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
          primary_muscle="CALVES", secondary_muscles=[]),
+    # 2026-08-12: D2 follow-up correction (plan-owner directive, delivered
+    # mid-Task-4/D5, small standalone fix bundled into this branch -- see
+    # program_seed.py's _seed_d2 for the corresponding TierExercise change).
+    # Cable Tibialis Raise (the OLD shared D2/D5 TIB movement) is being
+    # replaced program-wide by this Hybrid Board equipment variant, matching
+    # the Hybrid Board Calf Raise [D2]/[D5] separate-per-day-row precedent
+    # directly above -- NOT shared with D5's own "Hybrid Board Tib Raise
+    # [D5]" row. Cable Tibialis Raise itself stays ACTIVE in the library,
+    # now fully unwired program-wide (D5 also drops it, see program_seed.py
+    # _seed_d5) -- not deleted, per the never-delete-orphans convention.
+    dict(name="Hybrid Board Tib Raise [D2]", base_name="Hybrid Board Tib Raise",
+         region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         primary_muscle="TIBIALIS", secondary_muscles=[]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # Upper accessories — LADDER / DOUBLE_PROGRESSION  (ACTIVE)

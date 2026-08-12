@@ -233,39 +233,48 @@ def test_active_override_swaps_only_its_slot():
 
 def test_adaptive_slot_meso_rotation_fires_through_skeleton(gen_db):
     """Regression lock: lay_skeleton now resolves MesoRotation for NON-anchor
-    (adaptive) slots too, via _effective_movement_id. The seed attaches a meso-2
-    rotation to D5's d5_t2b (Scout Reverse Hyper (90 cap) [free] -> Reverse Hyper -
-    Single Leg); prove it fires at meso_number=2 and does NOT fire at meso_number=1
-    (rotation is meso-gated, not always-on). Without this, a refactor could silently
-    revert the adaptive branch to raw te.movement_id and stay green.
+    (adaptive) slots too, via _effective_movement_id. Prove it fires at
+    meso_number=2 and does NOT fire at meso_number=1 (rotation is meso-gated,
+    not always-on). Without this, a refactor could silently revert the
+    adaptive branch to raw te.movement_id and stay green.
 
     (2026-08-11, STAB maintenance-block redesign, Task 3: this test previously used
     D4's d4_t2a, which carried a meso-2 rotation to Pendlay Row. D4's T2 GS was fully
     turned over per the FINAL doc and no longer carries any meso rotation -- repointed
     to D5's d5_t2b, the program's other adaptive-slot ("free" role) meso-rotation
-    example, unaffected by this task.)
-    """
-    from ironlog.models.program import MesoRotation, TierExercise
+    example, unaffected by that task.
 
+    2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over (d5_t2b
+    no longer exists) -- there is no real adaptive-role meso rotation left
+    anywhere in the program. This test now inserts a synthetic, test-only
+    MesoRotation row directly on D5's real d5_t2d slot (Nordic Max Bulgarian
+    Split Squat, "free" role), mirroring test_generation_context.py's
+    identical fix, rather than reading a real production rotation.
+    """
     te = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2b")
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2d")
     ).one()
+    single_leg = gen_db.exec(
+        select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
+    ).one()
+    assert single_leg.id != te.movement_id, \
+        "the synthetic d5_t2d meso-2 rotation must be a real movement swap"
+    gen_db.add(MesoRotation(tier_exercise_id=te.id, meso_number=2, movement_id=single_leg.id))
+    gen_db.commit()
     mr = gen_db.exec(
         select(MesoRotation).where(
             MesoRotation.tier_exercise_id == te.id,
             MesoRotation.meso_number == 2,
         )
     ).one()
-    assert mr.movement_id != te.movement_id, \
-        "the seeded d5_t2b meso-2 rotation must be a real movement swap"
 
     m2 = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
-    slot2 = next(s for s in m2.adaptive_slots if s.slot_id == "d5_t2b")
+    slot2 = next(s for s in m2.adaptive_slots if s.slot_id == "d5_t2d")
     assert slot2.program_movement_id == mr.movement_id, \
         "meso-2 adaptive slot resolves to the seeded MesoRotation target (Reverse Hyper - Single Leg)"
 
     m1 = lay_skeleton("D5 Lower B", gen_db, meso_number=1)
-    slot1 = next(s for s in m1.adaptive_slots if s.slot_id == "d5_t2b")
+    slot1 = next(s for s in m1.adaptive_slots if s.slot_id == "d5_t2d")
     assert slot1.program_movement_id == te.movement_id, \
         "meso-1 adaptive slot emits the base movement — rotation is meso-gated"
 

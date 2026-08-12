@@ -68,7 +68,13 @@ def test_named_movements_map_to_expected_rules(gen_db):
         # precedent below).
         "Cable V-Bar Pushdown [FT]":   ProgressionRule.SINGLE_SESSION.value,
         "Reverse Hyper Recovery [REV_HYPER]": ProgressionRule.FIXED_LOAD.value,
-        "Light Reverse Hyper [REV_HYPER]": ProgressionRule.REP_LADDER.value,
+        # 2026-08-12 (STAB maintenance-block redesign, Task 4): "Light Reverse
+        # Hyper [REV_HYPER]" (D5's old T2 GS scout_reverse_hyper_bilateral_
+        # d5_90cap slot) drops out of D5's wiring entirely -- D5's T2 GS fully
+        # turned over to Nordic Max Bulgarian Split Squat / Nordic Curl Max
+        # [Ares] / Better Fly Kickback. It is no longer programmed on any
+        # day, so it carries no wired progression_rule. REP_LADDER's
+        # spot-check still stands via "Ab Wheel [WHEEL]" below (D1, unaffected).
         "Ab Wheel [WHEEL]":            ProgressionRule.REP_LADDER.value,
         # 2026-07-24: converted from ASSISTANCE_REDUCTION to RPE_8_STANDARD
         # (bodyweight-then-load double progression). 2026-07-26: D1 Pull-up

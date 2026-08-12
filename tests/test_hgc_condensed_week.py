@@ -115,9 +115,11 @@ def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
     # longer share a source ExerciseGroup (2026-08-10: that co-member is now
     # Stryker Pad Seated OHP [DB], per the STAB maintenance-block redesign's
     # T2 GS turnover -- same "doesn't cluster" fact, different movement).
-    # Mini-session 2 (D2: Belt Squat / ATG Split Squat / Cable Tibialis
-    # Raise) still has a genuine 2-member shared giant-set cluster (D2's T3
-    # GS), so this test moved there.
+    # Mini-session 2 (D2: Belt Squat / ATG Split Squat / Hybrid Board Tib
+    # Raise [D2]) still has a genuine 2-member shared giant-set cluster
+    # (D2's T3 GS), so this test moved there. 2026-08-12 (STAB maintenance-
+    # block redesign, Task 4 addendum): "Cable Tibialis Raise" -> "Hybrid
+    # Board Tib Raise [D2]" (program-wide TIB movement replacement).
     apply(gen_db_calibrated)
 
     session = _hgc_sessions(gen_db_calibrated)[1]
@@ -132,11 +134,20 @@ def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
     assert _group_movement_names(gen_db_calibrated, groups[0]) == ["Belt Squat [GHR + FT]"]
     assert _group_movement_names(gen_db_calibrated, groups[1]) == [
         "ATG Split Squat",
-        "Cable Tibialis Raise",
+        "Hybrid Board Tib Raise [D2]",
     ]
 
 
 def test_hgc_condensed_week_incomplete_clusters_are_straight_sets(gen_db_calibrated):
+    """2026-08-12 (STAB maintenance-block redesign, Task 4): mini-session 4
+    (D5, 7/28) repointed from ["RDL [PB]", "Hip Thrust [HIP_THRUST]",
+    "Reverse Nordic Curl [GHR]"] to ["Kickstand RDL [DB]", "Better Fly
+    Kickback [FT]", "Reverse Nordic Curl [GHR]"] -- RDL [PB] and Hip Thrust
+    [HIP_THRUST] both drop out of D5's wiring entirely (T1 anchor swap, T1b
+    tier removed), Reverse Nordic Curl [GHR] unchanged. None of these three
+    movements share a source ExerciseGroup (T1 straight / removed T1b /
+    T3 GS member), so this remains a 3-way straight-sets-only proof.
+    """
     apply(gen_db_calibrated)
 
     session = _hgc_sessions(gen_db_calibrated)[3]
@@ -151,8 +162,8 @@ def test_hgc_condensed_week_incomplete_clusters_are_straight_sets(gen_db_calibra
     assert [group.rounds for group in groups] == [1, 1, 1]
     assert not any(group.group_type == GroupType.GIANT_SET for group in groups)
     assert [_group_movement_names(gen_db_calibrated, group) for group in groups] == [
-        ["RDL [PB]"],
-        ["Hip Thrust [HIP_THRUST]"],
+        ["Kickstand RDL [DB]"],
+        ["Better Fly Kickback [FT]"],
         ["Reverse Nordic Curl [GHR]"],
     ]
 

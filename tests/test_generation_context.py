@@ -19,6 +19,7 @@ from ironlog.generation.context import (
 from ironlog.generation.skeleton import SlotSpec, lay_skeleton
 from ironlog.models.enums import NoteClass, Status
 from ironlog.models.library import Movement, MovementState
+from ironlog.models.program import MesoRotation, TierExercise
 from ironlog.models.session import Note
 from sqlmodel import select
 
@@ -87,37 +88,50 @@ def test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation(gen_db):
     movement. Once adaptive-slot meso rotations went live (lay_skeleton now resolves
     them via _effective_movement_id), an adaptive slot's program_movement_id can differ
     from its base TierExercise.movement_id. A movement-keyed lookup would miss (None) or
-    return the wrong TE's scheme. D5's d5_t2b has a seeded meso-2 rotation (Scout
-    Reverse Hyper (90 cap) -> Reverse Hyper - Single Leg), so at meso 2 its rep_scheme
-    must still resolve to d5_t2b's own TierExercise rep_low/rep_high/scheme.
+    return the wrong TE's scheme.
 
     (2026-08-11, STAB maintenance-block redesign, Task 3: this test previously used
     D4's d4_t2a, which carried a meso-2 rotation to Pendlay Row. D4's T2 GS was fully
     turned over per the FINAL doc and no longer carries any meso rotation -- repointed
     to D5's d5_t2b, the program's other adaptive-slot ("free" role) meso-rotation
-    example, unaffected by this task.)
+    example, unaffected by that task.
+
+    2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over (d5_t2b no
+    longer exists) -- there is no real adaptive-role meso rotation left
+    anywhere in the program. This test now inserts a synthetic, test-only
+    MesoRotation row directly on D5's real d5_t2d slot (Nordic Max Bulgarian
+    Split Squat, "free" role), pointing at an already-seeded-but-otherwise-
+    unwired movement ("Reverse Hyper - Single Leg [REV_HYPER]", preserving
+    continuity with the old test's target), rather than reading a real
+    production rotation. Not written to program_seed.py -- the FINAL doc
+    calls for no meso rotation on this slot, this is purely a test fixture
+    proving the resolution MECHANISM still works.
     """
-    from ironlog.models.program import MesoRotation, TierExercise
     week_keyer = lambda d: (d.year, d.isocalendar()[1])
 
     te = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2b")
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2d")
     ).one()
+    single_leg = gen_db.exec(
+        select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
+    ).one()
+    assert single_leg.id != te.movement_id, "the meso-2 rotation must be a real swap"
+    gen_db.add(MesoRotation(tier_exercise_id=te.id, meso_number=2, movement_id=single_leg.id))
+    gen_db.commit()
     mr = gen_db.exec(
         select(MesoRotation).where(
             MesoRotation.tier_exercise_id == te.id,
             MesoRotation.meso_number == 2,
         )
     ).one()
-    assert mr.movement_id != te.movement_id, "the meso-2 rotation must be a real swap"
 
     sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
-    slot = next(s for s in sk.adaptive_slots if s.slot_id == "d5_t2b")
+    slot = next(s for s in sk.adaptive_slots if s.slot_id == "d5_t2d")
     assert slot.program_movement_id == mr.movement_id, \
         "effective movement at meso 2 is the rotated one (differs from base)"
 
     ctx = resolve_context("D5 Lower B", sk, gen_db, week_keyer)
-    rs = ctx.slot_rep_schemes.get("d5_t2b")
+    rs = ctx.slot_rep_schemes.get("d5_t2d")
     assert rs is not None, \
         "rep_scheme must resolve even when the slot's effective movement != its base"
     assert rs["rep_low"] == te.rep_low

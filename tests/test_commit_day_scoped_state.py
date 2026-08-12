@@ -42,12 +42,14 @@ from ironlog.generation.skeleton import lay_skeleton
 from ironlog.models.enums import (
     FeedbackTap, GroupType, Objective, Scheme, SessionStatus, SetRole,
 )
-from ironlog.models.library import Movement, MovementState
+from ironlog.models.library import BandPair, Movement, MovementState
 from ironlog.models.session import Session as IronSession
 from ironlog.models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, SetLog,
 )
 from ironlog.persistence.run_analysis import run_analysis
+
+from tests.test_ht_composite_wiring import _synthetic_plain_ht_slot
 
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
 
@@ -114,6 +116,20 @@ def test_commit_advances_only_the_committing_days_ht_row(gen_db):
     ht_mv = gen_db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
+
+    # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5's Hip Thrust
+    # T1b tier is ALSO removed entirely now (2nd of 3 removals across this
+    # redesign) -- seed_movement_baselines no longer populates D5's row.
+    # Attach a synthetic, test-only PLAIN slot on D5's real ProgramDay (same
+    # pattern as test_generation_day_scoped_state.py) so this test still has
+    # a second real row to prove a D6 commit doesn't corrupt.
+    orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
+    _synthetic_plain_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_commit_dayscope_d5_ht")
+    gen_db.add(MovementState(
+        movement_id=ht_mv.id, day_id="D5 Lower B",
+        ht_plates=205.0, ht_band_config=[orange.id],
+    ))
+    gen_db.commit()
 
     def _rows_by_day():
         return {

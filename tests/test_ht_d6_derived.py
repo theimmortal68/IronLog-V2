@@ -16,6 +16,7 @@ from ironlog.models.session import ExerciseGroup, PlannedExercise, PlannedSet, S
 from ironlog.persistence.run_analysis import run_analysis
 
 from tests.test_ht_composite_wiring import _stage_clean_ht_advance
+from tests.test_ht_unification import _synthetic_ht_slot
 
 wk = lambda d: (d.year, d.isocalendar()[1])
 
@@ -85,13 +86,13 @@ def test_d6_derived_from_unified_advancement(gen_db_calibrated):
     # Seed D5 unified. 2026-08-11 (STAB maintenance-block redesign, Task 2):
     # was D2 Lower A -- D2's Hip Thrust T1b tier is removed entirely (D2 no
     # longer has any Hip Thrust TierExercise to repurpose), so this synthetic
-    # "unified" source slot moves to D5's still-live Hip Thrust slot instead.
-    # D5's real TierExercise is monkey-patched with unified_ht_group="main"
-    # for this test only, same pattern as the old D2 substitution.
-    d5_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    # "unified" source slot moved to D5's still-live Hip Thrust slot instead.
+    # 2026-08-12 (Task 4): D5's Hip Thrust T1b tier is ALSO removed entirely
+    # now (2nd of 3 removals across this redesign) -- D5 no longer has a
+    # real Hip Thrust TierExercise either, so this uses a synthetic slot on
+    # D5's real ProgramDay instead (mirrors test_ht_unification.py's
+    # _synthetic_ht_slot pattern, imported from there).
+    d5_slot = _synthetic_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_d6derived_d5_ht")
     d5_slot.unified_ht_group = "main"
     gen_db.add(d5_slot)
 
@@ -191,13 +192,10 @@ def test_d6_no_touch_on_dirty_unified_session(gen_db_calibrated):
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    # 2026-08-11 (STAB maintenance-block redesign, Task 2): was D2 Lower A --
-    # see the identical substitution + rationale in
+    # 2026-08-11/2026-08-12 (STAB maintenance-block redesign, Tasks 2/4): see
+    # the identical synthetic-slot substitution + rationale in
     # test_d6_derived_from_unified_advancement above.
-    d5_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    d5_slot = _synthetic_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_d6derived_d5_ht")
     d5_slot.unified_ht_group = "main"
     gen_db.add(d5_slot)
 

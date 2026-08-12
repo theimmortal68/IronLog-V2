@@ -49,7 +49,7 @@ days:
     T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Adipower II", ex: [
       {m: atg_split_squat, reps: [8,12], rule: rpe_8_standard, load: 25, unilateral: true},
       {m: hybrid_board_calf_raise_d2, reps: [10,15], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (test_loadability per FINAL doc)
-      {m: cable_tib_raise_d2, reps: [10,15], rule: rpe_8_standard, load: 25}]}
+      {m: hybrid_board_tib_raise_d2, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-12: D2 follow-up correction (Task 4/D5 plan-owner addendum) -- Cable Tib Raise replaced program-wide by the new Hybrid Board Tib Raise movement (separate [D2] row, needs-calibration, zero prior history; cable_tib_raise_d2 stays fully unwired program-wide, not deleted)
     T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
       {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: rep_ladder_at_cap}]}  # 2026-08-11: new, D2's mandatory core slot (spine flexion, bodyweight first, add plate at chest once 3x15 clears). Mirrors D1's Ab Wheel Rollout shape (PROTOCOL/STRAIGHT movement, REP_LADDER-driven).
 
@@ -91,22 +91,40 @@ days:
       # existing library movement IS that rotational core pattern).
       {m: puretorque_pro_rotation_d4, reps: [8,12], rule: rpe_8_standard}]}
 
-  d5:  # Lower B — shoe: Metcon 9 through T1b, SWAP -> Adipower II at T2 (moved from T3
-       # 2026-07-17: BSS needs the heel, so the swap must land before BSS, not after)
+  d5:  # Lower B — shoe: Metcon 9 through T1, SWAP -> Adipower II at T2 (moved from T3
+       # 2026-07-17: BSS-family needs the heel, so the swap must land before BSS, not after)
+    # 2026-08-12 (STAB maintenance-block redesign, Task 4): reconciled to
+    # docs/program/source/2026-08-10-maintenance-block-seed-data-FINAL.md's
+    # real D5 session. T1 RDL [PB] -> Kickstand RDL [DB] (new, unilateral,
+    # rep range 6-8 -> 4-6). T1b (Hip Thrust) REMOVED ENTIRELY -- not in the
+    # FINAL source doc's D5 session (2nd of 3 Hip Thrust removals across
+    # this redesign). T2 GS fully turned over to Nordic Max Bulgarian Split
+    # Squat / Nordic Curl Max [Ares] / Better Fly Kickback (Bulgarian Split
+    # Squat [DB], Light/Single-Leg Reverse Hyper, Nordic Curl [GHR] all drop
+    # out of D5). T3 GS: Reverse Nordic Curl [GHR] kept unchanged, gains
+    # Hybrid Board Calf Raise + Hybrid Board Tib Raise (both new, separate
+    # per-day Movement rows, NOT shared with D2's own [D2] rows) + Better
+    # Fly Hip Adduction; Poliquin Step-up / Cable Tib Raise / Hyper Pro Calf
+    # Raise all drop out. New T4_STRAIGHT tier for D5's mandatory core slot
+    # (Ab Trainer Russian Twist). The Hybrid Board Tib Raise addition (both
+    # here and on D2) is a plan-owner addendum resolving this task's own
+    # NEEDS_CONTEXT round-trip: the FINAL doc's stated 3-item D5 T3 GS would
+    # have dropped TIB-modality work program-wide to 1x/week, breaking the
+    # "tib must appear on >=2 days" invariant -- this 4th T3 GS member
+    # preserves it without relaxing that test.
     T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
-      {m: rdl_d5, reps: [6,8], rule: rpe_8_standard, load: 255, meso: {1: rdl_conventional, 2: rdl_staggered}}]}
-    T1b: {group_key: "T1b", rest: 150, shoe: "Metcon 9", anchor: true, ex: [
-      {m: hip_thrust_d5, reps: [6,8], rule: rule_driven, ht_plates: 205, ht_band_config: [orange]}]}  # peak 250, bottom 223(accepted, <225 clamp); INDEPENDENT track from d2. 2026-07-26: rep range widened 8-8 -> 6-8, same reasoning as D2
+      {m: kickstand_rdl_d5, reps: [4,6], rule: rpe_8_standard, unilateral: true}]}  # 2026-08-12: new, needs-calibration (zero prior history)
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [   # <-- SHOE SWAP
-      {m: bulgarian_split_squat, reps: [8,12], rule: rpe_8_standard, load: 30, unilateral: true},
-      {m: scout_reverse_hyper_bilateral_d5_90cap, reps: [15,20], rule: rep_ladder, load: 90, rep_target: 15, rep_ladder: [15,18,20,22,25], ceiling: true, meso: 1},  # remapped to Light Reverse Hyper (cap=90); D6's recovery slot got its own new movement instead of sharing this one
-      {m: scout_reverse_hyper_single_leg_d5, reps: [12,15], rule: rpe_8_standard, load: 70, unilateral: true, meso: 2},  # SEPARATE movement id (meso rotation = two ids)
-      {m: assisted_nordic_curl_d5, reps: [8,12], rule: fixed_load, assist_level: 15}]}  # 2026-07-22: fixed at 15deg, no more progression (athlete's genuine trained level)
+      {m: nordic_max_bss_d5, reps: [8,12], rule: rpe_8_standard, unilateral: true},  # 2026-08-12: new, needs-calibration
+      {m: nordic_curl_max_d5, reps: [6,8], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,55,50,45,40,35,30,25,20,15,10,5,0]},  # 2026-08-12: SAME Movement row as D2's nordic_curl_max_d2 (independent day-scoped assist track). knee_modality=NORDIC on the TierExercise (program_seed.py), applied independently -- does not carry forward from D2's tag.
+      {m: better_fly_kickback_d5, reps: [10,15], rule: rpe_8_standard, unilateral: true}]}  # 2026-08-12: new, needs-calibration
     T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Adipower II", ex: [
-      {m: poliquin_step_up, reps: [8,12], rule: rpe_8_standard, load: 20, unilateral: true},
-      {m: reverse_nordic_assisted, reps: [8,12], rule: rpe_8_standard, load: 0},  # 2026-07-24: rep range corrected 8-10 -> 8-12; converted from assisted to loaded double-progression (bodyweight start, load once 12 reps clears), both D2 and D5
-      {m: cable_tib_raise_d5, reps: [10,15], rule: rpe_8_standard, load: 30},  # INDEPENDENT from d2 (25); d5=30
-      {m: hyper_pro_calf_raise, reps: [10,15], rule: rpe_8_standard, load: 245}]}
+      {m: reverse_nordic_assisted, reps: [8,12], rule: rpe_8_standard, load: 0},  # UNCHANGED -- 2026-07-24: rep range corrected 8-10 -> 8-12; converted from assisted to loaded double-progression (bodyweight start, load once 12 reps clears), both D2 and D5
+      {m: hybrid_board_calf_raise_d5, reps: [10,15], rule: rpe_8_standard},  # 2026-08-12: new, needs-calibration -- separate Movement row from D2's hybrid_board_calf_raise_d2 (independent per-day track, NOT shared)
+      {m: hybrid_board_tib_raise_d5, reps: [10,15], rule: rpe_8_standard},  # 2026-08-12: new, needs-calibration -- separate Movement row from D2's hybrid_board_tib_raise_d2 (independent per-day track, NOT shared). knee_modality=TIB on the TierExercise -- preserves the program's 2x/week TIB invariant (plan-owner addendum)
+      {m: better_fly_hip_adduction_d5, reps: [10,15], rule: rpe_8_standard, unilateral: true}]}  # 2026-08-12: new, needs-calibration; rotates with (future, not-yet-wired) hip abduction weekly per FINAL doc
+    T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
+      {m: ab_trainer_russian_twist_d5, reps: [10,15], rule: rep_ladder_at_cap}]}  # 2026-08-12: new, D5's mandatory core slot (rotational pattern). Mirrors D2's Ab Trainer Decline Sit-up shape (PROTOCOL/STRAIGHT movement, REP_LADDER-driven).
 
   d6:  # Weak Points — EXECUTED Sat 2026-07-05, loads locked. Z2 (backward 3min@5°@1.5 / forward 12min@5°@3.0) deferred (not engine-managed).
     # 2026-07-26: Dips moved out of GS1 into its own T1 straight-set slot

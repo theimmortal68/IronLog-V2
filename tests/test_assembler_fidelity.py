@@ -90,8 +90,19 @@ def test_rpe_from_reverse_hyper_recovery_cap(gen_db):
 
 def test_unilateral_surfaces_in_session_detail(gen_db):
     """Movement.unilateral surfaces per-exercise in the /sessions/{id} serialization.
-    Bulgarian Split Squat (D5 T2 GS, seeded unilateral=True) must read unilateral
-    True in the serialized ExerciseOut; RDL (unilateral=False) must read False."""
+    Nordic Max Bulgarian Split Squat (D5 T2 GS, seeded unilateral=True) must read
+    unilateral True in the serialized ExerciseOut; Reverse Nordic Curl [GHR]
+    (D5 T3 GS, unilateral=False) must read False.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 4): repointed from
+    Bulgarian Split Squat [DB] (dropped from D5's wiring entirely) to its
+    replacement, Nordic Max Bulgarian Split Squat. RDL [PB] (the old
+    unilateral=False comparison) is also fully unwired program-wide now
+    (D5's T1 anchor is Kickstand RDL [DB], itself unilateral=True) --
+    repointed to Reverse Nordic Curl [GHR] (D5 T3 GS, unchanged, still
+    unilateral=False by default), keeping both examples within the same
+    generated D5 session.
+    """
     out = generate_session("D5 Lower B", gen_db, _proposer_for("D5 Lower B", gen_db), _week_keyer)
     assert out.exhausted is False
     sess = out.assembled.session
@@ -101,12 +112,12 @@ def test_unilateral_surfaces_in_session_detail(gen_db):
 
     detail = _serialize_session(sess, gen_db)
     by_mid = {ex.movement_id for g in detail.groups for ex in g.exercises}
-    bss_id = _movement_id(gen_db, "Bulgarian Split Squat [DB]")
+    bss_id = _movement_id(gen_db, "Nordic Max Bulgarian Split Squat")
     assert bss_id in by_mid
 
     bss_ex = next(ex for g in detail.groups for ex in g.exercises if ex.movement_id == bss_id)
     assert bss_ex.unilateral is True
 
-    rdl_id = _movement_id(gen_db, "RDL [PB]")
+    rdl_id = _movement_id(gen_db, "Reverse Nordic Curl [GHR]")
     rdl_ex = next(ex for g in detail.groups for ex in g.exercises if ex.movement_id == rdl_id)
     assert rdl_ex.unilateral is False

@@ -41,7 +41,10 @@ CHANGED_REP_TARGETS = {
     # dropped 6-8 -> 4-6, matching every other T1 primary in this redesign.
     "d2_t1": (4, 6),
     "d2_t3a": (8, 12),
-    "d2_t3b": (10, 15),
+    # 2026-08-12 (Task 4/D5 plan-owner addendum): d2_t3b (Cable Tib Raise,
+    # 10-15) REMOVED -- slot_id vacated, replaced by fresh d2_t3e (Hybrid
+    # Board Tib Raise [D2], never-reassign-slot_id).
+    "d2_t3e": (10, 15),
     # 2026-08-11 (STAB maintenance-block redesign, Task 3): D4 reconciled to
     # the FINAL doc's real D4 session. d4_t1_btn_ohp (new T1 anchor, Seated
     # BTN OHP [PB]) replaces the old d4_t1_ohp -- 4-6 reps. d4_t1 (Better
@@ -60,11 +63,27 @@ CHANGED_REP_TARGETS = {
     "d4_t2f": (10, 15),
     "d4_t3a": (10, 15),
     "d4_t3e": (8, 12),
-    "d5_t2a": (8, 12),
-    "d5_t2b": (15, 20),
-    "d5_t3a": (8, 12),
-    "d5_t3c": (10, 15),
-    "d5_t3d": (10, 15),
+    # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 reconciled to
+    # the FINAL doc's real D5 session. T1 RDL [PB] (was UNCHANGED_REP_TARGETS
+    # "d5_t1") -> Kickstand RDL [DB] (fresh slot "d5_t1_kickstand_rdl"),
+    # rep range 6-8 -> 4-6. T1b (Hip Thrust) tier removed entirely. T2 GS
+    # fully turned over: old d5_t2a/b/c (Bulgarian Split Squat, Scout
+    # Reverse Hyper, Assisted Nordic) all vacated, replaced by fresh
+    # d5_t2d/e/f. T3 GS: d5_t3b (Reverse Nordic Curl) unchanged, not listed
+    # here; old d5_t3a/c/d (Poliquin Step-up, Cable Tib Raise, Hyper Pro
+    # Calf Raise) all vacated, replaced by fresh d5_t3e/f/g (Hybrid Board
+    # Calf Raise [D5] / Hybrid Board Tib Raise [D5] / Better Fly Hip
+    # Adduction, the TIB slot a plan-owner addendum resolving this task's
+    # own NEEDS_CONTEXT round-trip). New T4 straight tier (d5_t4a, Ab
+    # Trainer Russian Twist).
+    "d5_t1_kickstand_rdl": (4, 6),
+    "d5_t2d": (8, 12),
+    "d5_t2e": (6, 8),
+    "d5_t2f": (10, 15),
+    "d5_t3e": (10, 15),
+    "d5_t3f": (10, 15),
+    "d5_t3g": (10, 15),
+    "d5_t4a": (10, 15),
     "d6_t1": (6, 8),      # 2026-07-26: Dips moved d6_g1b -> T1, athlete directive
     "d6_g1d": (8, 12),    # 2026-07-26: Cable Bicep Curl fills Dips' vacated GS1 slot
     "d6_g2b": (8, 12),
@@ -73,8 +92,10 @@ CHANGED_REP_TARGETS = {
 }
 
 # slot_id -> (rep_low, rep_high) — anchor slots reconciled to the YAML.
+# 2026-08-12 (Task 4): "d5_t1" (RDL anchor, 6-8) moved to CHANGED_REP_TARGETS
+# above as "d5_t1_kickstand_rdl" (4-6) -- the T1 anchor's content and reps
+# both changed (Kickstand RDL replaces RDL [PB]), so this dict is now empty.
 UNCHANGED_REP_TARGETS = {
-    "d5_t1": (6, 8),      # RDL anchor
 }
 
 # (day_role, tier_label) -> rest_seconds. Per-day because rests are non-uniform
@@ -99,9 +120,14 @@ TIER_REST_MAP = {
     ("D4 Upper Pull", "T2 GS"): 90,
     ("D4 Upper Pull", "T3 GS"): 75,
     ("D5 Lower B", "T1"): 180,
-    ("D5 Lower B", "T1b"): 150,
+    # ("D5 Lower B", "T1b") removed 2026-08-12 (STAB maintenance-block
+    # redesign, Task 4) -- D5's Hip Thrust T1b tier no longer exists (2nd
+    # of 3 Hip Thrust removals across this redesign).
     ("D5 Lower B", "T2 GS"): 90,
     ("D5 Lower B", "T3 GS"): 60,
+    # ("D5 Lower B", "T4") added 2026-08-12, new straight tier (Ab Trainer
+    # Russian Twist); tier_label "T4" not "T4 GS" (not a GIANT_SET).
+    ("D5 Lower B", "T4"): 90,
     ("D6 Weak Points", "T1"): 120,
     ("D6 Weak Points", "GS1"): 90,
     ("D6 Weak Points", "GS2"): 90,
@@ -172,8 +198,11 @@ def test_te_schemes_synced_to_straight(gen_db):
     # payload) must match the reconciled Movement.scheme for the three
     # flipped T1 anchors, not just the deterministic-assembler-authoritative
     # Movement.scheme.
+    # 2026-08-12 (Task 4): "d5_t1" -> "d5_t1_kickstand_rdl" (T1 anchor swap,
+    # RDL [PB] -> Kickstand RDL [DB]; TierExercise.scheme stays "STRAIGHT",
+    # same convention as every other T1 anchor regardless of movement).
     tes = {te.slot_id: te for te in gen_db.exec(select(TierExercise)).all()}
-    for slot_id in ("d1_t1", "d2_t1", "d5_t1"):
+    for slot_id in ("d1_t1", "d2_t1", "d5_t1_kickstand_rdl"):
         assert tes[slot_id].scheme == "STRAIGHT", (
             f"{slot_id}: expected TierExercise.scheme == 'STRAIGHT', "
             f"got {tes[slot_id].scheme!r}"

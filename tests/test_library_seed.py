@@ -63,7 +63,15 @@ def test_total_count_103(seeded):
     # [FT], Stryker Pad CSR Barbell [PB], Better Fly Cable Pullover [FT],
     # Ab Trainer Hanging Leg Raise: 122 -> 127. (Lying Tricep Extension [SB]
     # is REUSED for D4's T3 tricep slot, not a new row -- no count change.)
-    assert len(_all(seeded)) == 127
+    # 2026-08-12: +8 (STAB maintenance-block redesign, Task 4, D5 rewritten
+    # to match the FINAL doc, plus a D2 follow-up addendum): Kickstand RDL
+    # [DB], Nordic Max Bulgarian Split Squat, Better Fly Kickback [FT],
+    # Hybrid Board Calf Raise [D5], Hybrid Board Tib Raise [D5], Better Fly
+    # Hip Adduction [FT], Ab Trainer Russian Twist (7, all D5), plus Hybrid
+    # Board Tib Raise [D2] (1, D2 follow-up correction replacing Cable Tib
+    # Raise): 127 -> 135. (Nordic Curl Max [Ares] is REUSED, same shared
+    # Movement row as D2's, not a new row -- no count change.)
+    assert len(_all(seeded)) == 135
 
 
 def test_status_counts(seeded):
@@ -84,7 +92,8 @@ def test_status_counts(seeded):
     # 2026-08-11: +5 ACTIVE (STAB redesign, Task 3): Seated BTN OHP [PB],
     # Better Fly Lat Pulldown [FT], Stryker Pad CSR Barbell [PB], Better Fly
     # Cable Pullover [FT], Ab Trainer Hanging Leg Raise: 115 -> 120.
-    assert c[Status.ACTIVE] == 120
+    # 2026-08-12: +8 ACTIVE (STAB redesign, Task 4 + D2 addendum): 120 -> 128.
+    assert c[Status.ACTIVE] == 128
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

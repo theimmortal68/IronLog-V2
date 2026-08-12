@@ -20,6 +20,22 @@ ValidationContext.ht_bottom_clamp 220->225 — this test proves the seeded
 setup no longer HT_BAND_NOT_REGISTERED/HT_BOTTOM_OVER_LIMIT rejects anywhere
 along the path (223 <= 225), for either remaining day's band assignment.
 
+2026-08-12 (STAB maintenance-block redesign, Task 4): D5's Hip Thrust T1b
+tier was removed entirely (2nd of 3 removals across this redesign, D6 still
+to come) -- D5 no longer has a real Hip Thrust TierExercise or a
+seed_movement_baselines-populated MovementState (the old d5_t1b BASELINES
+entry is gone). Every test in this file that needs D5's INDEPENDENT (not
+D6-derived) HT advance behavior now attaches a synthetic, test-only, PLAIN
+Hip-Thrust TierExercise onto D5's real ProgramDay via `_seed_synthetic_d5_ht`
+below (mirrors test_ht_composite_wiring.py's `_synthetic_plain_ht_slot` +
+test_ht_unification.py's `_synthetic_ht_slot` pattern) and manually seeds its
+MovementState at the same 205+Orange values the old real d5_t1b baseline
+used, instead of relying on seed_movement_baselines to populate D5's row.
+D6's real d6_g1c slot is UNCHANGED and still fine for the tests that only
+check the PRESCRIBED (current) setup, not an independently-advanced one --
+see test_ht_composite_wiring.py's module docstring for why a DERIVED slot
+(D6) cannot stand in for D5's independent-advance tests specifically.
+
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
 """
@@ -36,11 +52,33 @@ from ironlog.generation.repair import build_validation_context
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.engine.validator import RuleCode, validate
 from ironlog.models.enums import FeedbackTap, GroupType, Objective, Scheme, SessionStatus, SetRole
-from ironlog.models.library import BandPair, Movement
+from ironlog.models.library import BandPair, Movement, MovementState
 from ironlog.models.session import ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog
 from ironlog.persistence.run_analysis import run_analysis
 
+from tests.test_ht_composite_wiring import _synthetic_plain_ht_slot
+
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
+
+D5_HT_SLOT_ID = "test_generate_banded_d5_ht"
+
+
+def _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=None):
+    """Attach a synthetic, plain Hip-Thrust TierExercise to D5's real
+    ProgramDay and seed its MovementState at the given setup -- replaces
+    the old real d5_t1b slot + BASELINES entry, both removed in Task 4. See
+    module docstring."""
+    ht_mv = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+    te = _synthetic_plain_ht_slot(gen_db, "D5 Lower B", ht_mv.id, D5_HT_SLOT_ID)
+    st = MovementState(
+        movement_id=ht_mv.id, day_id="D5 Lower B",
+        ht_plates=plates, ht_band_config=list(band_config or []),
+    )
+    gen_db.add(st)
+    gen_db.commit()
+    return te, ht_mv
 
 
 def _stage_clean_ht_advance(db, movement_id, day_role, plates, config, week_keyer):
@@ -101,8 +139,11 @@ def _stage_clean_ht_advance(db, movement_id, day_role, plates, config, week_keye
 
 def test_banded_ht_generates_valid_all_days(gen_db):
     seed_movement_baselines(gen_db)
+    orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
+    _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
     # Seeded current setups (prescribe-current; no auto-advance at prescription).
-    # 2026-08-11: D2 dropped (D2's Hip Thrust T1b tier removed entirely).
+    # 2026-08-11/2026-08-12: D2 and D5 both dropped their real Hip Thrust
+    # TierExercise (Tasks 2/4); D5's is now a synthetic slot (see module docstring).
     for role, plates in [
         ("D5 Lower B", 205),
         ("D6 Weak Points", 155),
@@ -146,20 +187,23 @@ def test_week1_prescribes_seeded_current_setup(gen_db):
     at commit (see test_commit_advances_ht_state), so Week 2 shows the advanced
     setup, but Week 1 shows the seed verbatim.
 
-    Seeded baselines (baseline_seed.BASELINES): D5 d5_t1b = 205 + #0 Orange,
-    D6 d6_g1c = 155 + #0 Orange. (Formerly also D2 d2_t1b = 205 + #0 Orange —
-    D2's Hip Thrust T1b tier was removed entirely, 2026-08-11 STAB
-    maintenance-block redesign Task 2.) Before the prescribe-current fix, the
-    assembler advanced at prescription time and this session showed the +1
-    setup instead (205 -> swap to Red 165; 155 -> 160) — this test asserts
-    the raw seeded setup, so it fails against that old behavior and passes
-    once the assembler prescribes current.
+    Seeded baselines: D5 = 205 + #0 Orange (now via the synthetic slot seeded
+    by _seed_synthetic_d5_ht, module docstring -- the old real d5_t1b
+    BASELINES entry was removed in Task 4), D6 d6_g1c = 155 + #0 Orange
+    (baseline_seed.BASELINES, unchanged). (Formerly also D2 d2_t1b = 205 +
+    #0 Orange — D2's Hip Thrust T1b tier was removed entirely, 2026-08-11
+    STAB maintenance-block redesign Task 2.) Before the prescribe-current
+    fix, the assembler advanced at prescription time and this session showed
+    the +1 setup instead (205 -> swap to Red 165; 155 -> 160) — this test
+    asserts the raw seeded setup, so it fails against that old behavior and
+    passes once the assembler prescribes current.
 
     Driven through the REAL generate_session path (banded HT validates now that
     the clamp is 225), asserting both plates AND that the band stays Orange.
     """
     seed_movement_baselines(gen_db)
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
+    _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
     for role, seeded_plates in [
         ("D5 Lower B", 205),
         ("D6 Weak Points", 155),
@@ -202,25 +246,25 @@ def test_commit_advances_ht_state(gen_db):
     commit = next.
 
     Single day (D5, was D2 -- 2026-08-11: D2's Hip Thrust T1b tier was
-    removed entirely, STAB maintenance-block redesign Task 2, so this now
-    exercises D5's still-live Hip Thrust slot instead): commit_session writes
-    the HT setup to the first MovementState row for the movement (its writer
-    is day-agnostic — a pre-existing behavior out of this fix's scope), so
-    this drives one commit and asserts against the prospective map + the row
-    commit actually wrote.
+    removed entirely, STAB maintenance-block redesign Task 2, so this
+    exercised D5's still-live Hip Thrust slot instead; 2026-08-12 Task 4: D5's
+    own Hip Thrust T1b tier was ALSO removed, so this now uses the synthetic
+    D5 slot -- see module docstring). commit_session writes the HT setup to
+    the day-scoped (movement_id, day_id) MovementState row via
+    `_resolve_movement_state` (ironlog/generation/loop.py) -- this asserts
+    against the D5-scoped row specifically, not an unscoped `.first()`,
+    since D6's real d6_g1c row for the SAME movement_id now also exists and
+    an unscoped lookup would be ambiguous.
     """
     from ironlog.engine.band_composite import Band, ht_next_setup
     from ironlog.generation.loop import commit_session
-    from ironlog.models.library import MovementState
 
     seed_movement_baselines(gen_db)
     inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
                  for bp in gen_db.exec(select(BandPair)).all()]
     orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
 
-    ht_mv = gen_db.exec(
-        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
-    ).one()
+    _te, ht_mv = _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
 
     _stage_clean_ht_advance(gen_db, ht_mv.id, "D5 Lower B", 205.0, [orange.id], WEEK_KEYER)
 
@@ -244,10 +288,11 @@ def test_commit_advances_ht_state(gen_db):
     )
 
     # commit_session persists the staged next setup (its sole write of
-    # ht_plates/ht_band_config) to the first HT MovementState row.
+    # ht_plates/ht_band_config) to the D5-scoped MovementState row.
     st = gen_db.exec(
-        select(MovementState).where(MovementState.movement_id == ht_mv.id)
-    ).first()
+        select(MovementState).where(MovementState.movement_id == ht_mv.id,
+                                    MovementState.day_id == "D5 Lower B")
+    ).one()
     assert st.ht_plates == exp_plates, (
         f"committed ht_plates {st.ht_plates} != next {exp_plates}"
     )
@@ -317,8 +362,9 @@ def test_load_override_bumps_ht_plates_day_scoped(gen_db):
 
     Also proves the override is day-scoped by construction (a SlotMovementOverride
     is keyed on tier_exercise_id, and D5/D6 Hip Thrust -- formerly also D2,
-    see the module docstring for the 2026-08-11 T1b removal -- are distinct
-    TierExercise rows) -- generating D6 in the same test must show its own
+    see the module docstring for the 2026-08-11 T1b removal and the
+    2026-08-12 D5 T1b removal -- are distinct TierExercise rows, D5's now a
+    synthetic slot) -- generating D6 in the same test must show its own
     unaffected seeded plates (155), not D5's overridden 206.
     """
     from ironlog.models.enums import OverrideType
@@ -326,10 +372,9 @@ def test_load_override_bumps_ht_plates_day_scoped(gen_db):
     from ironlog.models.session import Note
 
     seed_movement_baselines(gen_db)
+    orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
+    d5_ht_te, _mv = _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
 
-    d5_ht_te = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t1b")
-    ).one()
     note = Note(text="ready to go up 5lbs on Day 5")
     gen_db.add(note)
     gen_db.commit()
@@ -392,9 +437,7 @@ def test_load_override_does_not_compound_into_committed_ht_plates(gen_db):
         true_step1_plates, true_step1_config, inventory
     )
 
-    d5_ht_te = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t1b")
-    ).one()
+    d5_ht_te, ht_mv = _seed_synthetic_d5_ht(gen_db, plates=205.0, band_config=[orange.id])
     note = Note(text="ready to go up on Day 5")
     gen_db.add(note)
     gen_db.commit()
@@ -405,8 +448,6 @@ def test_load_override_does_not_compound_into_committed_ht_plates(gen_db):
         override_type=OverrideType.LOAD, load_delta=1.0,
     ))
     gen_db.commit()
-
-    ht_mv = gen_db.exec(select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")).one()
 
     _stage_clean_ht_advance(gen_db, ht_mv.id, "D5 Lower B", 205.0, [orange.id], WEEK_KEYER)
 

@@ -52,16 +52,27 @@ def test_nordic_and_reverse_nordic_unchanged(gen_db):
     current, correct values instead.
 
     Nordic Curl's progression_rule is NOT asserted here as unchanged: as of
-    2026-07-22 its one remaining program slot (D5) is fixed at 15deg with no
+    2026-07-22 its one remaining program slot (D5) was fixed at 15deg with no
     further progression (the athlete's genuine trained level was harder than
     the prescribed baseline; D2's slot was replaced with Leg Curl), so
-    derive_movement_rules() now correctly resolves it to FIXED_LOAD, not
+    derive_movement_rules() correctly resolved it to FIXED_LOAD, not
     INCLINE_REDUCTION -- a deliberate program-design change, not a regression.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 4): that one remaining
+    D5 slot ("Assisted Nordic (eccentric)", old d5_t2c) is now ALSO removed
+    entirely -- D5's T2 GS fully turned over to Nordic Max Bulgarian Split
+    Squat / Nordic Curl Max [Ares] / Better Fly Kickback. "Nordic Curl [GHR]"
+    is no longer programmed on ANY day, so it carries no wired
+    progression_rule (None) -- same treatment as every other fully-unwired
+    movement in this program (e.g. "Pull-up [TOWER + TUBES]",
+    "Dragon Flag"). Its progression_mode (ASSISTED, Movement-level config)
+    is unaffected and still asserted unchanged above.
 
     Reverse Nordic Curl converted from ASSISTED/ASSISTANCE_REDUCTION to
     LADDER/RPE_8_STANDARD/DOUBLE_PROGRESSION as of 2026-07-24 -- athlete
     directive: bodyweight reps 8-12, add load once 12 reps clears, on both
-    D2 and D5. Also a deliberate program-design change, not a regression.
+    D2 and D5. Also a deliberate program-design change, not a regression;
+    still real and wired on D5 (d5_t3b, unchanged by Task 4).
     """
     nordic = gen_db.exec(
         select(Movement).where(Movement.name == "Nordic Curl [GHR]")
@@ -73,7 +84,7 @@ def test_nordic_and_reverse_nordic_unchanged(gen_db):
     assert rev_nordic.progression_mode == ProgressionMode.LADDER
     assert load_field_for_mode(nordic.progression_mode) == "assist_level"
     assert load_field_for_mode(rev_nordic.progression_mode) == "current_load"
-    assert nordic.progression_rule == ProgressionRule.FIXED_LOAD.value
+    assert nordic.progression_rule is None
     assert rev_nordic.progression_rule == ProgressionRule.RPE_8_STANDARD.value
 
 

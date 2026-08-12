@@ -7,6 +7,19 @@ a library movement must RAISE ValueError (halt-and-flag), never silently drop.
 This is the test that would have caught the original guard-bypass where d5_t1 and
 d4_t3b meso-2 rotations were silently omitted instead of raising.
 
+2026-08-12 (STAB maintenance-block redesign, Task 4): D5's own d5_t1 (RDL ->
+Staggered RDL) and d5_t2b (Scout Reverse Hyper -> Reverse Hyper - Single Leg)
+meso-2 rotations are BOTH removed entirely -- T1 anchor swapped to Kickstand
+RDL [DB] (no meso rotation), and T2 GS fully turned over (old d5_t2a/b/c all
+vacated). d2_t1 (Belt Squat -> Back Squat) is now the ONLY real meso-2
+rotation left anywhere in the program -- an ANCHOR-role example. There is no
+longer any real ADAPTIVE/"free"-role meso rotation program-wide (D4's
+d4_t2a -> Pendlay Row was already retired in Task 3, without replacement).
+Tests below repointed accordingly; see test_generation_context.py,
+test_slot_override_skeleton.py, and test_generation_fallback.py for the
+separate adaptive-role fallout, which now uses a synthetic test-only
+MesoRotation row (no real production example survives to test against).
+
 NO from __future__ import annotations (project-wide constraint).
 """
 import importlib
@@ -41,13 +54,18 @@ def test_unresolved_meso_rotation_raises(monkeypatch):
 
     This is the test that would have caught the guard-bypass where d5_t1 meso-2
     (Staggered RDL) was silently omitted rather than going through _resolve.
-    Monkeypatches PROGRAM_TO_LIBRARY so Staggered RDL maps to a bogus library
-    name — seed_phase1_program must raise when it hits the rotation call.
+    Monkeypatches PROGRAM_TO_LIBRARY so a real meso-2 rotation target maps to
+    a bogus library name — seed_phase1_program must raise when it hits the
+    rotation call.
+
+    2026-08-12 (Task 4): D5's Staggered RDL rotation no longer exists (see
+    module docstring) -- repointed to "Back Squat", d2_t1's Belt Squat ->
+    Back Squat rotation, the ONLY real meso-2 rotation left program-wide.
     """
     import ironlog.generation.program_seed as ps
     # Inject a bogus rotation mapping that won't resolve in the library.
     bad_map = dict(ps.PROGRAM_TO_LIBRARY)
-    bad_map["Staggered RDL"] = "__BOGUS_NOT_IN_LIBRARY__"
+    bad_map["Back Squat"] = "__BOGUS_NOT_IN_LIBRARY__"
     monkeypatch.setattr(ps, "PROGRAM_TO_LIBRARY", bad_map)
 
     eng = create_engine("sqlite://")
@@ -62,29 +80,19 @@ def test_unresolved_meso_rotation_raises(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_new_meso_rotations_exist_and_resolve(gen_db):
-    """d5_t1 meso-2 → Staggered RDL; d5_t2b meso-2 → Reverse Hyper - Single Leg
-    (with a 12–15 rep override). Both rows must exist and reference the correct
-    library movement.
-
-    (Post-YAML-reconciliation: the old d4_t3b → Single-Arm DB Row meso rotation
-    was removed — Single-Arm DB Row is now a standalone T2 slot (d4_t2b), and the
-    single-leg Reverse Hyper became a real distinct-movement meso-2 rotation.)
+    """d2_t1 meso-2 → Back Squat. The ONLY real meso-2 rotation left
+    program-wide as of Task 4 (2026-08-12) -- see module docstring for why
+    D5's own d5_t1/d5_t2b rotations no longer exist.
     """
     from ironlog.models.library import Movement
     from ironlog.models.program import MesoRotation, TierExercise
 
-    d5_t1 = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t1")
-    ).one()
-    d5_t2b = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2b")
+    d2_t1 = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d2_t1")
     ).one()
 
-    staggered = gen_db.exec(
-        select(Movement).where(Movement.base_name == "Staggered RDL")
-    ).one()
-    single_leg = gen_db.exec(
-        select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
+    back_squat = gen_db.exec(
+        select(Movement).where(Movement.base_name == "Back Squat")
     ).one()
 
     def _meso2(te_id):
@@ -95,36 +103,31 @@ def test_new_meso_rotations_exist_and_resolve(gen_db):
             )
         ).all()
 
-    d5_mrs = _meso2(d5_t1.id)
-    assert len(d5_mrs) == 1, "d5_t1 must have exactly one meso-2 rotation row"
-    assert d5_mrs[0].movement_id == staggered.id, \
-        "d5_t1 meso-2 must resolve to Staggered RDL"
-
-    d5_t2b_mrs = _meso2(d5_t2b.id)
-    assert len(d5_t2b_mrs) == 1, "d5_t2b must have exactly one meso-2 rotation row"
-    assert d5_t2b_mrs[0].movement_id == single_leg.id, \
-        "d5_t2b meso-2 must resolve to Reverse Hyper - Single Leg"
-    assert (d5_t2b_mrs[0].rep_low, d5_t2b_mrs[0].rep_high) == (12, 15), \
-        "d5_t2b meso-2 must carry the 12–15 rep override"
+    d2_mrs = _meso2(d2_t1.id)
+    assert len(d2_mrs) == 1, "d2_t1 must have exactly one meso-2 rotation row"
+    assert d2_mrs[0].movement_id == back_squat.id, \
+        "d2_t1 meso-2 must resolve to Back Squat"
 
 
 # ---------------------------------------------------------------------------
 # Skeleton fires the new rotations
 # ---------------------------------------------------------------------------
 
-def test_d5_lower_b_meso2_anchor_is_staggered_rdl(gen_db):
-    """lay_skeleton D5 Lower B meso-2 fires the rotation → Staggered RDL as anchor.
-    Confirms the MesoRotation row is wired correctly and lay_skeleton picks it up.
+def test_d2_lower_a_meso2_anchor_is_back_squat(gen_db):
+    """lay_skeleton D2 Lower A meso-2 fires the rotation → Back Squat as anchor.
+    Confirms the MesoRotation row is wired correctly and lay_skeleton picks it
+    up. 2026-08-12 (Task 4): repointed from D5's now-removed Staggered RDL
+    rotation to D2's Belt Squat -> Back Squat rotation, the only one left.
     """
     from ironlog.generation.skeleton import lay_skeleton
     from ironlog.models.library import Movement
 
-    sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
-    staggered = gen_db.exec(
-        select(Movement).where(Movement.base_name == "Staggered RDL")
+    sk = lay_skeleton("D2 Lower A", gen_db, meso_number=2)
+    back_squat = gen_db.exec(
+        select(Movement).where(Movement.base_name == "Back Squat")
     ).one()
-    assert staggered.id in sk.anchor_movement_ids, \
-        "D5 Lower B meso-2 anchor must be Staggered RDL (meso rotation fired)"
+    assert back_squat.id in sk.anchor_movement_ids, \
+        "D2 Lower A meso-2 anchor must be Back Squat (meso rotation fired)"
 
 
 def test_mesorotation_has_rep_override_fields(gen_db):

@@ -42,18 +42,29 @@ RATIONALE = "HGC condensed week"
 # repointed to the movements that actually exist in D4's current wiring --
 # same anchor roles (T1/T1b), closest-role replacements. PureTorque Pro
 # Rotation (T3) is unchanged, already IS D4's real T3 wiring.
+#
+# 2026-08-12 (STAB maintenance-block redesign, Task 4): D5's T1/T1b/T2 GS
+# fully turned over (RDL [PB] -> Kickstand RDL [DB]; Hip Thrust [HIP_THRUST]
+# tier removed entirely, no replacement -- repointed to Better Fly Kickback
+# [FT], the closest-role T2 GS accessory not already referenced elsewhere in
+# this same entry; Nordic Curl [GHR] fully unwired program-wide, its old
+# 7/29 single-movement entry repointed to Nordic Max Bulgarian Split Squat).
+# Reverse Nordic Curl [GHR] (d5_t3b) is unchanged, already IS D5's real T3
+# wiring. D2's 7/27 entry's "Cable Tibialis Raise" -> "Hybrid Board Tib
+# Raise [D2]" (small standalone D2 fix bundled into this task, Cable Tib
+# Raise replaced program-wide).
 MINI_SESSIONS = [
     (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Stryker Pad Seated OHP [DB]"]),
-    (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Cable Tibialis Raise"]),
+    (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Hybrid Board Tib Raise [D2]"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
-    (date(2026, 7, 28), "D5 Lower B", ["RDL [PB]", "Hip Thrust [HIP_THRUST]", "Reverse Nordic Curl [GHR]"]),
+    (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [DB]", "Better Fly Kickback [FT]", "Reverse Nordic Curl [GHR]"]),
     (date(2026, 7, 28), "D2 Lower A", ["Nordic Curl Max [Ares]"]),
     (date(2026, 7, 28), "D6 Weak Points", ["DB Seal Row [DB + UTIL_SEAT]", "Lateral Raise [FT]"]),
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
     (date(2026, 7, 29), "D4 Upper Pull", ["Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]", "PureTorque Pro Rotation"]),
     (date(2026, 7, 29), "D6 Weak Points", ["Dips [TOWER + TUBES]", "T-Bar Row - Wide [OB + KLEVA + LM]", "Cable V-Bar Pushdown [FT]"]),
     (date(2026, 7, 29), "D1 Upper Push", ["Matrix Machine Preacher Curl [EZ]"]),
-    (date(2026, 7, 29), "D5 Lower B", ["Nordic Curl [GHR]"]),
+    (date(2026, 7, 29), "D5 Lower B", ["Nordic Max Bulgarian Split Squat"]),
 ]
 
 

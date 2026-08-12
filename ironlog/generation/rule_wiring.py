@@ -92,6 +92,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "nordic_curl_max_d2":                "Nordic Curl Max [Ares]",
     "hybrid_board_calf_raise_d2":        "Hybrid Board Calf Raise [D2]",
     "ab_trainer_decline_situp_d2":       "Ab Trainer Decline Sit-up",
+    "hybrid_board_tib_raise_d2":         "Hybrid Board Tib Raise [D2]",  # 2026-08-12: Task 4/D5 addendum, replaces cable_tib_raise_d2
     # ── d4 Upper Pull ────────────────────────────────────────────────────────
     "pull_up_d4":                        "Wide-Grip Pull-up [TOWER]",
     "standing_ohp_d4":                   "Standing OHP [PB]",
@@ -108,6 +109,13 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "better_fly_cable_pullover_d4":      "Better Fly Cable Pullover [FT]",
     "lying_tricep_extension_camber7_d4": "Lying Tricep Extension [SB]",
     # ── d5 Lower B ───────────────────────────────────────────────────────────
+    # 2026-08-12 (STAB maintenance-block redesign, Task 4): rdl_d5,
+    # hip_thrust_d5, bulgarian_split_squat, scout_reverse_hyper_bilateral_
+    # d5_90cap, scout_reverse_hyper_single_leg_d5, assisted_nordic_curl_d5,
+    # poliquin_step_up, cable_tib_raise_d5, hyper_pro_calf_raise all drop out
+    # of D5's real wiring (kept below, their Movement rows stay ACTIVE/
+    # unwired, never deleted). reverse_nordic_assisted is UNCHANGED, still
+    # live on D5.
     "rdl_d5":                            "RDL [PB]",
     "hip_thrust_d5":                     "Hip Thrust [HIP_THRUST]",
     "bulgarian_split_squat":             "Bulgarian Split Squat [DB]",
@@ -118,6 +126,14 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "reverse_nordic_assisted":           "Reverse Nordic Curl [GHR]",
     "cable_tib_raise_d5":                "Cable Tibialis Raise",
     "hyper_pro_calf_raise":              "Calf Raise [GHR]",
+    "kickstand_rdl_d5":                  "Kickstand RDL [DB]",
+    "nordic_max_bss_d5":                 "Nordic Max Bulgarian Split Squat",
+    "nordic_curl_max_d5":                "Nordic Curl Max [Ares]",
+    "better_fly_kickback_d5":            "Better Fly Kickback [FT]",
+    "hybrid_board_calf_raise_d5":        "Hybrid Board Calf Raise [D5]",
+    "hybrid_board_tib_raise_d5":         "Hybrid Board Tib Raise [D5]",
+    "better_fly_hip_adduction_d5":       "Better Fly Hip Adduction [FT]",
+    "ab_trainer_russian_twist_d5":       "Ab Trainer Russian Twist",
     # ── d6 Weak Points ───────────────────────────────────────────────────────
     "pull_up_neutral_paused_d6":         "Pull-up - Neutral Grip (Paused) [TOWER]",
     "dips":                              "Dips [TOWER + TUBES]",

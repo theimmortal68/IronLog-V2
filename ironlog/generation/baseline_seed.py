@@ -114,19 +114,42 @@ from ironlog.models.session import (
 # already no entry) are UNCHANGED -- d4_t3a's rep range widened (8-12 ->
 # 10-15, program_seed.py) but its slot_id and calibrated load carry
 # forward unaffected.
+#
+# 2026-08-12 (STAB maintenance-block redesign, Task 4 -- D5 rewritten to
+# match the FINAL doc's real D5 session): d5_t1 ("load" 255) and d5_t1b
+# ("ht" 205 + #0 Orange) REMOVED -- T1 anchor swapped to Kickstand RDL [DB]
+# (fresh slot "d5_t1_kickstand_rdl", zero prior history) and T1b (Hip
+# Thrust) tier dropped entirely, second of three Hip Thrust removals across
+# this redesign (D2 done in Task 2, D6 still to come). d5_t2a ("load" 30),
+# d5_t2b ("load" 180), d5_t2c ("assist" 25) REMOVED -- T2 GS fully turned
+# over to Nordic Max Bulgarian Split Squat / Nordic Curl Max [Ares] / Better
+# Fly Kickback, all needs-calibration at their new slots (d5_t2d/e/f), no
+# BASELINES entry. d5_t3a ("load" 20) and d5_t3c ("load" 30) REMOVED --
+# Poliquin Step-up and Cable Tib Raise drop out of D5's T3 GS entirely, not
+# in the FINAL doc's composition. d5_t3d ("load" 245) REMOVED -- Hyper Pro
+# Calf Raise drops out, replaced by the Hybrid Board equipment variant at a
+# fresh slot (d5_t3e, needs-calibration). New d5_t3f (Hybrid Board Tib
+# Raise [D5]) and d5_t4a (Ab Trainer Russian Twist) also have NO entry --
+# both brand new, zero prior history. d5_t3b (Reverse Nordic Curl [GHR],
+# "load" 0) is UNCHANGED -- retained movement at its existing stable
+# slot_id, no change this task. All seven removed slot_ids' underlying
+# MovementState rows are left in place, not deleted, per the never-delete-
+# orphans convention.
+#
+# 2026-08-12 (Task 4/D5 plan-owner addendum, small standalone D2 fix bundled
+# onto this same branch): d2_t3b ("load" 25, Cable Tib Raise) REMOVED -- D2's
+# TIB slot is replaced program-wide by Hybrid Board Tib Raise [D2] at a
+# fresh slot_id (d2_t3e, never-reassign-slot_id), needs-calibration, zero
+# prior history, no BASELINES entry. d2_t1/d2_t3a are UNCHANGED.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
     "d1_t2e": ("load", 20, None),
     "d1_t3c": ("load", 70, None),
     "d2_t1": ("load", 260, None),
-    "d2_t3a": ("load", 25, None), "d2_t3b": ("load", 25, None),
+    "d2_t3a": ("load", 25, None),
     "d4_t3a": ("load", 10, None),
-    "d5_t1": ("load", 255, None), "d5_t1b": ("ht", 205, "#0 Orange"),
-    "d5_t2a": ("load", 30, None), "d5_t2b": ("load", 180, None),
-    "d5_t2c": ("assist", 25, None), "d5_t3a": ("load", 20, None),
-    "d5_t3b": ("load", 0, None), "d5_t3c": ("load", 30, None),
-    "d5_t3d": ("load", 245, None),
+    "d5_t3b": ("load", 0, None),
     "d6_t1": ("assist", 40, None), "d6_g1c": ("ht", 155, "#0 Orange"),
     "d6_g2a": ("load", 90, None), "d6_g2b": ("load", 30, None),
     "d6_g2c": ("load", 10, None), "d6_g3a": ("load", 30, None),

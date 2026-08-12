@@ -23,9 +23,30 @@ gen_db / gen_db_calibrated fixtures auto-discovered from conftest.py.
 day_role in this file was changed to "D5 Lower B" -- D2's Hip Thrust T1b
 tier was removed entirely (not just the movement), so D2 no longer has any
 Hip Thrust TierExercise to exercise this file's generic HT-plumbing tests
-against. D5's still-live Hip Thrust slot is a drop-in replacement; none of
+against. D5's still-live Hip Thrust slot was a drop-in replacement; none of
 these tests assert anything D2-specific (rep range, Belt Squat, etc.), they
 use the day purely as a vehicle to exercise HT assembly/commit logic.
+
+2026-08-12 (STAB maintenance-block redesign, Task 4): D5's Hip Thrust T1b
+tier was ALSO removed entirely (2nd of 3 Hip Thrust removals across this
+redesign, D6 still to come) -- every "D5 Lower B" in this file is repointed
+to "D6 Weak Points" (its d6_g1c slot), the last real Hip Thrust TierExercise
+left in the program. IMPORTANT CAVEAT: d6_g1c is a DERIVED slot
+(`derived_from_unified_group="main"`), not a plain independent HT-composite
+slot -- run_analysis intentionally passes `band_inventory=None` for derived
+slots (ironlog/persistence/run_analysis.py's `_is_derived_ht_slot` check),
+so it never independently wear-gates against a retired band; its real setup
+is meant to come from the unified group's derive formula, not its own
+progression. That makes it unsuitable for
+test_assembler_does_not_prescribe_a_retired_band specifically, which needs
+a plain (non-derived, non-unified) HT slot to exercise independent wear-
+gating -- there is no longer a real one anywhere in the program after this
+task. That one test uses a synthetic, test-only Hip-Thrust TierExercise
+(`_synthetic_plain_ht_slot`, mirrors the established pattern in
+test_ht_unification.py's `_synthetic_ht_slot`) attached to D5's real
+ProgramDay instead. The other 7 tests in this file exercise generic
+assembly/commit mechanics unaffected by derived-vs-plain status and stay on
+D6 Weak Points' real d6_g1c slot.
 """
 from datetime import date
 
@@ -43,10 +64,32 @@ from ironlog.models.enums import (
     ProgressionRule, Scheme, SessionStatus, SetRole,
 )
 from ironlog.models.library import BandPair, Movement, MovementState
+from ironlog.models.program import ProgramDay, Tier, TierExercise, TierKind
 from ironlog.models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog,
 )
 from ironlog.persistence.run_analysis import run_analysis
+
+
+def _synthetic_plain_ht_slot(gen_db, day_role, movement_id, slot_id):
+    """Attach a throwaway, PLAIN (non-derived, non-unified) Hip-Thrust
+    TierExercise onto the given day_role's real ProgramDay (own Tier,
+    tier_order=99 so it never collides with the day's real tiers). Mirrors
+    test_ht_unification.py's _synthetic_ht_slot pattern -- used here only by
+    test_assembler_does_not_prescribe_a_retired_band, which needs a slot
+    that independently wear-gates against a retired band (see module
+    docstring: D6's real d6_g1c is a DERIVED slot and intentionally skips
+    that gating)."""
+    pd = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == day_role)).one()
+    tier = Tier(program_day_id=pd.id, tier_label="TEST-HT", tier_order=99,
+                tier_kind=TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120)
+    gen_db.add(tier)
+    gen_db.flush()
+    te = TierExercise(tier_id=tier.id, slot_id=slot_id, movement_id=movement_id,
+                       exercise_order=1, tier_role="anchor", scheme="COMPOSITE")
+    gen_db.add(te)
+    gen_db.flush()
+    return te
 
 
 def _first_ht_working_set(assembled) -> PlannedSet:
@@ -132,16 +175,29 @@ def _stage_clean_ht_advance(db, movement_id, day_role, plates, config, week_keye
 # ---------------------------------------------------------------------------
 
 def test_assembled_ht_carries_plates_and_config(gen_db_calibrated):
+    # NOTE: uses a synthetic PLAIN (non-derived) HT slot on D5's real
+    # ProgramDay, same reasoning as test_assembler_does_not_prescribe_a_
+    # retired_band (see module docstring) -- this test asserts that
+    # assembled.prospective_ht_setups matches a freshly-computed
+    # ht_next_setup() call directly, which only holds for a slot whose
+    # independent progression is actually band-gated (D6's real d6_g1c is
+    # derived and skips that gating, producing a different pending value).
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     ht_mv = gen_db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
-    st = gen_db.exec(
+    _synthetic_plain_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_carries_d5_ht")
+
+    baseline = gen_db.exec(
         select(MovementState).where(MovementState.movement_id == ht_mv.id)
-    ).one()
-    st.ht_plates = st.ht_plates if st.ht_plates is not None else st.current_load
-    st.ht_band_config = st.ht_band_config if st.ht_band_config is not None else []
+    ).first()
+    plates = (baseline.ht_plates if baseline and baseline.ht_plates is not None
+              else (baseline.current_load if baseline else 155.0))
+    st = MovementState(
+        movement_id=ht_mv.id, day_id="D5 Lower B",
+        ht_plates=plates, ht_band_config=[],
+    )
     gen_db.add(st)
     gen_db.commit()
     _stage_clean_ht_advance(
@@ -186,8 +242,8 @@ def test_uncalibrated_ht_does_not_fabricate_plates(gen_db):
     fabricated, and no entry recorded in prospective_ht_setups. Mirrors the
     non-HT needs-calibration path's "never fabricate a floor" guarantee."""
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    sk = lay_skeleton("D5 Lower B", gen_db)
-    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
+    sk = lay_skeleton("D6 Weak Points", gen_db)
+    ctx = resolve_context("D6 Weak Points", sk, gen_db, wk)
     sel = program_selections(sk)
 
     assembled = assemble(sel, sk, ctx, gen_db)
@@ -211,8 +267,8 @@ def test_assemble_does_not_write_ht_setup(gen_db_calibrated):
     write ht_plates/ht_band_config — only commit_session may (Option-C)."""
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    sk = lay_skeleton("D5 Lower B", gen_db)
-    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
+    sk = lay_skeleton("D6 Weak Points", gen_db)
+    ctx = resolve_context("D6 Weak Points", sk, gen_db, wk)
     sel = program_selections(sk)
 
     before = {s.movement_id: (s.ht_plates, s.ht_band_config)
@@ -230,8 +286,8 @@ def test_assemble_does_not_write_ht_setup(gen_db_calibrated):
 def test_commit_persists_ht_setup(gen_db_calibrated):
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    sk = lay_skeleton("D5 Lower B", gen_db)
-    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
+    sk = lay_skeleton("D6 Weak Points", gen_db)
+    ctx = resolve_context("D6 Weak Points", sk, gen_db, wk)
     sel = program_selections(sk)
     assembled = assemble(sel, sk, ctx, gen_db)
 
@@ -327,15 +383,19 @@ def test_rule_driven_non_composite_at_cap_still_hands_to_rep_ladder():
 # ---------------------------------------------------------------------------
 
 def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
-    # NOTE: the vanilla gen_db_calibrated fixture leaves the HT movement with
-    # no ht_plates/ht_band_config (only current_load), so the assembler's
-    # raise-plates shortcut never even engages a band (band_config == []).
-    # To exercise the wear-gate NON-VACUOUSLY we force a NOT-at-cap band setup:
-    # 180 plates + Orange (bottom 198, peak 225). Ungated, the raise-plates
-    # shortcut WOULD fire (185+Orange, bottom 203 <= 220) and KEEP Orange in
-    # the config -- so retiring Orange genuinely distinguishes gated from
-    # ungated behavior (an at-cap 202 setup would exclude Orange by pure
-    # arithmetic regardless of `usable`, making the test vacuous).
+    # NOTE: this test needs a PLAIN (non-derived, non-unified) HT slot that
+    # independently wear-gates against a retired band -- D6's real d6_g1c is
+    # derived and intentionally skips that gating (see module docstring), and
+    # there is no other real Hip Thrust TierExercise left in the program
+    # after this task, so a synthetic slot on D5's real ProgramDay is used
+    # (mirrors test_ht_unification.py's _synthetic_ht_slot pattern).
+    #
+    # To exercise the wear-gate NON-VACUOUSLY we force a NOT-at-cap band
+    # setup: 180 plates + Orange (bottom 198, peak 225). Ungated, the
+    # raise-plates shortcut WOULD fire (185+Orange, bottom 203 <= 220) and
+    # KEEP Orange in the config -- so retiring Orange genuinely distinguishes
+    # gated from ungated behavior (an at-cap 202 setup would exclude Orange
+    # by pure arithmetic regardless of `usable`, making the test vacuous).
     gen_db = gen_db_calibrated
     ht_mv = gen_db.exec(
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
@@ -344,11 +404,12 @@ def test_assembler_does_not_prescribe_a_retired_band(gen_db_calibrated):
         select(BandPair).where(BandPair.label == "#0 Orange")
     ).one()
 
-    st = gen_db.exec(
-        select(MovementState).where(MovementState.movement_id == ht_mv.id)
-    ).one()
-    st.ht_plates = 180.0
-    st.ht_band_config = [orange.id]
+    _synthetic_plain_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_wear_gate_d5_ht")
+
+    st = MovementState(
+        movement_id=ht_mv.id, day_id="D5 Lower B",
+        ht_plates=180.0, ht_band_config=[orange.id],
+    )
     gen_db.add(st)
     gen_db.commit()
 

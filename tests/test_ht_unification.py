@@ -5,7 +5,7 @@ tier was removed entirely (not just the movement) -- D2 no longer has any
 real Hip Thrust TierExercise to tag unified_ht_group="main" onto. This spec
 tests a generic mechanism (two+ TierExercises sharing one HtProgressionState
 row via a string tag), not something structurally tied to D2 specifically,
-so test_unified_ht_shared_read/test_unified_ht_shared_advance now use
+so test_unified_ht_shared_read/test_unified_ht_shared_advance used
 _synthetic_ht_slot() to attach a throwaway Hip-Thrust TierExercise onto D2's
 real ProgramDay (D2 the training day still exists, only its real Hip Thrust
 wiring was dropped) instead of reading a real (now-nonexistent) d2_t1b slot.
@@ -15,6 +15,14 @@ load-bearing production invariant, asserted directly by this same file's
 test_d6_ht_is_not_unified -- tagging it unified_ht_group here would
 contradict that invariant's premise, even though each test gets its own
 fresh gen_db_calibrated instance.
+
+2026-08-12 (STAB maintenance-block redesign, Task 4): D5's Hip Thrust T1b
+tier was ALSO removed entirely (second of three removals across this
+redesign, D6 still to come) -- D5 no longer has a real Hip Thrust
+TierExercise either. test_unified_ht_shared_read/test_unified_ht_shared_
+advance now use _synthetic_ht_slot() for BOTH legs (D2 and D5), same
+reasoning as above, applied symmetrically now that neither day has a real
+plain HT slot left.
 """
 from sqlmodel import select
 
@@ -58,10 +66,7 @@ def test_unified_ht_shared_read(gen_db_calibrated):
     ).one()
 
     d2_slot = _synthetic_ht_slot(gen_db, "D2 Lower A", ht_mv.id, "test_unified_d2_ht")
-    d5_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    d5_slot = _synthetic_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_unified_d5_ht")
 
     d2_slot.unified_ht_group = "main"
     d5_slot.unified_ht_group = "main"
@@ -105,12 +110,9 @@ def test_unified_ht_shared_advance(gen_db_calibrated):
         select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
     ).one()
 
-    # D2's slot is synthetic -- see module docstring.
+    # Both slots are synthetic -- see module docstring.
     d2_slot = _synthetic_ht_slot(gen_db, "D2 Lower A", ht_mv.id, "test_unified_d2_ht")
-    d5_slot = gen_db.exec(
-        select(TierExercise).join(Tier).join(ProgramDay)
-        .where(ProgramDay.day_role == "D5 Lower B", TierExercise.movement_id == ht_mv.id)
-    ).one()
+    d5_slot = _synthetic_ht_slot(gen_db, "D5 Lower B", ht_mv.id, "test_unified_d5_ht")
     d2_slot.unified_ht_group = "main"
     d5_slot.unified_ht_group = "main"
     gen_db.add(d2_slot)

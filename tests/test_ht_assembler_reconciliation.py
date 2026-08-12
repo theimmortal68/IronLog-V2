@@ -23,8 +23,15 @@ from ironlog.models.session import (
 
 # 2026-08-11 (STAB maintenance-block redesign, Task 2): was "D2 Lower A" --
 # D2's Hip Thrust T1b tier was removed entirely, so this generic HT
-# reconciliation test now exercises D5's still-live Hip Thrust slot instead.
-DAY_ROLE = "D5 Lower B"
+# reconciliation test used D5's still-live Hip Thrust slot instead.
+# 2026-08-12 (Task 4): D5's Hip Thrust T1b tier was ALSO removed entirely
+# (2nd of 3 removals across this redesign) -- repointed to D6 Weak Points'
+# real d6_g1c slot, the last one left. This file's tests exercise
+# `_reconcile_ht_performed_floor` purely through `assemble()`'s plain
+# (non-unified) branch, which doesn't care whether the slot also carries
+# `derived_from_unified_group` -- unlike test_ht_composite_wiring.py's two
+# run_analysis/advance()-driven tests, d6_g1c is a fine drop-in here.
+DAY_ROLE = "D6 Weak Points"
 WEEK_KEYER = lambda d: (d.isocalendar()[0], d.isocalendar()[1])  # noqa: E731
 
 

@@ -62,6 +62,7 @@ YAML_M_TO_LIBRARY = {
     "nordic_curl_max_d2":               "Nordic Curl Max [Ares]",
     "hybrid_board_calf_raise_d2":       "Hybrid Board Calf Raise [D2]",
     "ab_trainer_decline_situp_d2":      "Ab Trainer Decline Sit-up",
+    "hybrid_board_tib_raise_d2":        "Hybrid Board Tib Raise [D2]",
     # ── d4 Upper Pull ────────────────────────────────────────────────────────
     "pull_up_d4":                       "Wide-Grip Pull-up [TOWER]",
     "standing_ohp_d4":                  "Standing OHP [PB]",
@@ -88,6 +89,14 @@ YAML_M_TO_LIBRARY = {
     "reverse_nordic_assisted":          "Reverse Nordic Curl [GHR]",
     "cable_tib_raise_d5":               "Cable Tibialis Raise",
     "hyper_pro_calf_raise":             "Calf Raise [GHR]",
+    "kickstand_rdl_d5":                 "Kickstand RDL [DB]",
+    "nordic_max_bss_d5":                "Nordic Max Bulgarian Split Squat",
+    "nordic_curl_max_d5":               "Nordic Curl Max [Ares]",
+    "better_fly_kickback_d5":           "Better Fly Kickback [FT]",
+    "hybrid_board_calf_raise_d5":       "Hybrid Board Calf Raise [D5]",
+    "hybrid_board_tib_raise_d5":        "Hybrid Board Tib Raise [D5]",
+    "better_fly_hip_adduction_d5":      "Better Fly Hip Adduction [FT]",
+    "ab_trainer_russian_twist_d5":      "Ab Trainer Russian Twist",
     # ── d6 Weak Points ───────────────────────────────────────────────────────
     "pull_up_neutral_paused_d6":        "Pull-up - Neutral Grip (Paused) [TOWER]",
     "dips":                             "Dips [TOWER + TUBES]",

@@ -76,12 +76,27 @@ EXPECTED_NEEDS_CAL = {
     "D2 Lower A": {
         "Matrix Machine Sissy Squat", "Nordic Curl Max [Ares]",
         "Hybrid Board Calf Raise [D2]", "Ab Trainer Decline Sit-up",
+        # 2026-08-12 (STAB maintenance-block redesign, Task 4 addendum):
+        # Cable Tib Raise replaced by Hybrid Board Tib Raise [D2], needs-cal.
+        "Hybrid Board Tib Raise [D2]",
     },
     "D4 Upper Pull": {
         "Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]",
         "Stryker Pad CSR Barbell [PB]", "Ab Trainer Hanging Leg Raise",
         "Better Fly Cable Pullover [FT]", "Lying Tricep Extension [SB]",
         "PureTorque Pro Rotation",
+    },
+    # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 reconciled to
+    # the FINAL doc's real D5 session -- 7 new movements, all needs-cal, zero
+    # prior history. "Nordic Curl Max [Ares]" is the SAME shared Movement row
+    # as D2's above, but day-scoped state means D5's own track independently
+    # needs-cal too. "Reverse Nordic Curl [GHR]" (d5_t3b) is UNCHANGED, still
+    # calibrated -- not in this set.
+    "D5 Lower B": {
+        "Kickstand RDL [DB]", "Nordic Max Bulgarian Split Squat",
+        "Nordic Curl Max [Ares]", "Better Fly Kickback [FT]",
+        "Hybrid Board Calf Raise [D5]", "Hybrid Board Tib Raise [D5]",
+        "Better Fly Hip Adduction [FT]", "Ab Trainer Russian Twist",
     },
     "D6 Weak Points": {"Cable Bicep Curl [FT]", "Pull-up - Neutral Grip (Paused) [TOWER]"},
 }

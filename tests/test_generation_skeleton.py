@@ -44,13 +44,20 @@ def test_d2_has_knee_slots_in_adaptive(gen_db):
 
 
 def test_knee_slots_in_giant_tiers_remember_giant_tier(gen_db):
-    """D5 T3 is a GIANT_SET tier even though most slots are knee_modality-tagged."""
+    """D5 T2/T3 are GIANT_SET tiers even though several slots are
+    knee_modality-tagged.
+
+    2026-08-12 (STAB maintenance-block redesign, Task 4): D5's T2 GS knee
+    slot moved from the old d5_t2c (Assisted Nordic, dropped) to d5_t2e
+    (Nordic Curl Max [Ares], knee_modality=NORDIC). T3 GS slots repointed
+    from the dropped d5_t3a/c/d to the new d5_t3e/f/g (d5_t3b unchanged).
+    """
     sk = lay_skeleton("D5 Lower B", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    assert slots["d5_t2c"].kind == "knee"
-    assert slots["d5_t2c"].is_giant_tier is True
-    for slot_id in ("d5_t3a", "d5_t3b", "d5_t3c", "d5_t3d"):
+    assert slots["d5_t2e"].kind == "knee"
+    assert slots["d5_t2e"].is_giant_tier is True
+    for slot_id in ("d5_t3b", "d5_t3e", "d5_t3f", "d5_t3g"):
         assert slots[slot_id].is_giant_tier is True
 
 

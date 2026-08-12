@@ -34,9 +34,14 @@ def test_run_analysis_never_writes_ht_setup(gen_db_calibrated):
     gen_db = gen_db_calibrated
     # 2026-08-11 (STAB maintenance-block redesign, Task 2): was "D2 Lower A"
     # -- D2's Hip Thrust T1b tier was removed entirely, so this generic HT
-    # write-boundary test now exercises D5's still-live Hip Thrust slot.
-    sk = lay_skeleton("D5 Lower B", gen_db)
-    ctx = resolve_context("D5 Lower B", sk, gen_db, WEEK_KEYER)
+    # write-boundary test used D5's still-live Hip Thrust slot.
+    # 2026-08-12 (Task 4): D5's Hip Thrust T1b tier was ALSO removed entirely
+    # (2nd of 3 removals across this redesign) -- repointed to D6 Weak
+    # Points' real d6_g1c slot, the last one left. This test only asserts
+    # the setup is UNCHANGED by run_analysis, which holds regardless of
+    # d6_g1c also being a derived slot.
+    sk = lay_skeleton("D6 Weak Points", gen_db)
+    ctx = resolve_context("D6 Weak Points", sk, gen_db, WEEK_KEYER)
     sel = program_selections(sk)
     assembled = assemble(sel, sk, ctx, gen_db)
 

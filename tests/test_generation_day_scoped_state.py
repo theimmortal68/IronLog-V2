@@ -4,16 +4,19 @@ of 2026-08-11, D2's T1b tier was removed entirely in the STAB maintenance-
 block redesign's Task 2 -- plus Reverse Hyper, Nordic, Cable Tib) don't
 collide to one last-wins row.
 
-Anchors on seed_movement_baselines (Task 4), which seeds per-day
-(movement_id, day_id) MovementState rows for HT: D5 Lower B=205,
-D6 Weak Points=155 (see BASELINES d5_t1b/d6_g1c in
-ironlog/generation/baseline_seed.py). D2's Hip Thrust baseline (formerly
-d2_t1b=205, shared with D5 per the 2026-07-06 athlete directive raising D2
-to match D5) no longer exists — D2's Hip Thrust T1b tier was dropped
-entirely, 2026-08-11 STAB redesign Task 2 (Removed: Hip Thrust, the whole
-tier, not just the movement). The day-scoping guarantee this test proves is
-now a 2-way (D5/D6) independence check: D5 and D6 resolve as INDEPENDENT
-MovementState rows for the same underlying Hip Thrust Movement.
+2026-08-12 (STAB maintenance-block redesign, Task 4): D5's Hip Thrust T1b
+tier is ALSO removed entirely now (2nd of 3 Hip Thrust removals across this
+redesign, D6 still to come) -- D5 no longer has a real Hip Thrust
+TierExercise or seed_movement_baselines-populated MovementState row (the old
+d5_t1b BASELINES entry is gone). This test's day-scoping proof needs a
+SECOND real independent HT track alongside D6's real d6_g1c to prove two
+distinct (movement_id, day_id) rows resolve independently through
+generation, so it attaches a synthetic, test-only, PLAIN Hip-Thrust
+TierExercise onto D5's real ProgramDay (mirrors test_ht_composite_wiring.py's
+`_synthetic_plain_ht_slot` / test_ht_unification.py's `_synthetic_ht_slot`
+pattern) and manually seeds its MovementState at the same 205+Orange values
+the old real d5_t1b baseline used, instead of relying on
+seed_movement_baselines to populate D5's row.
 
 Uses lay_skeleton -> resolve_context -> program_selections -> assemble
 directly (the same pattern as test_ht_write_boundary.py), NOT the full
@@ -44,6 +47,8 @@ from ironlog.models.enums import (
 )
 from ironlog.models.library import BandPair, Movement, MovementState
 from ironlog.models.program import TierExercise
+
+from tests.test_ht_composite_wiring import _synthetic_plain_ht_slot
 from ironlog.models.session import (
     ExerciseGroup, PlannedExercise, PlannedSet, Session as IronSession, SetLog,
 )
@@ -111,11 +116,26 @@ def _stage_clean_ht_advance(db, movement_id, day_role, plates, config):
 def test_ht_load_is_day_scoped(gen_db):
     seed_movement_baselines(gen_db)
 
-    # Independence check FIRST, at the MovementState-row level: d5_t1b/d6_g1c
-    # key off the SAME underlying HT movement, so if day-scoping regressed to
-    # a single last-wins row we'd see 1 row, not 2.
+    orange = gen_db.exec(select(BandPair).where(BandPair.label == "#0 Orange")).one()
+    ht_mv_for_synthetic = gen_db.exec(
+        select(Movement).where(Movement.name == "Hip Thrust [HIP_THRUST]")
+    ).one()
+    # D5's Hip Thrust T1b tier was removed entirely (Task 4, 2026-08-12) --
+    # attach a synthetic, test-only PLAIN slot on D5's real ProgramDay so
+    # this test still has two independent real (movement_id, day_id) rows
+    # to prove day-scoping against (see module docstring).
+    _synthetic_plain_ht_slot(gen_db, "D5 Lower B", ht_mv_for_synthetic.id, "test_dayscope_d5_ht")
+    gen_db.add(MovementState(
+        movement_id=ht_mv_for_synthetic.id, day_id="D5 Lower B",
+        ht_plates=205.0, ht_band_config=[orange.id],
+    ))
+    gen_db.commit()
+
+    # Independence check FIRST, at the MovementState-row level: the
+    # synthetic D5 slot / d6_g1c key off the SAME underlying HT movement, so
+    # if day-scoping regressed to a single last-wins row we'd see 1 row, not 2.
     te = {t.slot_id: t for t in gen_db.exec(select(TierExercise)).all()}
-    ht_movement_id = te["d5_t1b"].movement_id
+    ht_movement_id = te["test_dayscope_d5_ht"].movement_id
     assert te["d6_g1c"].movement_id == ht_movement_id
     ht_states = gen_db.exec(
         select(MovementState).where(MovementState.movement_id == ht_movement_id)
