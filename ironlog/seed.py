@@ -358,7 +358,19 @@ MOVEMENTS = [
     # 2026-07-26: new D1 T2 GS accessory (athlete directive) -- fills the slot
     # vacated by Pendlay Row Narrow's promotion to its own T1b tier. Pure
     # tricep isolation (not a CG_PRESS variant), same BMF Camber Bar as the
-    # rest of the [SB] family.
+    # rest of the [SB] family. D1's Task 1 (STAB maintenance-block redesign)
+    # dropped this movement from D1's wiring entirely -- it sat unused until
+    # 2026-08-11 (Task 3/D4), when D4's T3 GS picked it back up per the
+    # FINAL doc's `lying_tricep_extension_camber_7` entry. That entry's
+    # `grip: 7_inch` is a PHYSICAL-SETUP DETAIL, not a schema field or a new
+    # movement identity -- same treatment as D1 Bench Press's own camber-bar
+    # 21" grip note (plan doc, Task 1: "physical-setup detail, not a schema
+    # field, same movement/load_code as before"). This row has no grip
+    # encoded in its name/tags and had no other grip-variant sibling
+    # anywhere in the program, so it's reused as-is (no new "Camber 7"
+    # movement) rather than duplicated -- matches the EZ-curl-family
+    # precedent of separate rows only where named grip variants actually
+    # COEXIST and need disambiguation, which isn't the case here.
     dict(name="Lying Tricep Extension [SB]", base_name="Lying Tricep Extension",
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="SB", tags=["SB"],
@@ -380,6 +392,55 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=20,
          primary_muscle="FRONT_DELT", secondary_muscles=["SIDE_DELT", "TRICEPS"]),
+    # 2026-08-11: new D4 T1 movement (maintenance block, STAB redesign, Task
+    # 3). Seated on the APEX Bench upright (Config D), Black Diamond DBD
+    # barbell -- same bar/bracket as every other [PB] movement (FINAL doc's
+    # `equipment: [black_diamond_dbd, apex_bench_upright]`), NOT the Gladiator
+    # WL [OB] bar. Replaces D4's T1 anchor (Standing OHP [PB], which stays
+    # ACTIVE and needs-cal, just unwired from D4). Needs-calibration start,
+    # zero prior history.
+    dict(name="Seated BTN OHP [PB]", base_name="Seated BTN OHP",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="PB", tags=["PB"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=45,
+         primary_muscle="FRONT_DELT", secondary_muscles=["TRICEPS", "SIDE_DELT"]),
+    # 2026-08-11: new D4 T1b movement (maintenance block, STAB redesign, Task
+    # 3). Better Fly cuff on elbows, cable at high pulley (FINAL doc's
+    # `equipment: [better_fly, ares_cable, ares_high_pulley]`) -- [FT] bracket
+    # (Ares cable, single), same family as D1's Better Fly Standing Lateral
+    # Raise. Replaces D4's T1b anchor (Wide-Grip Pull-up [TOWER], athlete
+    # directive -- grip-free vertical pull isolation, cable provides
+    # continuous tension throughout ROM; drops D4's direct pull-up work,
+    # D1/D6 keep theirs). Needs-calibration start, zero prior history.
+    dict(name="Better Fly Lat Pulldown [FT]", base_name="Better Fly Lat Pulldown",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
+    # 2026-08-11: new D4 T2 GS movement (maintenance block, STAB redesign,
+    # Task 3). Chest-supported row on the new Stryker Pad bench attachment,
+    # Black Diamond DBD barbell -- [PB] bracket (FINAL doc's `equipment:
+    # [stryker_pad, apex_bench, black_diamond_dbd]`), NOT [OB] (task-3-brief.md
+    # gave [OB], which is the Gladiator WL bar -- CODE_TO_EQUIP above confirms
+    # black_diamond_dbd is PB; corrected here, logged as a brief error).
+    # Replaces Meadows Row [OB + LM] (drops out of D4 entirely, still no
+    # other day wires it). Needs-calibration start, zero prior history.
+    dict(name="Stryker Pad CSR Barbell [PB]", base_name="Stryker Pad CSR Barbell",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="PB", tags=["PB", "STRYKER_PAD"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=45,
+         primary_muscle="MID_BACK", secondary_muscles=["LATS", "REAR_DELT", "BICEPS"]),
+    # 2026-08-11: new D4 T2 GS movement (maintenance block, STAB redesign,
+    # Task 3). Better Fly cuff, cable at MID pulley (FINAL doc's `equipment:
+    # [better_fly, ares_cable, ares_mid_pulley]` -- distinct attach point from
+    # Better Fly Lat Pulldown's high pulley above). [FT] bracket, same family.
+    # Replaces Andreoni Cable Pullover (drops out of D4 entirely, still no
+    # other day wires it). Needs-calibration start, zero prior history.
+    dict(name="Better Fly Cable Pullover [FT]", base_name="Better Fly Cable Pullover",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="LATS", secondary_muscles=["MID_BACK"]),
     # Pendlay Row family (Medium anchor + grip variants at 1.0)
     dict(name="Pendlay Row - Medium [OB]", base_name="Pendlay Row - Medium",
          region=Region.UPPER, lift_category=LiftCategory.ROW, status=Status.ACTIVE,
@@ -582,6 +643,17 @@ MOVEMENTS = [
     # Mirrors Ab Wheel [WHEEL]'s PROTOCOL/STRAIGHT shape (bodyweight, no
     # scalar load track, REP_LADDER-driven via rep_ladder_at_cap mapping).
     dict(name="Ab Trainer Decline Sit-up", base_name="Ab Trainer Decline Sit-up",
+         region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
+         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
+         primary_muscle="ABS", secondary_muscles=[]),
+    # 2026-08-11: new D4 T2 GS movement (maintenance block, STAB redesign,
+    # Task 3). Anti-extension hip flexion on the Ab Trainer apparatus (FINAL
+    # doc: `equipment: [ab_trainer, apex_bench]`) -- did NOT already exist in
+    # the library (Step-1 verification per task-3-brief.md confirmed no
+    # match). Same PROTOCOL/STRAIGHT/REP_LADDER shape as Ab Trainer Decline
+    # Sit-up above (bodyweight, no scalar load track). Needs-calibration
+    # start, zero prior history.
+    dict(name="Ab Trainer Hanging Leg Raise", base_name="Ab Trainer Hanging Leg Raise",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
          progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
          primary_muscle="ABS", secondary_muscles=[]),

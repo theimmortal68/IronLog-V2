@@ -84,7 +84,15 @@ def test_nordic_and_reverse_nordic_unchanged(gen_db):
 def test_baselines_seed_assist_level_not_current_load(gen_db):
     """2026-08-10 (STAB maintenance-block redesign): Face-Up Incline Knee
     Raise dropped out of D1 entirely (T2 GS turnover), so D1 no longer has a
-    MovementState for it at all -- only D4's remains to check."""
+    MovementState for it at all -- only D4's remained to check.
+
+    2026-08-11 (Task 3): Face-Up Incline Knee Raise now drops out of D4's
+    wiring too (T2 GS fully turned over per the FINAL doc) -- it is fully
+    unwired program-wide. The "d4_t2c" BASELINES entry was removed
+    (ironlog/generation/baseline_seed.py), so this is now an INVERTED guard:
+    seeding baselines must NOT create a MovementState for this movement on
+    ANY day. The underlying orphaned production row at the old d4_t2c slot
+    is left in place (never-delete-orphans), just no longer (re)seeded."""
     from ironlog.generation.baseline_seed import seed_movement_baselines
 
     seed_movement_baselines(gen_db)
@@ -93,27 +101,37 @@ def test_baselines_seed_assist_level_not_current_load(gen_db):
     d4 = gen_db.exec(select(MovementState).where(
         MovementState.movement_id == mv.id,
         MovementState.day_id == "D4 Upper Pull",
-    )).one()
+    )).first()
 
-    assert d4.assist_level == 10.0
-    assert d4.current_load is None
+    assert d4 is None, (
+        "Face-Up Incline Knee Raise is unwired program-wide as of Task 3 -- "
+        "seed_movement_baselines must not create a state for it"
+    )
 
 
 # ---------------------------------------------------------------------------
 # 3. Generation regression: no lb load, assist-sourced value threads through
 # ---------------------------------------------------------------------------
 
-def test_generate_d4_upper_pull_knee_raise_carries_no_lb_load(gen_db):
-    """Regression against the '25 lb' bug: the knee-raise slot's prescribed
-    value must come from assist_level (10), NOT from any stray current_load.
-    Plants a decoy current_load on the D4 state to prove the field-routing
-    (not just the numeric coincidence) is fixed — before this fix, LADDER
-    movements resolved off current_load, so a decoy would have leaked through.
+def test_generate_d4_upper_pull_does_not_include_knee_raise(gen_db):
+    """2026-08-11 (STAB maintenance-block redesign, Task 3): D4's T2 GS was
+    fully turned over per the FINAL doc -- Face-Up Incline Knee Raise drops
+    out of D4's wiring entirely (it was already dropped from D1 in Task 1),
+    making it unwired program-wide.
 
-    2026-08-10 (STAB maintenance-block redesign): retargeted from D1 to D4 --
-    Face-Up Incline Knee Raise dropped out of D1's wiring entirely (T2 GS
-    turnover), D4's copy (assist_ladder [10,5,0], baseline assist=10) is now
-    the only live example of this movement in the program."""
+    This test previously regression-guarded the '25 lb' bug fix by asserting
+    KNEE_RAISE's assist_level (not a stray current_load) surfaced as
+    target_load through REAL D4 generation. That live path no longer exists.
+    The exact same seam -- ASSISTED progression_mode routing through
+    load_field_for_mode to assist_level, not current_load, in real generated
+    output -- is still exercised live by
+    tests/test_golive_phase1.py::test_d6_dips_resolves_seeded_assist_level
+    (Dips [TOWER + TUBES], D6, target_load == assist_level == 40). That is
+    now the surviving live-path proof for this class of bug.
+
+    What this test asserts instead: KNEE_RAISE no longer appears in a real
+    generated D4 session at all -- a positive guard that the turnover
+    actually took effect."""
     from ironlog.api.app import _make_proposer, _week_keyer
     from ironlog.generation.baseline_seed import seed_movement_baselines
     from ironlog.generation.loop import generate_session
@@ -122,13 +140,6 @@ def test_generate_d4_upper_pull_knee_raise_carries_no_lb_load(gen_db):
     seed_movement_baselines(gen_db)
 
     mv = gen_db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
-    d4 = gen_db.exec(select(MovementState).where(
-        MovementState.movement_id == mv.id,
-        MovementState.day_id == "D4 Upper Pull",
-    )).one()
-    d4.current_load = 999.0   # decoy lb value — must never surface as target_load
-    gen_db.add(d4)
-    gen_db.commit()
 
     sk = lay_skeleton("D4 Upper Pull", gen_db)
     proposer = _make_proposer(sk)
@@ -143,15 +154,10 @@ def test_generate_d4_upper_pull_knee_raise_carries_no_lb_load(gen_db):
         for ex in g.exercises
         if ex.movement_id == mv.id
     ]
-    assert exercises, f"{KNEE_RAISE} did not appear in the generated D4 session"
-    for ex in exercises:
-        assert ex.planned_sets, "knee-raise slot has no planned sets"
-        for ps in ex.planned_sets:
-            assert ps.target_load == 10.0, (
-                f"knee-raise planned set target_load={ps.target_load!r}, expected "
-                "10.0 (the D4 incline degrees from assist_level) — not the decoy "
-                "current_load(999) and not a fabricated lb floor"
-            )
+    assert not exercises, (
+        f"{KNEE_RAISE} appeared in the generated D4 session, but it is unwired "
+        "as of Task 3 -- generation must not include it"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +171,24 @@ def test_incline_reduction_advances_real_seeded_movement(gen_db):
     synthetic object — proof the seed.py wiring, not just the rule itself,
     is correct. A clean qualifying session neither reduces the streak nor
     the ladder immediately (window=2); the SECOND clean session steps
-    assist_level 25 -> 20."""
+    assist_level 25 -> 20.
+
+    2026-08-11 (STAB maintenance-block redesign, Task 3): Face-Up Incline
+    Knee Raise is now unwired program-wide (D4's T2 GS turnover drops it,
+    D1 already dropped it in Task 1), so no YAML entry uses `rule:
+    incline_reduction` anymore and wire_progression_rules() no longer sets
+    Movement.progression_rule for it (defaults to None, per
+    ironlog/generation/rule_wiring.py's "only maps movements actually wired
+    to a slot" contract -- matches the "PureTorque Pro Rotation .. no
+    longer programmed .. carries no wired progression_rule" and
+    INCLINE_REDUCTION-is-now-unused notes in tests/test_rule_wiring.py).
+    The Movement-level assist_ladder and the advance() dispatch below (which
+    takes the rule as an explicit argument, not read from mv.progression_rule)
+    are unaffected -- this test still proves the rule LOGIC/seed data are
+    correct, just not that live wiring routes to it."""
     mv = gen_db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
     assert mv.assist_ladder == [25, 20, 15, 10, 5, 0]
-    assert mv.progression_rule == ProgressionRule.INCLINE_REDUCTION.value
+    assert mv.progression_rule is None
 
     perf = SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True)
 
@@ -216,21 +236,35 @@ def _log_clean_knee_raise_session(db, *, session_id, session_date, movement_id,
 
 def test_run_analysis_end_to_end_advances_assist_level_after_two_clean_sessions(gen_db):
     """Full pipeline proof (mirrors test_clean_bench_session_earns_load_step):
-    seed the calibrated baselines, log two clean D4 knee-raise sessions through
-    run_analysis, and confirm MovementState.assist_level steps 10 -> 5 on the
-    second one — the INCLINE_REDUCTION rule firing end-to-end now that
-    assist_ladder is populated.
+    log two clean D4 knee-raise sessions through run_analysis, and confirm
+    MovementState.assist_level steps 10 -> 5 on the second one — the
+    INCLINE_REDUCTION rule firing end-to-end now that assist_ladder is
+    populated.
 
     2026-08-10 (STAB maintenance-block redesign): retargeted from D1 to D4 --
     Face-Up Incline Knee Raise dropped out of D1's wiring entirely (T2 GS
     turnover). D4's assist_ladder is [10,5,0] (not D1's former [25,20,15,10,5,0]
-    starting point), so the expected step is 10 -> 5, not 25 -> 20."""
-    from ironlog.generation.baseline_seed import seed_movement_baselines
+    starting point), so the expected step is 10 -> 5, not 25 -> 20.
+
+    2026-08-11 (STAB maintenance-block redesign, Task 3): D4's T2 GS was
+    fully turned over per the FINAL doc -- Face-Up Incline Knee Raise is now
+    unwired program-wide (`Movement.progression_rule` is None, per
+    test_incline_reduction_advances_real_seeded_movement above), so
+    run_analysis's dispatch (keyed on movement.progression_rule, see
+    ironlog/persistence/run_analysis.py) can no longer fire INCLINE_REDUCTION
+    for it regardless of a seeded/planted MovementState. This is now an
+    INVERTED guard: run two clean sessions through run_analysis against a
+    manually-inserted state (seed_movement_baselines no longer creates one --
+    its BASELINES entry was removed) and assert assist_level stays put --
+    proof the engine correctly no-ops on an unwired movement rather than
+    silently advancing on stale rule wiring."""
     from ironlog.persistence.run_analysis import run_analysis
 
-    seed_movement_baselines(gen_db)
-
     mv = gen_db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
+    assert mv.progression_rule is None
+    gen_db.add(MovementState(movement_id=mv.id, day_id="D4 Upper Pull",
+                             assist_level=10.0))
+    gen_db.commit()
     st0 = gen_db.exec(select(MovementState).where(
         MovementState.movement_id == mv.id,
         MovementState.day_id == "D4 Upper Pull",
@@ -256,8 +290,10 @@ def test_run_analysis_end_to_end_advances_assist_level_after_two_clean_sessions(
         MovementState.movement_id == mv.id,
         MovementState.day_id == "D4 Upper Pull",
     )).one()
-    assert st2.assist_level == 5.0, (
-        "second clean session must step incline down the ladder (10 -> 5) "
-        "via _incline_reduction"
+    assert st2.assist_level == 10.0, (
+        "unwired movement (progression_rule is None) must NOT advance even "
+        "after two clean sessions -- run_analysis's dispatch is keyed on "
+        "movement.progression_rule, which is None for this movement as of "
+        "Task 3's D4 T2 GS turnover"
     )
     assert st2.current_load is None, "engine must never write a lb load onto a bodyweight movement"

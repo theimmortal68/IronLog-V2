@@ -90,6 +90,30 @@ from ironlog.models.session import (
 # d2_t3b (ATG Split Squat 25 / Cable Tib Raise 25) are UNCHANGED -- retained
 # movements at their existing stable slot_ids, only their rep ranges (T1)
 # or tier rest_seconds (T3, see program_seed.py) changed.
+#
+# 2026-08-11 (STAB maintenance-block redesign, Task 3 -- D4 rewritten to
+# match the FINAL doc's real D4 session): d4_t2a (Meadows Row, "load" 35),
+# d4_t2b (Single-Arm DB Row, "load" 40), and d4_t2c (Face-Up Incline Knee
+# Raise, "assist" 10) all REMOVED -- T2 GS fully turned over to Stryker Pad
+# CSR Barbell / Ab Trainer Hanging Leg Raise / Better Fly Cable Pullover,
+# all three brand new with zero prior history (needs-calibration is
+# correct, no BASELINES entry). d4_t3b (Andreoni Cable Pullover, "load" 70)
+# REMOVED -- that movement drops out of D4's wiring entirely, replaced by
+# the reused Lying Tricep Extension [SB] at a fresh slot ("d4_t3e", no
+# BASELINES entry -- zero prior history at that slot_id, matches every
+# other newly-wired needs-cal movement this redesign). All four removed
+# slot_ids' underlying MovementState rows are left in place, not deleted.
+# d4_t1_ohp (Standing OHP [PB]) never had a BASELINES entry (needs-cal
+# already) and is simply superseded by the new "d4_t1_btn_ohp" slot, which
+# likewise has NO entry (Seated BTN OHP [PB] is brand new, zero prior
+# history). d4_t1 (Better Fly Lat Pulldown, reused slot_id) never had a
+# BASELINES entry either (its prior occupant, Wide-Grip Pull-up, was
+# PULL_UP_ROLLING_MAX and never carried one) -- stays with no entry, needs-
+# calibration is correct for the brand-new movement now at that slot_id.
+# d4_t3a (DB Rear Delt Fly, "load" 10) and d4_t3d (PureTorque Pro Rotation,
+# already no entry) are UNCHANGED -- d4_t3a's rep range widened (8-12 ->
+# 10-15, program_seed.py) but its slot_id and calibrated load carry
+# forward unaffected.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
@@ -97,9 +121,7 @@ BASELINES = {
     "d1_t3c": ("load", 70, None),
     "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None), "d2_t3b": ("load", 25, None),
-    "d4_t2a": ("load", 35, None), "d4_t2b": ("load", 40, None),
-    "d4_t2c": ("assist", 10, None), "d4_t3a": ("load", 10, None),
-    "d4_t3b": ("load", 70, None),
+    "d4_t3a": ("load", 10, None),
     "d5_t1": ("load", 255, None), "d5_t1b": ("ht", 205, "#0 Orange"),
     "d5_t2a": ("load", 30, None), "d5_t2b": ("load", 180, None),
     "d5_t2c": ("assist", 25, None), "d5_t3a": ("load", 20, None),

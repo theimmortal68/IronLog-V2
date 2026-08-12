@@ -101,6 +101,12 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "db_rear_delt_fly":                  "Rear Delt Fly [DB]",
     "andreoni_bar_cable_pullover":       "Andreoni Cable Pullover",
     "puretorque_pro_rotation_d4":        "PureTorque Pro Rotation",
+    "seated_btn_ohp_d4":                 "Seated BTN OHP [PB]",
+    "better_fly_lat_pulldown_d4":        "Better Fly Lat Pulldown [FT]",
+    "stryker_pad_csr_barbell_d4":        "Stryker Pad CSR Barbell [PB]",
+    "ab_trainer_hanging_leg_raise_d4":   "Ab Trainer Hanging Leg Raise",
+    "better_fly_cable_pullover_d4":      "Better Fly Cable Pullover [FT]",
+    "lying_tricep_extension_camber7_d4": "Lying Tricep Extension [SB]",
     # ── d5 Lower B ───────────────────────────────────────────────────────────
     "rdl_d5":                            "RDL [PB]",
     "hip_thrust_d5":                     "Hip Thrust [HIP_THRUST]",

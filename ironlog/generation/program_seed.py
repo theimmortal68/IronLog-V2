@@ -60,6 +60,11 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Meadows Row":                                  "Meadows Row [OB + LM]",
     "Meadows SA Row":                               "Meadows Row [OB + LM]",
     "DB Rear Delt Fly":                             "Rear Delt Fly [DB]",
+    "Seated BTN OHP":                               "Seated BTN OHP [PB]",
+    "Better Fly Lat Pulldown":                      "Better Fly Lat Pulldown [FT]",
+    "Stryker Pad CSR Barbell":                      "Stryker Pad CSR Barbell [PB]",
+    "Better Fly Cable Pullover":                    "Better Fly Cable Pullover [FT]",
+    "Ab Trainer Hanging Leg Raise":                 "Ab Trainer Hanging Leg Raise",
     # ── D5 Lower B ───────────────────────────────────────────────────────────
     "RDL":                                          "RDL [PB]",
     "Barbell Hip Thrust (220 cap, independent track)": "Hip Thrust [HIP_THRUST]",
@@ -598,59 +603,75 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — Standing Barbell OHP (anchor; 2026-07-23, closes the program's
-    # overhead-pressing gap -- no vertical press existed anywhere in the split
-    # before this, only horizontal pressing (Bench/Incline) and lateral-raise
-    # side-delt work. Placed BEFORE Pull-up (not after, athlete's original
-    # request) because Movement.is_primary=True lifts must precede all
-    # non-primary movements in session order (validator's PRIMARY_NOT_FIRST
-    # rule, session-wide, not tier-label-scoped) -- Pull-up is is_primary=False
-    # (assistance-based), so "Pull-up then OHP" is structurally unassemblable
-    # regardless of tier naming. Athlete confirmed OHP-first for this phase,
-    # intends to revisit ordering (Pull-up first) in a future phase.
-    # slot_id "d4_t1b" (not "d4_t1") is intentional: Pull-up keeps its ORIGINAL
-    # stable slot_id below despite moving to the T1b tier label -- slot_id must
-    # never be reassigned to a different movement (see the T2 GS comment
-    # further down for the same convention applied to an exercise_order swap).
+    # T1 — Seated BTN OHP (anchor). 2026-08-11 (maintenance block, STAB
+    # redesign, Task 3): replaces Standing OHP [PB] -- FINAL doc's D4 T1 is
+    # seated, behind-the-neck, on the APEX Bench upright (Config D), same
+    # [PB] bracket. Standing OHP [PB] stays ACTIVE in the library (still
+    # needs-cal, unwired from every day now) -- not deleted, per the never-
+    # delete-orphans convention. Fresh slot_id "d4_t1_btn_ohp" -- this is a
+    # genuinely different movement filling a vacated anchor, not the one
+    # explicitly-allowed reassignment case (that's T1b below), so it does
+    # NOT reuse the old "d4_t1_ohp" slot_id. Rep range drops 6-8 -> 4-6,
+    # matching the FINAL doc and every other T1 primary this redesign.
     t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
-    _add_te(db, t1.id, "d4_t1_ohp", "Standing OHP [PB]", lib, 1, "anchor",
-            pattern="vertical_push", rep_low=6, rep_high=8, scheme="STRAIGHT")
+    _add_te(db, t1.id, "d4_t1_btn_ohp", "Seated BTN OHP", lib, 1, "anchor",
+            pattern="vertical_push", rep_low=4, rep_high=6, scheme="STRAIGHT")
 
-    # T1b — Wide-Grip Pull-up (anchor). 2026-07-26: switched from neutral-grip
-    # (shared "Pull-up [TOWER + TUBES]") to a new movement, wide-grip
-    # unassisted (athlete directive: neutral-grip 3x8 milestone cleared,
-    # switching grips for fresh stimulus). D1's Pull-up slot is unaffected.
+    # T1b — Better Fly Lat Pulldown (anchor, REPLACES Wide-Grip Pull-up).
+    # 2026-08-11: athlete directive (grip-free vertical pull isolation, cable
+    # tension throughout ROM) -- FINAL doc explicitly frames this as D4's
+    # T1b anchor slot changing content, not a new slot (D4 loses pull-ups,
+    # gains Better Fly Lat Pulldown; D1/D6 keep their own pull-up work,
+    # total direct pull-up frequency drops 3x/week -> 2x/week program-wide).
+    # Reuses slot_id "d4_t1" -- the ONE explicitly-allowed reassignment case
+    # per this task's brief, same treatment as D1's T1b promotion precedent.
+    # Rep range 6-8, RPE_8_STANDARD (cable double-progression, not the old
+    # PULL_UP_ROLLING_MAX rule).
     t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=180, shoe="Metcon 9")
-    _add_te(db, t1b.id, "d4_t1", "Wide-Grip Pull-up", lib, 1, "anchor",
-            pattern="vertical_pull", rep_low=6, rep_high=8, scheme="REP_RATIO")
+    _add_te(db, t1b.id, "d4_t1", "Better Fly Lat Pulldown", lib, 1, "anchor",
+            pattern="vertical_pull", rep_low=6, rep_high=8, scheme="DOUBLE_PROGRESSION")
 
-    # T2 GS — Meadows Row / Face-Up Incline Knee Raise / Single-Arm DB Row
-    # (Face-Up Knee moved between Meadows and DB Row, athlete request 2026-07-09;
-    # slot_id -> movement mapping is UNCHANGED -- d4_t2b is still Single-Arm DB
-    # Row's slot, d4_t2c is still Face-Up Knee's slot -- only the exercise_order
-    # values are swapped, since slot_id is a stable key elsewhere (overrides,
-    # rep-scheme lookups) and shouldn't be reassigned to a different movement.)
+    # T2 GS — Stryker Pad CSR Barbell / Ab Trainer Hanging Leg Raise / Better
+    # Fly Cable Pullover. 2026-08-11: FULL T2 GS turnover -- Meadows Row [OB
+    # + LM] (old d4_t2a, carried a meso-2 rotation to Pendlay Row -- that
+    # rotation is DROPPED, not carried to any new slot; the program's other
+    # adaptive-slot meso-rotation example lives at D5's d5_t2b, unaffected),
+    # Single-Arm DB Row [DB] (old d4_t2b), and Face-Up Incline Knee Raise
+    # (old d4_t2c) all drop out of D4's wiring entirely -- none are
+    # referenced by any other day, so all three become fully unwired
+    # (Movement rows stay ACTIVE in the library, MovementState rows at their
+    # old slot_ids are left in place, per the never-delete-orphans
+    # convention). Old slot_ids d4_t2a/d4_t2b/d4_t2c are VACATED, not reused
+    # -- all three new members get fresh slot_ids (d4_t2d/d4_t2e/d4_t2f).
+    # All three new movements are needs-calibration (zero prior history).
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    d4_t2a = _add_te(db, t2.id, "d4_t2a", "Meadows Row", lib, 1, "semi",
-                     pattern="horizontal_pull", rep_low=8, rep_high=12,
-                     scheme="DOUBLE_PROGRESSION")
-    _add_mr(db, d4_t2a, 2, "Pendlay Row", lib)
-    _add_te(db, t2.id, "d4_t2b", "Single-Arm DB Row", lib, 3, "free",
+    _add_te(db, t2.id, "d4_t2d", "Stryker Pad CSR Barbell", lib, 1, "free",
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d4_t2c", "Face-Up Incline Knee Raise", lib, 2, "free",
-            pattern="core", rep_low=10, rep_high=15)
+    _add_te(db, t2.id, "d4_t2e", "Ab Trainer Hanging Leg Raise", lib, 2, "free",
+            pattern="core", rep_low=8, rep_high=12, scheme="REP_LADDER")
+    _add_te(db, t2.id, "d4_t2f", "Better Fly Cable Pullover", lib, 3, "free",
+            pattern="lat", rep_low=10, rep_high=15, scheme="DOUBLE_PROGRESSION")
 
-    # T3 GS — DB Rear Delt Fly / Andreoni Cable Pullover / PureTorque Pro Rotation
-    # (2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation, athlete
-    # directive -- new slot "d4_t3d", not a reuse of Dragon Flag's old
-    # "d4_t3c" slot_id, per the never-reassign-a-slot_id convention.)
+    # T3 GS — DB Rear Delt Fly (unchanged slot, rep range widens 8-12 ->
+    # 10-15 per the FINAL doc) / Lying Tricep Extension [SB] (REUSED, not a
+    # new movement -- see the dated comment on that Movement row in
+    # ironlog/seed.py; its D1-original slot dropped it in Task 1, D4 now
+    # wires it fresh at "d4_t3e", not the vacated Andreoni slot "d4_t3b" --
+    # never-reassign-slot_id) / PureTorque Pro Rotation (unchanged slot
+    # "d4_t3d", unchanged reps -- already IS the FINAL doc's
+    # `cable_woodchopper` entry, same equipment [ares_high_pulley,
+    # puretorque_pro], confirmed via Step 1 verification, no rewiring
+    # needed). Andreoni Cable Pullover (old d4_t3b) drops out of D4's wiring
+    # entirely, not referenced by any other day -- fully unwired, not
+    # deleted.
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d4_t3a", "DB Rear Delt Fly", lib, 1, "free",
-            pattern="rear_delt", rep_low=8, rep_high=12,
+            pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d4_t3b", "Andreoni Cable Pullover", lib, 2, "free",
-            pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t3.id, "d4_t3e", "Lying Tricep Extension", lib, 2, "free",
+            pattern="tricep_extension", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d4_t3d", "PureTorque Pro Rotation", lib, 3, "free",
             pattern="rotation", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")

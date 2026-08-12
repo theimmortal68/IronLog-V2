@@ -59,7 +59,13 @@ def test_named_movements_map_to_expected_rules(gen_db):
         # (D6 d6_t1, still real and wired).
         "Dips [TOWER + TUBES]":        ProgressionRule.ASSISTANCE_REDUCTION.value,
         "Hip Thrust [HIP_THRUST]":     ProgressionRule.RULE_DRIVEN.value,
-        "Face-Up Incline Knee Raise":  ProgressionRule.INCLINE_REDUCTION.value,
+        # 2026-08-11 (STAB maintenance-block redesign, Task 3): "Face-Up
+        # Incline Knee Raise" (formerly D4's d4_t2c, `rule: incline_reduction`)
+        # drops out of D4's wiring entirely -- it was already unwired from D1
+        # since Task 1. It is no longer programmed on ANY day, so it carries
+        # no wired progression_rule. INCLINE_REDUCTION is now an unused rule
+        # family (no spot-check example needed here, matches the BODY_POSITION
+        # precedent below).
         "Cable V-Bar Pushdown [FT]":   ProgressionRule.SINGLE_SESSION.value,
         "Reverse Hyper Recovery [REV_HYPER]": ProgressionRule.FIXED_LOAD.value,
         "Light Reverse Hyper [REV_HYPER]": ProgressionRule.REP_LADDER.value,

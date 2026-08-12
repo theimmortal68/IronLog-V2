@@ -22,6 +22,30 @@ from ironlog.models.library import Movement, MovementState
 KNEE_RAISE = "Face-Up Incline Knee Raise"
 
 
+def _seed_d4_knee_raise_state(db):
+    """2026-08-11 (STAB maintenance-block redesign, Task 3): Face-Up Incline
+    Knee Raise dropped out of D4's wiring entirely (T2 GS fully turned over
+    per the FINAL doc), so its "d4_t2c" BASELINES entry was removed
+    (ironlog/generation/baseline_seed.py) and `seed_movement_baselines` no
+    longer creates a MovementState for it. This movement is now fully
+    unwired program-wide (D1 already dropped it in Task 1). This migration
+    test suite still needs a real MovementState to migrate, mirroring the
+    still-live production orphaned state at the old d4_t2c slot -- inserted
+    directly here (MovementState is not FK-bound to a TierExercise) instead
+    of relying on seeding."""
+    mv = db.exec(select(Movement).where(Movement.name == KNEE_RAISE)).one()
+    existing = db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == mv.id,
+            MovementState.day_id == "D4 Upper Pull",
+        )
+    ).first()
+    if existing is None:
+        db.add(MovementState(movement_id=mv.id, day_id="D4 Upper Pull", assist_level=10.0))
+        db.commit()
+    return mv.id
+
+
 def _revert_to_pre_fix_bug_state(db):
     """Simulate the live (pre-fix) DB: LADDER movement, no assist_ladder,
     MovementState carrying current_load in lb instead of assist_level."""
@@ -41,9 +65,16 @@ def _revert_to_pre_fix_bug_state(db):
 def test_migration_fixes_movement_and_states_from_bug_state(gen_db):
     """2026-08-10 (STAB maintenance-block redesign): Face-Up Incline Knee
     Raise dropped out of D1 entirely (T2 GS turnover), so only D4's seeded
-    MovementState exists to migrate/assert against now."""
+    MovementState exists to migrate/assert against now.
+
+    2026-08-11 (Task 3): Face-Up Incline Knee Raise now drops out of D4's
+    wiring too (T2 GS fully turned over) -- `seed_movement_baselines` no
+    longer creates this state (its BASELINES entry was removed), so the
+    state is inserted directly via `_seed_d4_knee_raise_state`, mirroring
+    the orphaned production row this migration still needs to cover."""
     from ironlog.generation.baseline_seed import seed_movement_baselines
     seed_movement_baselines(gen_db)
+    _seed_d4_knee_raise_state(gen_db)
 
     mv_id = _revert_to_pre_fix_bug_state(gen_db)
     # Confirm we actually reproduced the bug before fixing it.
@@ -77,6 +108,7 @@ def test_migration_fixes_movement_and_states_from_bug_state(gen_db):
 def test_migration_is_idempotent(gen_db):
     from ironlog.generation.baseline_seed import seed_movement_baselines
     seed_movement_baselines(gen_db)
+    _seed_d4_knee_raise_state(gen_db)
     _revert_to_pre_fix_bug_state(gen_db)
 
     first = retype_knee_raise(gen_db)

@@ -58,7 +58,12 @@ def test_total_count_103(seeded):
     # 2026-08-11: +4 (STAB maintenance-block redesign, Task 2, D2 rewritten
     # to match the FINAL doc): Matrix Machine Sissy Squat, Nordic Curl Max
     # [Ares], Hybrid Board Calf Raise [D2], Ab Trainer Decline Sit-up: 118 -> 122.
-    assert len(_all(seeded)) == 122
+    # 2026-08-11: +5 (STAB maintenance-block redesign, Task 3, D4 rewritten
+    # to match the FINAL doc): Seated BTN OHP [PB], Better Fly Lat Pulldown
+    # [FT], Stryker Pad CSR Barbell [PB], Better Fly Cable Pullover [FT],
+    # Ab Trainer Hanging Leg Raise: 122 -> 127. (Lying Tricep Extension [SB]
+    # is REUSED for D4's T3 tricep slot, not a new row -- no count change.)
+    assert len(_all(seeded)) == 127
 
 
 def test_status_counts(seeded):
@@ -76,7 +81,10 @@ def test_status_counts(seeded):
     # 2026-08-11: +4 ACTIVE (STAB redesign, Task 2): Matrix Machine Sissy
     # Squat, Nordic Curl Max [Ares], Hybrid Board Calf Raise [D2], Ab Trainer
     # Decline Sit-up: 111 -> 115.
-    assert c[Status.ACTIVE] == 115
+    # 2026-08-11: +5 ACTIVE (STAB redesign, Task 3): Seated BTN OHP [PB],
+    # Better Fly Lat Pulldown [FT], Stryker Pad CSR Barbell [PB], Better Fly
+    # Cable Pullover [FT], Ab Trainer Hanging Leg Raise: 115 -> 120.
+    assert c[Status.ACTIVE] == 120
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

@@ -56,13 +56,33 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # Sit-up), each brand new with zero prior training history, matching this
 # session's established convention (no BASELINES entry for genuinely new
 # movements).
+#
+# 2026-08-11 (STAB maintenance-block redesign, Task 3): D4's "Standing OHP
+# [PB]" and "Wide-Grip Pull-up [TOWER]" needs-cal entries are REMOVED -- both
+# movements drop out of D4's wiring entirely (T1 -> Seated BTN OHP [PB],
+# T1b -> Better Fly Lat Pulldown [FT]; Standing OHP [PB] and Wide-Grip
+# Pull-up [TOWER] stay ACTIVE in the library, unwired from D4 -- Wide-Grip
+# Pull-up [TOWER] is STILL wired on D1 (d1_t3a), so it stays in D1's
+# needs-cal set above, unaffected). D4 now picks up SIX needs-cal entries:
+# the four genuinely new T1/T1b/T2 movements (Seated BTN OHP [PB], Better
+# Fly Lat Pulldown [FT], Stryker Pad CSR Barbell [PB], Better Fly Cable
+# Pullover [FT]) plus the pre-existing Ab Trainer Hanging Leg Raise (new to
+# the library, T2) and "Lying Tricep Extension [SB]" (REUSED movement --
+# unused since Task 1 dropped it from D1, now wired fresh on D4's T3 at a
+# new slot, zero prior history there). "PureTorque Pro Rotation" is
+# unchanged (already needs-cal, unaffected by this task).
 EXPECTED_NEEDS_CAL = {
     "D1 Upper Push": {"Wide-Grip Pull-up [TOWER]"},
     "D2 Lower A": {
         "Matrix Machine Sissy Squat", "Nordic Curl Max [Ares]",
         "Hybrid Board Calf Raise [D2]", "Ab Trainer Decline Sit-up",
     },
-    "D4 Upper Pull": {"Standing OHP [PB]", "Wide-Grip Pull-up [TOWER]", "PureTorque Pro Rotation"},
+    "D4 Upper Pull": {
+        "Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]",
+        "Stryker Pad CSR Barbell [PB]", "Ab Trainer Hanging Leg Raise",
+        "Better Fly Cable Pullover [FT]", "Lying Tricep Extension [SB]",
+        "PureTorque Pro Rotation",
+    },
     "D6 Weak Points": {"Cable Bicep Curl [FT]", "Pull-up - Neutral Grip (Paused) [TOWER]"},
 }
 

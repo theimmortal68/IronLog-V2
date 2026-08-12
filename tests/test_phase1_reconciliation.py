@@ -42,11 +42,24 @@ CHANGED_REP_TARGETS = {
     "d2_t1": (4, 6),
     "d2_t3a": (8, 12),
     "d2_t3b": (10, 15),
+    # 2026-08-11 (STAB maintenance-block redesign, Task 3): D4 reconciled to
+    # the FINAL doc's real D4 session. d4_t1_btn_ohp (new T1 anchor, Seated
+    # BTN OHP [PB]) replaces the old d4_t1_ohp -- 4-6 reps. d4_t1 (Better
+    # Fly Lat Pulldown, reused slot_id) stays 6-8, coincidentally unchanged
+    # from Wide-Grip Pull-up's own rep range. T2 GS fully turned over:
+    # d4_t2a/d4_t2b (Meadows Row / Single-Arm DB Row) no longer exist,
+    # replaced by d4_t2d/d4_t2e/d4_t2f (Stryker Pad CSR Barbell / Ab Trainer
+    # Hanging Leg Raise / Better Fly Cable Pullover). d4_t3a (DB Rear Delt
+    # Fly) widens 8-12 -> 10-15. d4_t3b (Andreoni Cable Pullover) no longer
+    # exists, replaced by d4_t3e (Lying Tricep Extension [SB], reused
+    # movement, fresh slot) at 8-12.
+    "d4_t1_btn_ohp": (4, 6),
     "d4_t1": (6, 8),
-    "d4_t2a": (8, 12),
-    "d4_t2b": (8, 12),
-    "d4_t3a": (8, 12),
-    "d4_t3b": (8, 12),
+    "d4_t2d": (8, 12),
+    "d4_t2e": (8, 12),
+    "d4_t2f": (10, 15),
+    "d4_t3a": (10, 15),
+    "d4_t3e": (8, 12),
     "d5_t2a": (8, 12),
     "d5_t2b": (15, 20),
     "d5_t3a": (8, 12),

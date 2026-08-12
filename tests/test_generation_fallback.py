@@ -328,10 +328,16 @@ def test_last_valid_unchanged_order_is_byte_identical_to_positional_replay(gen_d
 
 def test_last_valid_matches_reordered_prior_by_slot_identity(gen_db):
     """A completed session logged under the old D4 order must replay into the
-    current skeleton by each slot's reachable movement identity, not by position."""
+    current skeleton by each slot's reachable movement identity, not by position.
+
+    (2026-08-11, STAB maintenance-block redesign, Task 3: slot_ids updated from
+    d4_t2a/d4_t2b/d4_t2c to d4_t2d/d4_t2e/d4_t2f -- D4's T2 GS was fully turned over
+    per the FINAL doc, old slot_ids vacated. Generic reorder-replay logic under test
+    here is unaffected by which movements occupy the slots.)
+    """
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    old_order = {"d4_t2a": 1, "d4_t2b": 2, "d4_t2c": 3}
-    current_order = {"d4_t2a": 1, "d4_t2c": 2, "d4_t2b": 3}
+    old_order = {"d4_t2d": 1, "d4_t2e": 2, "d4_t2f": 3}
+    current_order = {"d4_t2d": 1, "d4_t2f": 2, "d4_t2e": 3}
 
     _set_slot_orders(gen_db, old_order)
     old_sk = lay_skeleton("D4 Upper Pull", gen_db)
@@ -359,25 +365,31 @@ def test_last_valid_matches_reordered_prior_by_slot_identity(gen_db):
 
 def test_last_valid_matches_prior_meso_rotation_variant_after_reorder(gen_db):
     """A prior meso-2 swap remains attached to its owning slot after the current
-    exercise order changes."""
+    exercise order changes.
+
+    (2026-08-11, STAB maintenance-block redesign, Task 3: repointed from D4's
+    d4_t2a/b/c to D5's d5_t2a/b/c. D4's T2 GS was fully turned over per the FINAL doc
+    and no longer carries any meso rotation; D5's d5_t2b remains the program's
+    adaptive-slot ("free" role) meso-rotation example, unaffected by this task.)
+    """
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    old_order = {"d4_t2a": 1, "d4_t2b": 2, "d4_t2c": 3}
-    current_order = {"d4_t2c": 1, "d4_t2a": 2, "d4_t2b": 3}
+    old_order = {"d5_t2a": 1, "d5_t2b": 2, "d5_t2c": 3}
+    current_order = {"d5_t2c": 1, "d5_t2a": 2, "d5_t2b": 3}
 
     _set_slot_orders(gen_db, old_order)
-    old_sk = lay_skeleton("D4 Upper Pull", gen_db, meso_number=2)
+    old_sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
     old_slots = [s for s in old_sk.adaptive_slots if s.kind in ("giant", "knee")]
     old_movement_by_slot = {s.slot_id: s.program_movement_id for s in old_slots}
     _insert_completed_prior_session(
         gen_db,
-        "D4 Upper Pull",
+        "D5 Lower B",
         old_sk.anchor_movement_ids[0],
         [old_movement_by_slot[s.slot_id] for s in old_slots],
     )
 
     _set_slot_orders(gen_db, current_order)
-    current_sk = lay_skeleton("D4 Upper Pull", gen_db)
-    ctx = resolve_context("D4 Upper Pull", current_sk, gen_db, wk)
+    current_sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", current_sk, gen_db, wk)
     current_slots = [
         s for s in current_sk.adaptive_slots if s.kind in ("giant", "knee")
     ]
@@ -390,31 +402,37 @@ def test_last_valid_matches_prior_meso_rotation_variant_after_reorder(gen_db):
 
 def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(gen_db):
     """If a historical movement is no longer reachable for its slot, replay falls
-    back to the current slot's program movement."""
+    back to the current slot's program movement.
+
+    (2026-08-11, STAB maintenance-block redesign, Task 3: repointed from D4's
+    d4_t2a to D5's d5_t2b. D4's T2 GS was fully turned over per the FINAL doc and no
+    longer carries any meso rotation; D5's d5_t2b remains the program's adaptive-slot
+    ("free" role) meso-rotation example, unaffected by this task.)
+    """
     from ironlog.models.program import MesoRotation, TierExercise
 
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    old_sk = lay_skeleton("D4 Upper Pull", gen_db, meso_number=2)
+    old_sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
     old_slots = [s for s in old_sk.adaptive_slots if s.kind in ("giant", "knee")]
     old_movement_by_slot = {s.slot_id: s.program_movement_id for s in old_slots}
     _insert_completed_prior_session(
         gen_db,
-        "D4 Upper Pull",
+        "D5 Lower B",
         old_sk.anchor_movement_ids[0],
         [old_movement_by_slot[s.slot_id] for s in old_slots],
     )
 
-    d4_t2a = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d4_t2a")
+    d5_t2b = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2b")
     ).one()
     rotation = gen_db.exec(
-        select(MesoRotation).where(MesoRotation.tier_exercise_id == d4_t2a.id)
+        select(MesoRotation).where(MesoRotation.tier_exercise_id == d5_t2b.id)
     ).one()
     gen_db.delete(rotation)
     gen_db.commit()
 
-    current_sk = lay_skeleton("D4 Upper Pull", gen_db)
-    ctx = resolve_context("D4 Upper Pull", current_sk, gen_db, wk)
+    current_sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", current_sk, gen_db, wk)
     current_slots = [
         s for s in current_sk.adaptive_slots if s.kind in ("giant", "knee")
     ]
@@ -422,7 +440,7 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
         s.slot_id: old_movement_by_slot.get(s.slot_id, s.program_movement_id)
         for s in current_slots
     }
-    current_movement_by_slot["d4_t2a"] = d4_t2a.movement_id
+    current_movement_by_slot["d5_t2b"] = d5_t2b.movement_id
 
     assert last_valid_selections(current_sk, ctx, gen_db) == _expected_last_valid(
         current_slots,

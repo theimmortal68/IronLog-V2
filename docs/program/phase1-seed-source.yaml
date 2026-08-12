@@ -53,18 +53,39 @@ days:
     T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
       {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: rep_ladder_at_cap}]}  # 2026-08-11: new, D2's mandatory core slot (spine flexion, bodyweight first, add plate at chest once 3x15 clears). Mirrors D1's Ab Wheel Rollout shape (PROTOCOL/STRAIGHT movement, REP_LADDER-driven).
 
-  d4:  # Upper B / Pull — shoe: Metcon 9 (no swap). T2/T3 swap applied (SA-DB-Row->T2, Andreoni->T3).
+  d4:  # Upper B / Pull — shoe: Metcon 9 (no swap).
+    # 2026-08-11 (STAB maintenance-block redesign, Task 3): reconciled to
+    # docs/program/source/2026-08-10-maintenance-block-seed-data-FINAL.md's
+    # real D4 session. T1 rep range 6-8 -> 4-6, Standing OHP [PB] -> Seated
+    # BTN OHP [PB] (new, seated/BTN on APEX Bench upright). T1b Wide-Grip
+    # Pull-up [TOWER] -> Better Fly Lat Pulldown [FT] (new, athlete
+    # directive -- drops D4's direct pull-up work, D1/D6 keep theirs, total
+    # program-wide pull-up frequency 3x/week -> 2x/week); slot_id stays
+    # "d4_t1" (the one explicitly-allowed reassignment case, per this task's
+    # brief). T2 GS fully turned over: Meadows Row [OB + LM] (carried a
+    # meso-2 rotation to Pendlay Row -- DROPPED, not carried forward; D5's
+    # d5_t2b remains the program's adaptive-slot meso-rotation example),
+    # Face-Up Incline Knee Raise, and Single-Arm DB Row [DB] all drop out of
+    # D4 entirely, replaced by Stryker Pad CSR Barbell [PB] / Ab Trainer
+    # Hanging Leg Raise / Better Fly Cable Pullover [FT] (all three new,
+    # needs-calibration). T3 GS: DB Rear Delt Fly [DB] rep range widens
+    # 8-12 -> 10-15; Andreoni Cable Pullover drops out of D4 entirely,
+    # replaced by Lying Tricep Extension [SB] (REUSED, not new -- see
+    # ironlog/seed.py's dated comment on that Movement row; its D1-original
+    # slot dropped it in Task 1, unused since); PureTorque Pro Rotation
+    # unchanged (already IS the FINAL doc's `cable_woodchopper` entry, same
+    # equipment, confirmed by Step 1 verification, no rewiring needed).
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      {m: standing_ohp_d4, reps: [6,8], rule: rpe_8_standard}]}  # 2026-07-23: closes the program's overhead-press gap. Placed before Pull-up (not after, athlete's original request) -- Movement.is_primary=True lifts must precede all non-primary movements session-wide (validator's PRIMARY_NOT_FIRST), and Pull-up is is_primary=False, so "Pull-up then OHP" is structurally unassemblable regardless of tier naming. Needs-calibration start -- no baseline seeded, no prior history (mirrors the Leg Curl D2 swap's precedent).
+      {m: seated_btn_ohp_d4, reps: [4,6], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration (zero prior history).
     T1b: {group_key: "T1b", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
-      {m: pull_up_d4, reps: [6,8], rule: pull_up_rolling_max}]}  # 2-phase; milestone (6->all-unassisted Wk2) MANUAL. Moved from T1 to T1b 2026-07-23 (see T1's OHP note); slot_id stays "d4_t1" (see program_seed.py comment) -- this movement's identity, not the tier label, is what's stable.
+      {m: better_fly_lat_pulldown_d4, reps: [6,8], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration. Reuses slot_id "d4_t1" (program_seed.py comment) -- the anchor slot's content changed, not its identity.
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: meadows_row_bruno_bar, reps: [8,12], rule: rpe_8_standard, load: 35, unilateral: true, meso: {2: pendlay_row}},
-      {m: face_up_incline_knee_raise_d4, reps: [10,15], rule: incline_reduction, assist_level: 10, assist_ladder: [10,5,0]},
-      {m: single_arm_db_row, reps: [8,12], rule: rpe_8_standard, load: 40, unilateral: true}]}  # MOVED after Face-Up Knee (athlete request 2026-07-09)
+      {m: stryker_pad_csr_barbell_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration
+      {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: rep_ladder_at_cap},  # 2026-08-11: new, needs-calibration (bodyweight)
+      {m: better_fly_cable_pullover_d4, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: db_rear_delt_fly, reps: [8,12], rule: rpe_8_standard, load: 10},
-      {m: andreoni_bar_cable_pullover, reps: [8,12], rule: rpe_8_standard, load: 70},
+      {m: db_rear_delt_fly, reps: [10,15], rule: rpe_8_standard, load: 10},  # 2026-08-11: rep range widened 8-12 -> 10-15, load/slot unchanged
+      {m: lying_tricep_extension_camber7_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: reused movement (Lying Tricep Extension [SB]), fresh slot "d4_t3e" -- needs-calibration. grip: 7_inch is a physical-setup detail (same BMF Camber Bar family as D1 Bench Press's 21" grip note), not a schema field.
       # 2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation (athlete
       # directive -- "Cable Woodchopper" in the original proposal, this
       # existing library movement IS that rotational core pattern).
