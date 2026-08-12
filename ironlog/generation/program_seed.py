@@ -674,7 +674,7 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # T1b is gone: T1=1, T2 GS=2, T3 GS=3, T4=4.
     t4 = _add_tier(db, pd.id, "T4", 4, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t4.id, "d2_t4a", "Ab Trainer Decline Sit-up", lib, 1, "anchor",
-            pattern="core", rep_low=10, rep_high=15, scheme="REP_LADDER")
+            pattern="core", rep_low=10, rep_high=15)
 
 
 # ---------------------------------------------------------------------------
@@ -728,7 +728,7 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d4_t2e", "Ab Trainer Hanging Leg Raise", lib, 2, "free",
-            pattern="core", rep_low=8, rep_high=12, scheme="REP_LADDER")
+            pattern="core", rep_low=8, rep_high=12)
     _add_te(db, t2.id, "d4_t2f", "Better Fly Cable Pullover", lib, 3, "free",
             pattern="lat", rep_low=10, rep_high=15, scheme="DOUBLE_PROGRESSION")
 
@@ -895,7 +895,7 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # (matches D2's Task 2 renumbering precedent exactly).
     t4 = _add_tier(db, pd.id, "T4", 4, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t4.id, "d5_t4a", "Ab Trainer Russian Twist", lib, 1, "anchor",
-            pattern="core", rep_low=10, rep_high=15, scheme="REP_LADDER")
+            pattern="core", rep_low=10, rep_high=15)
 
 
 # ---------------------------------------------------------------------------

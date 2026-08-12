@@ -75,10 +75,12 @@ EXPECTED_NEEDS_CAL = {
     "D1 Upper Push": {"Wide-Grip Pull-up [TOWER]"},
     "D2 Lower A": {
         "Matrix Machine Sissy Squat", "Nordic Curl Max [Ares]",
-        "Hybrid Board Calf Raise [D2]", "Ab Trainer Decline Sit-up",
+        "Hybrid Board Calf Raise [D2]",
         # 2026-08-12 (STAB maintenance-block redesign, Task 4 addendum):
         # Cable Tib Raise replaced by Hybrid Board Tib Raise [D2], needs-cal.
         "Hybrid Board Tib Raise [D2]",
+        # Ab Trainer Decline Sit-up REMOVED (2026-08-12): now seeded with a
+        # real Wk1 baseline (15-degree incline angle), no longer needs-cal.
     },
     "D4 Upper Pull": {
         "Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]",

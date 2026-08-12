@@ -286,12 +286,13 @@ MOVEMENTS = [
     # slot (rotational pattern) -- Ab Trainer decline setup (Config B),
     # differs from D4's Cable Woodchopper in mechanics (Ab Trainer decline
     # vs standing cable) and from D2's Ab Trainer Decline Sit-up in pattern
-    # (rotation vs spine flexion). Mirrors D2/D4's Ab Trainer family shape
-    # (PROTOCOL/STRAIGHT, bodyweight, REP_LADDER-driven via TierExercise
-    # scheme). Needs-calibration start, zero prior history.
+    # (rotation vs spine flexion). Same incline-angle progression as the
+    # rest of the Ab Trainer family (see Ab Trainer Decline Sit-up's
+    # comment) -- needs-calibration start, zero prior history.
     dict(name="Ab Trainer Russian Twist", base_name="Ab Trainer Russian Twist",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
-         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
          primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Pull-up [TOWER + TUBES]", base_name="Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
@@ -766,20 +767,33 @@ MOVEMENTS = [
     # bodyweight first, add plate on chest once 3x15 clears (per FINAL doc).
     # Mirrors Ab Wheel [WHEEL]'s PROTOCOL/STRAIGHT shape (bodyweight, no
     # scalar load track, REP_LADDER-driven via rep_ladder_at_cap mapping).
+    # 2026-08-12: corrected -- progresses via the Ab Trainer bench's INCLINE
+    # ANGLE (0-85 degrees, real hardware, 5-degree increments), not weight
+    # or reps-at-cap. Mirrors Face-Up Incline Knee Raise's ASSISTED/
+    # REP_RATIO/assist_ladder shape, but ASCENDING (steeper angle = harder
+    # on this decline apparatus, opposite direction from Face-Up Incline
+    # Knee Raise's incline-supports-you mechanics) -- matches the engine's
+    # per-movement ladder-direction convention (advance = harder, direction
+    # chosen per the physical unit, not hardcoded numerically descending).
+    # Real Wk1 performed at 15 degrees -- seeded as MovementState baseline,
+    # not left needs-calibration (see baseline_seed.py).
     dict(name="Ab Trainer Decline Sit-up", base_name="Ab Trainer Decline Sit-up",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
-         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
          primary_muscle="ABS", secondary_muscles=[]),
     # 2026-08-11: new D4 T2 GS movement (maintenance block, STAB redesign,
     # Task 3). Anti-extension hip flexion on the Ab Trainer apparatus (FINAL
     # doc: `equipment: [ab_trainer, apex_bench]`) -- did NOT already exist in
     # the library (Step-1 verification per task-3-brief.md confirmed no
-    # match). Same PROTOCOL/STRAIGHT/REP_LADDER shape as Ab Trainer Decline
-    # Sit-up above (bodyweight, no scalar load track). Needs-calibration
-    # start, zero prior history.
+    # match). 2026-08-12: corrected to the same incline-angle progression
+    # as Ab Trainer Decline Sit-up (see that entry's comment) -- needs
+    # calibration, zero prior history (unlike D2's, never actually trained
+    # yet, so no real starting angle to seed).
     dict(name="Ab Trainer Hanging Leg Raise", base_name="Ab Trainer Hanging Leg Raise",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
-         progression_mode=ProgressionMode.PROTOCOL, scheme=Scheme.STRAIGHT,
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
          primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Ab Wheel [WHEEL]", base_name="Ab Wheel",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["WHEEL"],

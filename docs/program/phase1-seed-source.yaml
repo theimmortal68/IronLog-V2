@@ -51,7 +51,7 @@ days:
       {m: hybrid_board_calf_raise_d2, reps: [10,15], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (test_loadability per FINAL doc)
       {m: hybrid_board_tib_raise_d2, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-12: D2 follow-up correction (Task 4/D5 plan-owner addendum) -- Cable Tib Raise replaced program-wide by the new Hybrid Board Tib Raise movement (separate [D2] row, needs-calibration, zero prior history; cable_tib_raise_d2 stays fully unwired program-wide, not deleted)
     T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
-      {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: rep_ladder_at_cap}]}  # 2026-08-11: new, D2's mandatory core slot (spine flexion, bodyweight first, add plate at chest once 3x15 clears). Mirrors D1's Ab Wheel Rollout shape (PROTOCOL/STRAIGHT movement, REP_LADDER-driven).
+      {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: incline_reduction, assist_level: 15, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]}]}  # 2026-08-11: new, D2's mandatory core slot (spine flexion). 2026-08-12: corrected to real incline-angle progression (0-85 degrees, 5-degree steps, real Wk1 performed at 15) -- not weight/rep-ladder as originally modeled.
 
   d4:  # Upper B / Pull — shoe: Metcon 9 (no swap).
     # 2026-08-11 (STAB maintenance-block redesign, Task 3): reconciled to
@@ -81,7 +81,7 @@ days:
       {m: better_fly_lat_pulldown_d4, reps: [6,8], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration. Reuses slot_id "d4_t1" (program_seed.py comment) -- the anchor slot's content changed, not its identity.
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: stryker_pad_csr_barbell_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration
-      {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: rep_ladder_at_cap},  # 2026-08-11: new, needs-calibration (bodyweight)
+      {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]},  # 2026-08-11: new. 2026-08-12: corrected to real incline-angle progression -- needs-calibration (never trained yet, no real starting angle)
       {m: better_fly_cable_pullover_d4, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
       {m: db_rear_delt_fly, reps: [10,15], rule: rpe_8_standard, load: 10},  # 2026-08-11: rep range widened 8-12 -> 10-15, load/slot unchanged
@@ -124,7 +124,7 @@ days:
       {m: hybrid_board_tib_raise_d5, reps: [10,15], rule: rpe_8_standard},  # 2026-08-12: new, needs-calibration -- separate Movement row from D2's hybrid_board_tib_raise_d2 (independent per-day track, NOT shared). knee_modality=TIB on the TierExercise -- preserves the program's 2x/week TIB invariant (plan-owner addendum)
       {m: better_fly_hip_adduction_d5, reps: [10,15], rule: rpe_8_standard, unilateral: true}]}  # 2026-08-12: new, needs-calibration; rotates with (future, not-yet-wired) hip abduction weekly per FINAL doc
     T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
-      {m: ab_trainer_russian_twist_d5, reps: [10,15], rule: rep_ladder_at_cap}]}  # 2026-08-12: new, D5's mandatory core slot (rotational pattern). Mirrors D2's Ab Trainer Decline Sit-up shape (PROTOCOL/STRAIGHT movement, REP_LADDER-driven).
+      {m: ab_trainer_russian_twist_d5, reps: [10,15], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]}]}  # 2026-08-12: new, D5's mandatory core slot (rotational pattern). Same incline-angle progression as the Ab Trainer family -- needs-calibration (never trained yet).
 
   d6:  # Weak Points — 2026-08-12 (maintenance block, STAB redesign, Task 5): T1
     # straight tier (Dips) ELIMINATED ENTIRELY -- FINAL doc's D6 has no

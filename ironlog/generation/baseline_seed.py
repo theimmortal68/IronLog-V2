@@ -183,6 +183,7 @@ BASELINES = {
     "d1_t3c": ("load", 70, None),
     "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None),
+    "d2_t4a": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle
     "d4_t3a": ("load", 10, None),
     "d5_t3b": ("load", 0, None),
     "d6_g1e": ("load", 150, None), "d6_g3a": ("load", 30, None),
