@@ -523,3 +523,160 @@ derived Swiss Bar CG Press load. **DEPLOYED.**
 ### Hand-off
 
 Ready for: phase flip / Task 7 (final full-week verification + completion report).
+
+---
+
+## Fix — D6 Wide-Grip Pull-up [TOWER + TUBES] correction (2026-08-12, post-Task-5)
+
+**Status:** DONE
+**Branch:** `feat/stab-d6-wide-grip-pullup-fix` (merged, removed)
+**Commit:** `aecc6b6` — "fix(program): D6 pull-up -- create Wide-Grip Pull-up [TOWER + TUBES], retire neutral-grip-paused"
+
+### What was wrong
+
+Task 5 (above) verified via `git log --all -S` that no movement literally named
+`"Wide-Grip Pull-up [TOWER + TUBES]"` had ever existed in this repo, and concluded from that
+that `d6_g1a` should stay pointed at `"Pull-up - Neutral Grip (Paused) [TOWER]"` — the check
+was correct, the conclusion was wrong. The coordinator flagged that
+`docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-design.md` §5 is explicit
+and was never revised on this point, and I had not read that design doc during Task 5 (only the
+FINAL source doc and the current-state code). Verified directly before touching anything:
+
+> **D6**: `Wide-Grip Pull-up [TOWER + TUBES]` (new movement) — assisted via sling + single 20lb
+> band, `assist_ladder=[20, 0]`, `ASSISTANCE_REDUCTION`, 5-8 reps, `weekly_max_tracker` protocol.
+> ... **Retired** (orphaned in place, not deleted): ... `Pull-up - Neutral Grip (Paused)
+> [TOWER]` (D6's earlier in-conversation unassisted variant, also superseded).
+
+This is unambiguous: the design doc calls for **creating** the movement, not leaving D6
+unchanged. My Task 5 conclusion was a genuine error, not a defensible reading of ambiguous
+evidence — I had the right verification tool (`git log -S`) pointed at the wrong question
+("does this movement exist?" instead of "what does the design doc say should exist?").
+
+**One real remaining tension, flagged rather than silently resolved:** the FINAL source doc's
+raw yaml for this exact slot (`pull_up_d6`) literally states `progression_rule:
+pull_up_rolling_max` / `protocol: weekly_max_tracker`, not `assistance_reduction` — despite the
+design doc's own header claiming "matches the FINAL source doc exactly, no further revision."
+Implemented per the design doc's explicit `ASSISTANCE_REDUCTION` per the coordinator's direct
+instruction (with exact `assist_ladder=[20, 0]` values supplied), since that's the more
+specific, more recently-authored, avowedly-authoritative source — but the two documents
+genuinely disagree on this one field, and that inconsistency itself is worth the plan owner's
+attention independent of this fix.
+
+### What changed
+
+- `ironlog/seed.py`: new movement `"Wide-Grip Pull-up [TOWER + TUBES]"` — mirrors D1's
+  now-retired `"Pull-up [TOWER + TUBES]"` 3-band movement's exact field shape
+  (`ASSISTED`/`REP_RATIO`, `TOWER`+`TUBES` bracket), single-band `assist_ladder=[20, 0]` instead
+  of the old `[60, 40, 20, 0]`. `base_name="Wide-Grip Pull-up"` — same family as D1's unassisted
+  sibling, distinct assist mechanism. `"Pull-up - Neutral Grip (Paused) [TOWER]"` retired: stays
+  `ACTIVE`, unwired from every day, not deleted.
+- `ironlog/generation/program_seed.py`: `PROGRAM_TO_LIBRARY` gains `"Wide-Grip Pull-up (D6
+  Assisted)"` → the new movement (distinct key from D1's plain `"Wide-Grip Pull-up"`, which
+  resolves to a different Movement row). `_seed_d6`'s `d6_g1a` `TierExercise` repointed — same
+  `slot_id`, same `5-8` rep range, same `REP_RATIO` scheme, only `movement_id` changes (the
+  allowed same-conceptual-anchor-slot reassignment, matching the Tasks 1/3 precedent already
+  established this session).
+- `ironlog/generation/rule_wiring.py` + its test-file copy
+  (`tests/test_program_seed_yaml_parity.py`): new `m:` id `pull_up_d6_wide_grip_assisted` → the
+  new movement.
+- `docs/program/phase1-seed-source.yaml`: `d6:` GS1's pull-up entry →
+  `pull_up_d6_wide_grip_assisted`, `rule: assistance_reduction`, `assist_level: 20`,
+  `assist_ladder: [20, 0]`.
+- `ironlog/generation/baseline_seed.py`: comment-only correction — `d6_g1a` is the new movement,
+  still needs-calibration (no `BASELINES` entry; the design doc's "7 unassisted Set 1" note is
+  context, not a seeded number, matching D1's own baseline-seeding precedent in §7 of the same
+  design doc: only movements *actually trained* get a real seeded value).
+
+### Test fallout (5 files)
+
+- `tests/test_library_seed.py`: counts 140→141 movements, ACTIVE 133→134.
+- `tests/test_generation_skeleton.py`: `d6_g1a`'s `program_movement_id` assertion repointed to
+  the new movement.
+- `tests/test_golive_phase1.py`: `EXPECTED_NEEDS_CAL["D6 Weak Points"]` — `"Pull-up - Neutral
+  Grip (Paused) [TOWER]"` removed (no longer programmed on D6 at all), `"Wide-Grip Pull-up
+  [TOWER + TUBES]"` added (brand-new movement, needs-cal is correct).
+
+Full suite: **701 passed, 0 failed** (matches the stated baseline).
+
+### Production deployment
+
+Pre-flight: `ironlogv2` active; `journalctl --since "-30 min"` showed only my own prior Task 5
+restart/verification traffic, no real athlete activity — safe to proceed. Confirmed production
+`main` unmoved since Task 5's merge (`f96e32c`, this fix's fork point). Backup: `cp ironlog.db
+ironlog.db.bak-task5fix-20260812-133932`.
+
+Production `d6_g1a` before this fix: `movement_id` pointing at `"Pull-up - Neutral Grip
+(Paused) [TOWER]"`, `MovementState` for that (movement, day) pair: `None` (never trained on D6
+in production — clean repoint, nothing to migrate).
+
+Applied via a one-off script (`_deploy_task5fix_d6_pullup.py`, not committed, run then deleted)
+from the worktree directory against the production DB via absolute
+`sqlite:////home/jstout/projects/IronLog-V2/ironlog.db` URL:
+```
+CREATED movement: Wide-Grip Pull-up [TOWER + TUBES] (id=146)
+d6_g1a BEFORE: movement_id=120 ('Pull-up - Neutral Grip (Paused) [TOWER]'), reps=5-8, scheme=REP_RATIO
+d6_g1a AFTER: movement_id=146 ('Wide-Grip Pull-up [TOWER + TUBES]'), reps=5-8, scheme=REP_RATIO
+```
+`load_equipment_id=13` ("Pull-up tower") set on the new movement — cross-checked against the
+real production value already carried by the sibling `"Wide-Grip Pull-up [TOWER]"` /
+`"Pull-up [TOWER + TUBES]"` / `"Pull-up - Neutral Grip (Paused) [TOWER]"` movements rather than
+assumed. `wire_progression_rules()` re-run against production: `{'changed': 1, 'total': 40}`
+(only the new movement). Verified directly: `progression_mode=ASSISTED`,
+`progression_rule=ASSISTANCE_REDUCTION`, `assist_ladder=[20, 0]`.
+
+### Live verification: real `POST /generate` against production (after restart)
+
+```
+sudo systemctl restart ironlogv2 -> active
+curl -sf http://localhost:8000/docs -> 200
+curl -X POST http://localhost:8000/generate -d '{"day_role": "D6 Weak Points"}'
+```
+D6 GS1 now shows `Wide-Grip Pull-up [TOWER + TUBES]` (reps 5-8) in place of the old unassisted
+movement — `exhausted: false`, full GS1/GS2/GS3 structure otherwise unchanged from Task 5's
+deploy.
+
+### Merge & cleanup
+
+`git merge --ff-only feat/stab-d6-wide-grip-pullup-fix` on the production checkout — clean
+fast-forward, `f96e32c` → `aecc6b6`. Full suite re-run post-merge: 701 passed. Deploy scripts
+deleted after use, never committed. Worktree removed, branch deleted.
+
+### Deploy Gate
+
+Class 1 (code-only restart, one new definition row + one `TierExercise.movement_id` repoint, no
+schema change, no `MovementState` to migrate): active-use check clean → backup → restart →
+up-check (`/docs` → 200) → functional smoke call: real `POST /generate` for D6, confirming the
+new assisted movement appears in place of the old one. **DEPLOYED.**
+
+### Rollback
+
+- `git revert aecc6b6` in the IronLog-V2 repo (code).
+- DB: `cp ironlog.db.bak-task5fix-20260812-133932 ironlog.db` on the production checkout, then
+  `sudo systemctl restart ironlogv2` (restores `d6_g1a` to `"Pull-up - Neutral Grip (Paused)
+  [TOWER]"`).
+
+### Issues & Decisions
+
+- **Root cause of the original error**: verified a narrow, correct fact (the exact movement name
+  had never existed) and stopped there instead of asking the broader question the brief actually
+  needed answered (what SHOULD exist per the authoritative design doc). The git-history check was
+  real diligence, not laziness — it just answered "was I told the truth about something already
+  existing" rather than "what does the current design call for." Worth carrying forward: a
+  brief's factual claim being wrong doesn't automatically mean the underlying INSTRUCTION was
+  wrong too — those are separable, and this task conflated them.
+- **FINAL-doc-vs-design-doc rule inconsistency** (`pull_up_rolling_max` vs `assistance_reduction`
+  for this exact slot) — flagged above, not resolved further; implemented the design doc's rule
+  per direct coordinator instruction.
+
+### Open items
+
+- Same `task-4-report.md` untracked-file gap noted above still stands, unaffected by this fix.
+- D6's Wide-Grip Pull-up [TOWER + TUBES] is brand new and unwired-until-now — needs-calibration
+  is correct; the athlete's real assist-band starting point isn't yet known to the system (same
+  situation Task 5 already flagged for Dips/the other new D6 movements).
+
+### Hand-off
+
+Ready for: phase flip / Task 7 (final full-week verification + completion report). Task 7 should
+verify D6's full structure fresh (not just trust this report) given two D6-focused corrections
+have now landed in quick succession.
