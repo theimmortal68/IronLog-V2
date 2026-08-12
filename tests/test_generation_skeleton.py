@@ -80,12 +80,14 @@ def test_d6_has_no_t1_anchor_and_gs1_anchor_folds_into_giant_tier(gen_db):
 
     assert sk.anchor_movement_ids == []
     assert sk.anchor_meta == []
-    # 2026-07-26: 3-way pull-up split (athlete directive) -- D6's Pull-up
-    # slot is now its own neutral-grip-paused movement, no longer sharing
-    # D4's Wide-Grip Pull-up. UNCHANGED by Task 5 (see program_seed.py's
-    # _seed_d6 comment -- the brief's claimed repoint to "Wide-Grip Pull-up
-    # [TOWER + TUBES]" was a factual error).
-    assert slots["d6_g1a"].program_movement_id == _movement_id(gen_db, "Pull-up - Neutral Grip (Paused) [TOWER]")
+    # 2026-08-12 (STAB redesign fix, post-Task-5): d6_g1a repointed to the
+    # new ASSISTED "Wide-Grip Pull-up [TOWER + TUBES]" -- see
+    # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
+    # design.md §5. Task 5 initially left this on the old "Pull-up - Neutral
+    # Grip (Paused) [TOWER]" after confirming the exact repoint-target name
+    # had never existed in the repo -- correct check, wrong conclusion (the
+    # design doc calls for CREATING that movement, not skipping the repoint).
+    assert slots["d6_g1a"].program_movement_id == _movement_id(gen_db, "Wide-Grip Pull-up [TOWER + TUBES]")
     assert slots["d6_g1a"].is_giant_tier is True
     assert slots["d6_g1a"].group_key == "GS1"
     assert slots["d6_g1a"].kind == "accessory"

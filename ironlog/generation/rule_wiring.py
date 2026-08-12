@@ -144,6 +144,12 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     # rpe_8_standard (see ironlog/seed.py's Dips comment). "face_pull" is
     # UNCHANGED (same movement, same rule, only its TierExercise rep range
     # changes -- rep range isn't part of rule wiring).
+    # 2026-08-12 (STAB maintenance-block redesign fix, post-Task-5):
+    # pull_up_neutral_paused_d6 drops out of D6's real wiring too -- see
+    # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
+    # design.md §5. Kept below (harmless orphan), replaced by
+    # pull_up_d6_wide_grip_assisted.
+    "pull_up_d6_wide_grip_assisted":     "Wide-Grip Pull-up [TOWER + TUBES]",
     "pull_up_neutral_paused_d6":         "Pull-up - Neutral Grip (Paused) [TOWER]",
     "dips":                              "Dips [TOWER + TUBES]",
     "cable_bicep_curl_d6":               "Cable Bicep Curl [FT]",

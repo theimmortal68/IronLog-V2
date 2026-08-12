@@ -78,7 +78,11 @@ def test_total_count_103(seeded):
     # (Swiss Bar CG Press [SB] is REUSED for D6's new close-grip-bench slot,
     # not a new row -- no count change. Dips [TOWER + TUBES] reverted from
     # ASSISTED to LADDER, same Movement row -- no count change either.)
-    assert len(_all(seeded)) == 140
+    # 2026-08-12 (STAB redesign fix, post-Task-5): +1 "Wide-Grip Pull-up
+    # [TOWER + TUBES]" (D6's new ASSISTED wide-grip pull-up, per
+    # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
+    # design.md §5): 140 -> 141.
+    assert len(_all(seeded)) == 141
 
 
 def test_status_counts(seeded):
@@ -103,7 +107,9 @@ def test_status_counts(seeded):
     # 2026-08-12: +5 ACTIVE (STAB redesign, Task 5, D6): Better Fly Cable
     # Bicep Curl, Stryker Pad CSR Cables, Better Fly Rear Delt Extension,
     # Better Fly OH Tricep Extension, AbMat Ab Bench Pad Cable Crunch: 128 -> 133.
-    assert c[Status.ACTIVE] == 133
+    # 2026-08-12: +1 ACTIVE (STAB redesign fix, post-Task-5): Wide-Grip
+    # Pull-up [TOWER + TUBES]: 133 -> 134.
+    assert c[Status.ACTIVE] == 134
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

@@ -102,17 +102,22 @@ EXPECTED_NEEDS_CAL = {
     # the FINAL doc's real D6 session. "Cable Bicep Curl [FT]" drops out of
     # D6's wiring entirely (removed from this set -- it's simply not
     # programmed on D6 anymore, so verify_all_days never reports it at all).
-    # "Pull-up - Neutral Grip (Paused) [TOWER]" is UNCHANGED, still needs-cal
-    # (PULL_UP_ROLLING_MAX tracks via unassisted_max_rolling, not a scalar
-    # BASELINES entry -- never had one). Dips [TOWER + TUBES] is NO LONGER
-    # needs-cal (reverted to cable-loaded, current_load=150 baseline -- see
-    # ironlog/seed.py's Dips comment). 6 new movements, all needs-cal, zero
-    # prior history: Swiss Bar CG Press [SB] (reused, never wired before),
-    # Better Fly Cable Bicep Curl [FT], Stryker Pad CSR Cables [FT], Better
-    # Fly Rear Delt Extension [FT], Better Fly OH Tricep Extension [FT],
-    # AbMat Ab Bench Pad Cable Crunch [FT].
+    # Dips [TOWER + TUBES] is NO LONGER needs-cal (reverted to cable-loaded,
+    # current_load=150 baseline -- see ironlog/seed.py's Dips comment).
+    # 6 new movements, all needs-cal, zero prior history: Swiss Bar CG Press
+    # [SB] (reused, never wired before), Better Fly Cable Bicep Curl [FT],
+    # Stryker Pad CSR Cables [FT], Better Fly Rear Delt Extension [FT],
+    # Better Fly OH Tricep Extension [FT], AbMat Ab Bench Pad Cable Crunch [FT].
+    #
+    # 2026-08-12 (STAB redesign fix, post-Task-5): "Pull-up - Neutral Grip
+    # (Paused) [TOWER]" REMOVED from this set -- it's no longer programmed
+    # on D6 at all (repointed to the new "Wide-Grip Pull-up [TOWER + TUBES]",
+    # per docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
+    # design.md §5). The new movement IS needs-cal (brand new, zero prior
+    # history -- the design doc's "7 unassisted Set 1" note is context only,
+    # not a seeded baseline).
     "D6 Weak Points": {
-        "Pull-up - Neutral Grip (Paused) [TOWER]",
+        "Wide-Grip Pull-up [TOWER + TUBES]",
         "Swiss Bar CG Press [SB]",
         "Better Fly Cable Bicep Curl [FT]",
         "Stryker Pad CSR Cables [FT]",

@@ -165,11 +165,15 @@ from ironlog.models.session import (
 # New d6_g1f (Close-Grip Bench Camber-14, reused "Swiss Bar CG Press [SB]"
 # movement) has NO entry -- FINAL doc gives only a wk1_calibration_estimate
 # range (135-145), not a locked value, so needs-calibration is correct.
-# d6_g1a (Pull-up - Neutral Grip (Paused), no entry -- PULL_UP_ROLLING_MAX
-# tracks via unassisted_max_rolling, not a BASELINES scalar) and d6_g3a
-# (Face Pull, "load" 30) are UNCHANGED -- retained movements at their
-# existing stable slot_ids; d6_g3a's rep range widened (15-20 -> 10-15,
-# program_seed.py) but its slot_id and calibrated load carry forward
+# d6_g1a: CORRECTED 2026-08-12 (STAB redesign fix, post-Task-5) -- repointed
+# from "Pull-up - Neutral Grip (Paused)" to the new "Wide-Grip Pull-up
+# [TOWER + TUBES]" (see docs/superpowers/specs/2026-08-10-stab-maintenance-
+# block-redesign-design.md §5). Still NO BASELINES entry -- brand-new
+# movement, needs-calibration is correct (the design doc's "7 unassisted
+# Set 1" note is context only, not a seeded number). d6_g3a (Face Pull,
+# "load" 30) is UNCHANGED -- retained movement at its existing stable
+# slot_id; its rep range widened (15-20 -> 10-15, program_seed.py) but its
+# slot_id and calibrated load carry forward
 # unaffected. All six removed slot_ids' underlying MovementState rows are
 # left in place, not deleted, per the never-delete-orphans convention.
 BASELINES = {

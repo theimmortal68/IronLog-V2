@@ -102,6 +102,15 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     # here per this task's own "verify against actual code" instruction).
     # Cable Bicep Curl (old d6_g1d) also drops out, replaced by Better Fly
     # Cable Bicep Curl in GS2.
+    # 2026-08-12 (STAB maintenance-block redesign fix, post-Task-5): D6's
+    # pull-up slot repointed from the retired "Pull-up - Neutral Grip
+    # (Paused)" (mapping kept below, harmless orphan) to the new "Wide-Grip
+    # Pull-up (D6 Assisted)" -> "Wide-Grip Pull-up [TOWER + TUBES]" -- see
+    # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
+    # design.md §5. Distinct program-name key from D1's plain "Wide-Grip
+    # Pull-up" (-> "Wide-Grip Pull-up [TOWER]", unassisted) since they now
+    # resolve to two different Movement rows.
+    "Wide-Grip Pull-up (D6 Assisted)":               "Wide-Grip Pull-up [TOWER + TUBES]",
     "Pull-up - Neutral Grip (Paused)":               "Pull-up - Neutral Grip (Paused) [TOWER]",
     "Dips":                                         "Dips [TOWER + TUBES]",
     "Cable Bicep Curl":                             "Cable Bicep Curl [FT]",
@@ -902,26 +911,35 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # GS2=2, GS3=3 (matches D2/D5's identical renumbering precedent when
     # they lost a leading tier).
     #
-    # d6_g1a (pull-up) is UNCHANGED -- this deliberately deviates from
-    # task-5-brief.md and the coordinator's structural note, both of which
-    # said to repoint this slot from "Pull-up - Neutral Grip (Paused)
-    # [TOWER]" to a "Wide-Grip Pull-up [TOWER + TUBES]" movement. That exact
-    # movement name has NEVER existed in this repo (confirmed via `git log
-    # --all -S`) and was never built "earlier this session" as the brief
-    # claimed -- the actual 3-way pull-up split (commit be2ae80) is "D1
-    # assisted, D4 wide-grip, D6 neutral+pause"; D6 has always been the
-    # neutral-grip-paused variant, never wide-grip (that was D4's, since
-    # dropped in Task 3 for Better Fly Lat Pulldown). The currently-wired
-    # "Pull-up - Neutral Grip (Paused) [TOWER]" at 5-8 reps / REP_RATIO /
-    # PULL_UP_ROLLING_MAX already EXACTLY matches the FINAL doc's D6
-    # `pull_up_d6` entry (rep_low 5, rep_high 8, progression_rule
-    # pull_up_rolling_max, protocol weekly_max_tracker) -- confirmed via
-    # rule_wiring.py's YAML_M_TO_LIBRARY, which already correctly maps
-    # "pull_up_neutral_paused_d6" to this exact movement. No slot_id or
-    # movement_id change needed for d6_g1a; only its tier position/order
-    # changes (T1 tier removed, GS1 becomes tier_order=1).
+    # d6_g1a (pull-up) -- CORRECTED 2026-08-12 (STAB maintenance-block
+    # redesign fix, post-Task-5). Task 5 originally left this slot pointed
+    # at "Pull-up - Neutral Grip (Paused) [TOWER]" after confirming via
+    # `git log --all -S` that no movement literally named "Wide-Grip
+    # Pull-up [TOWER + TUBES]" had ever existed in this repo -- that check
+    # was correct, but the conclusion drawn from it was wrong: the fix was
+    # to CREATE that movement, not leave the old slot unchanged.
+    # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
+    # design.md §5 is explicit and was never revised on this point --
+    # "Pull-up - Neutral Grip (Paused) [TOWER]" is named there as "D6's
+    # earlier in-conversation unassisted variant, also superseded," and the
+    # design doc's confirmed-final pull-up architecture (2 days/week: D1
+    # unassisted wide-grip dead-hang, D6 ASSISTED wide-grip via sling +
+    # single 20lb band, D4 loses pull-ups entirely) puts a NEW movement,
+    # "Wide-Grip Pull-up [TOWER + TUBES]", at D6's d6_g1a slot -- same
+    # slot_id (same conceptual anchor position, matches the Tasks 1/3
+    # same-slot-reassignment precedent), rep range unchanged (5-8), scheme
+    # unchanged (REP_RATIO), but the underlying movement is new and its
+    # progression_rule is ASSISTANCE_REDUCTION (wired via rule_wiring.py's
+    # YAML, not the pull_up_rolling_max the FINAL source doc's raw yaml
+    # block literally lists for this slot -- the design doc, dated the same
+    # day and framed as authoritative over any earlier draft, is followed
+    # here per explicit coordinator instruction; flagged as a FINAL-doc-vs-
+    # design-doc inconsistency worth the plan owner's attention, not
+    # resolved further here). "Pull-up - Neutral Grip (Paused) [TOWER]"
+    # stays ACTIVE in the library, now unwired from every day -- not
+    # deleted, per the never-delete-orphans convention.
     gs1 = _add_tier(db, pd.id, "GS1", 1, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, gs1.id, "d6_g1a", "Pull-up - Neutral Grip (Paused)", lib,
+    _add_te(db, gs1.id, "d6_g1a", "Wide-Grip Pull-up (D6 Assisted)", lib,
             1, "anchor", pattern="vertical_pull", rep_low=5, rep_high=8,
             scheme="REP_RATIO")
     # Dips -- moves from its own vacated T1 tier (d6_t1) into GS1. Per the

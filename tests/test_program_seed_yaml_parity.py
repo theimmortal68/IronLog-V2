@@ -98,6 +98,10 @@ YAML_M_TO_LIBRARY = {
     "better_fly_hip_adduction_d5":      "Better Fly Hip Adduction [FT]",
     "ab_trainer_russian_twist_d5":      "Ab Trainer Russian Twist",
     # ── d6 Weak Points ───────────────────────────────────────────────────────
+    # 2026-08-12 (STAB redesign fix, post-Task-5): pull_up_neutral_paused_d6
+    # -> pull_up_d6_wide_grip_assisted (see docs/superpowers/specs/2026-08-10-
+    # stab-maintenance-block-redesign-design.md §5).
+    "pull_up_d6_wide_grip_assisted":    "Wide-Grip Pull-up [TOWER + TUBES]",
     "pull_up_neutral_paused_d6":        "Pull-up - Neutral Grip (Paused) [TOWER]",
     "dips":                             "Dips [TOWER + TUBES]",
     "cable_bicep_curl_d6":              "Cable Bicep Curl [FT]",

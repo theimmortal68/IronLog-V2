@@ -131,12 +131,15 @@ days:
     # standalone T1; Dips folds back into GS1. Z2 (backward 3min@5°@1.5 /
     # forward 12min@5°@3.0) deferred (not engine-managed).
     GS1: {group_key: "GS1", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      # pull_up_neutral_paused_d6 UNCHANGED (see program_seed.py's _seed_d6
-      # comment -- this already matches the FINAL doc's D6 pull-up entry
-      # exactly; the brief's claimed "Wide-Grip Pull-up [TOWER + TUBES]"
-      # repoint was a factual error, corrected here per this task's own
-      # verify-against-code instruction).
-      {m: pull_up_neutral_paused_d6, reps: [5,8], rule: pull_up_rolling_max},
+      # 2026-08-12 (STAB redesign fix, post-Task-5): pull_up_neutral_paused_d6
+      # -> pull_up_d6_wide_grip_assisted, per docs/superpowers/specs/2026-08-10-
+      # stab-maintenance-block-redesign-design.md §5 (confirmed-final pull-up
+      # architecture -- D6 gets an ASSISTED wide-grip pull-up, sling + single
+      # 20lb band, assist_ladder [20,0], not the old unassisted neutral-grip
+      # variant). Task 5 initially left this unchanged after confirming the
+      # exact movement name had never existed in the repo -- correct check,
+      # wrong conclusion; the fix was to CREATE the movement, not skip it.
+      {m: pull_up_d6_wide_grip_assisted, reps: [5,8], rule: assistance_reduction, assist_level: 20, assist_ladder: [20, 0]},
       # dips: reverted from bodyweight+band-assist back to cable-loaded
       # (see ironlog/seed.py's Dips comment for the full reasoning --
       # current_load: 150 is the movement's original pre-2026-07-26

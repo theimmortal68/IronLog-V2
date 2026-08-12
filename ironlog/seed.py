@@ -314,9 +314,42 @@ MOVEMENTS = [
     # assisted neutral-grip, D4 stays Wide-Grip (unassisted), D6 gets its
     # own variant: neutral-grip with a paused rep (unassisted, same rolling-
     # max tracking as Wide-Grip Pull-up).
+    #
+    # 2026-08-12 (STAB maintenance-block redesign fix, post-Task-5): RETIRED.
+    # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
+    # design.md §5 is explicit and was never revised on this point: this
+    # movement is "D6's earlier in-conversation unassisted variant, also
+    # superseded" -- the design doc's final, confirmed pull-up architecture
+    # (2 days/week, D1 unassisted wide-grip + D6 ASSISTED wide-grip, D4
+    # loses pull-ups) replaces this one at D6's d6_g1a slot with the new
+    # "Wide-Grip Pull-up [TOWER + TUBES]" movement below. Task 5 initially
+    # left this movement wired (a real error -- verified via git history
+    # that no "Wide-Grip Pull-up [TOWER + TUBES]" movement had ever existed
+    # in the repo, but missed that the design doc called for CREATING one,
+    # not leaving the old slot unchanged). Stays ACTIVE in the library,
+    # unwired from every day now -- not deleted, per the never-delete-
+    # orphans convention.
     dict(name="Pull-up - Neutral Grip (Paused) [TOWER]", base_name="Pull-up - Neutral Grip (Paused)",
          region=Region.UPPER, status=Status.ACTIVE, load_code="TOWER", tags=["TOWER"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
+    # 2026-08-12 (STAB maintenance-block redesign fix, post-Task-5): NEW
+    # movement, per docs/superpowers/specs/2026-08-10-stab-maintenance-
+    # block-redesign-design.md §5's confirmed-final pull-up architecture --
+    # D6's assisted wide-grip pull-up (sling + single 20lb band). Mirrors
+    # D1's now-retired "Pull-up [TOWER + TUBES]" 3-band movement's exact
+    # field shape (ASSISTED/REP_RATIO, TOWER+TUBES bracket), just a shorter
+    # single-band assist_ladder ([20, 0] vs the old [60, 40, 20, 0]).
+    # base_name intentionally matches "Wide-Grip Pull-up [TOWER]" (D1's
+    # unassisted variant) for family grouping -- same grip family, distinct
+    # assist mechanism. Needs-calibration: the design doc's "7 unassisted
+    # Set 1" note is carried as CONTEXT only, not a seeded baseline number
+    # (D6's actual current numbers need the athlete's real current state,
+    # same treatment as D1's own baselines in §7 of that doc).
+    dict(name="Wide-Grip Pull-up [TOWER + TUBES]", base_name="Wide-Grip Pull-up", region=Region.UPPER,
+         status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         assist_ladder=[20, 0],
          primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
 
     # ─────────────────────────────────────────────────────────────────────────
