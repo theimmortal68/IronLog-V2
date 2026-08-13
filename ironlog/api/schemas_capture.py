@@ -56,6 +56,7 @@ class PlannedSetOut(BaseModel):
     set_index: int
     set_role: str
     is_warmup: bool
+    is_skipped: bool = False
     target_load: Optional[float] = None
     target_reps_low: Optional[int] = None
     target_reps_high: Optional[int] = None
