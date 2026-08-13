@@ -45,6 +45,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Seated Cable Row":                             "Seated Cable Row [FT]",
     "Ab Wheel Rollout":                             "Ab Wheel [WHEEL]",
     "Lat Prayer":                                   "Lat Prayer [ANDREONI + FT]",
+    "Better Fly Sagittal Lat Pulldown":              "Better Fly Sagittal Lat Pulldown [FT]",
     # ── D2 Lower A ───────────────────────────────────────────────────────────
     "Belt Squat":                                   "Belt Squat [GHR + FT]",
     "Barbell Hip Thrust (220 cap)":                 "Hip Thrust [HIP_THRUST]",
@@ -538,7 +539,8 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             pattern="lateral_raise", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 
-    # T3 GS — Wide-Grip Pull-up (dead-hang) / Lat Prayer / Ab Wheel Rollout.
+    # T3 GS — Wide-Grip Pull-up (dead-hang) / Better Fly Sagittal Lat Pulldown /
+    # Ab Wheel Rollout.
     # 2026-08-10: switched from assisted neutral-grip (Pull-up [TOWER +
     # TUBES]) to unassisted Wide-Grip dead-hang -- athlete directive, real
     # Wk1 executed 4/4/4. Cross-Body Lateral Raise (old d1_t3b) dropped
@@ -550,10 +552,18 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # moving tiers, not a new one, but gets a fresh slot_id (d1_t3d) per
     # the never-reassign convention -- d1_t3b/d1_t4b are vacated, not
     # reused.
+    # 2026-08-13: Lat Prayer [ANDREONI + FT] (old d1_t3c) replaced by Better
+    # Fly Sagittal Lat Pulldown [FT] (athlete directive -- the Andreoni
+    # station's lat-prayer motion isn't reproducible on the Better Fly cuff;
+    # the sagittal-plane pulldown is the correct Better Fly substitute).
+    # Genuinely new movement filling a vacated spot -> fresh slot_id
+    # "d1_t3e" (never-reassign-slot_id); d1_t3c is vacated, not reused. Lat
+    # Prayer [ANDREONI + FT] stays ACTIVE in the library, unwired from every
+    # day now -- not deleted, per the never-delete-orphans convention.
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d1_t3a", "Wide-Grip Pull-up", lib, 1, "free",
             pattern="vertical_pull", rep_low=4, rep_high=6, scheme="REP_RATIO")
-    _add_te(db, t3.id, "d1_t3c", "Lat Prayer", lib, 2, "free",
+    _add_te(db, t3.id, "d1_t3e", "Better Fly Sagittal Lat Pulldown", lib, 2, "free",
             pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d1_t3d", "Ab Wheel Rollout", lib, 3, "free",
             pattern="core", rep_low=8, rep_high=12, scheme="REP_LADDER")

@@ -9,7 +9,7 @@ logged_session_id — depends on gen_db; plants a COMPLETED session with one tap
          produces an E1rmHistory row. Returns the session id.
 
 stalled_session_db — depends on gen_db; plants a stall signal on
-         Lat Prayer [ANDREONI + FT] (D1 d1_t3c, tier_role=free) via
+         Better Fly Sagittal Lat Pulldown [FT] (D1 d1_t3e, tier_role=free) via
          consecutive_failed_progressions=2. Returns the same gen_db session.
          (2026-07-26: moved off Pendlay Row - Narrow [OB] -- it was promoted
          to D1's T1b anchor slot, and should_invoke_llm only considers
@@ -18,7 +18,11 @@ stalled_session_db — depends on gen_db; plants a stall signal on
          (D1 d1_t4a) -- the STAB maintenance-block redesign removed D1's
          entire T4 GS tier, so Seated Cable Row no longer has any D1
          TierExercise for a stall signal to attach to; Lat Prayer at d1_t3c
-         is free tier_role, same eligibility as the old semi slot.)
+         is free tier_role, same eligibility as the old semi slot. 2026-08-13:
+         moved off Lat Prayer [ANDREONI + FT] -- replaced by Better Fly
+         Sagittal Lat Pulldown [FT] at fresh slot d1_t3e, athlete directive;
+         Lat Prayer is now fully unwired from D1, same free-tier_role
+         eligibility carries to the new slot.)
 
 Placed in conftest.py so pytest auto-discovers it for all test modules in tests/.
 _gen_fixtures.py re-exports this fixture for explicit import in test modules.
@@ -152,17 +156,17 @@ def logged_session_id(gen_db):
 
 @pytest.fixture
 def stalled_session_db(gen_db):
-    """gen_db + a stall signal on Lat Prayer [ANDREONI + FT] (D1 d1_t3c, free).
+    """gen_db + a stall signal on Better Fly Sagittal Lat Pulldown [FT] (D1 d1_t3e, free).
 
     consecutive_failed_progressions=2 >= STALL_FAILED_THRESHOLD(2) → detect_stall
     fires (failed_stalled=True) → movement added to weak_point_hints →
-    slot_has_deviation_signal True for d1_t3c → should_invoke_llm True for D1.
+    slot_has_deviation_signal True for d1_t3e → should_invoke_llm True for D1.
     Yields the same gen_db session so tests can use it as a drop-in for gen_db.
     """
     from ironlog.models.library import Movement, MovementState
 
     mv = gen_db.exec(
-        select(Movement).where(Movement.name == "Lat Prayer [ANDREONI + FT]")
+        select(Movement).where(Movement.name == "Better Fly Sagittal Lat Pulldown [FT]")
     ).one()
 
     gen_db.add(MovementState(

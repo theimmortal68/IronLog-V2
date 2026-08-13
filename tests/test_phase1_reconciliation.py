@@ -34,7 +34,10 @@ CHANGED_REP_TARGETS = {
     "d1_t2g": (8, 12),
     "d1_t2e": (10, 15),
     "d1_t3a": (4, 6),
-    "d1_t3c": (8, 12),
+    # 2026-08-13: d1_t3c (Lat Prayer) vacated -- replaced by fresh d1_t3e
+    # (Better Fly Sagittal Lat Pulldown [FT], athlete directive), same
+    # rep target (8-12).
+    "d1_t3e": (8, 12),
     "d1_t3d": (8, 12),
     # 2026-08-11 (STAB maintenance-block redesign, Task 2): d2_t1 (Belt Squat
     # anchor) moves from UNCHANGED_REP_TARGETS to here -- T1's rep range

@@ -72,7 +72,14 @@ seed.seed() + seed_phase1_program()). NO from __future__ import annotations
 # new slot, zero prior history there). "PureTorque Pro Rotation" is
 # unchanged (already needs-cal, unaffected by this task).
 EXPECTED_NEEDS_CAL = {
-    "D1 Upper Push": {"Wide-Grip Pull-up [TOWER]"},
+    "D1 Upper Push": {
+        "Wide-Grip Pull-up [TOWER]",
+        # 2026-08-13: Lat Prayer [ANDREONI + FT] (real Wk1 baseline, calibrated)
+        # replaced by Better Fly Sagittal Lat Pulldown [FT] (athlete directive --
+        # Andreoni lat-prayer motion isn't reproducible on the Better Fly cuff).
+        # New movement, zero prior history, needs-calibration.
+        "Better Fly Sagittal Lat Pulldown [FT]",
+    },
     "D2 Lower A": {
         "Matrix Machine Sissy Squat", "Nordic Curl Max [Ares]",
         "Hybrid Board Calf Raise [D2]",

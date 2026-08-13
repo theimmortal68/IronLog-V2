@@ -7,10 +7,13 @@ Tests verify:
   (checks mid in ctx.weak_point_hints — key lookup unchanged by value-shape change).
 
 Fixture: stalled_session_db (conftest.py) — consecutive_failed_progressions=2 on
-Lat Prayer [ANDREONI + FT] (D1 d1_t3c, free) → detect_stall fires → movement
-in weak_point_hints → slot_has_deviation_signal True → should_invoke_llm True.
+Better Fly Sagittal Lat Pulldown [FT] (D1 d1_t3e, free) → detect_stall fires →
+movement in weak_point_hints → slot_has_deviation_signal True →
+should_invoke_llm True.
 (2026-08-10: fixture moved off Seated Cable Row [FT]/d1_t4a -- STAB
-maintenance-block redesign removed D1's T4 GS tier entirely.)
+maintenance-block redesign removed D1's T4 GS tier entirely. 2026-08-13:
+moved off Lat Prayer [ANDREONI + FT]/d1_t3c -- replaced by Better Fly
+Sagittal Lat Pulldown at fresh slot d1_t3e, athlete directive.)
 
 NO from __future__ import annotations (project-wide constraint).
 """

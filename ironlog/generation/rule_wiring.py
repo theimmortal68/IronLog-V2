@@ -73,6 +73,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "pull_up_d1":                        "Wide-Grip Pull-up [TOWER]",       # was "Pull-up [TOWER + TUBES]"
     "cross_body_lateral_raise":          "Cross-Body Cable Lateral Raise [FT]",
     "lat_prayer":                        "Lat Prayer [ANDREONI + FT]",
+    "better_fly_sagittal_lat_pulldown_d1": "Better Fly Sagittal Lat Pulldown [FT]",
     "seated_cable_row":                  "Seated Cable Row [FT]",
     "ab_wheel_rollout":                  "Ab Wheel [WHEEL]",
     "cross_body_rear_delt_fly_d1":       "Cross-Body Cable Rear Delt Fly [FT]",

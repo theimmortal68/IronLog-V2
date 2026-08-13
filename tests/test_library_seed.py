@@ -82,7 +82,10 @@ def test_total_count_103(seeded):
     # [TOWER + TUBES]" (D6's new ASSISTED wide-grip pull-up, per
     # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
     # design.md §5): 140 -> 141.
-    assert len(_all(seeded)) == 141
+    # 2026-08-13: +1 "Better Fly Sagittal Lat Pulldown [FT]" (D1's T3 GS,
+    # replaces Lat Prayer [ANDREONI + FT], athlete directive -- Andreoni
+    # lat-prayer motion isn't reproducible on the Better Fly cuff): 141 -> 142.
+    assert len(_all(seeded)) == 142
 
 
 def test_status_counts(seeded):
@@ -109,7 +112,9 @@ def test_status_counts(seeded):
     # Better Fly OH Tricep Extension, AbMat Ab Bench Pad Cable Crunch: 128 -> 133.
     # 2026-08-12: +1 ACTIVE (STAB redesign fix, post-Task-5): Wide-Grip
     # Pull-up [TOWER + TUBES]: 133 -> 134.
-    assert c[Status.ACTIVE] == 134
+    # 2026-08-13: +1 ACTIVE Better Fly Sagittal Lat Pulldown [FT] (D1 T3 GS,
+    # replaces Lat Prayer, athlete directive): 134 -> 135.
+    assert c[Status.ACTIVE] == 135
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

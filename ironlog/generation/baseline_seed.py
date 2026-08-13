@@ -64,14 +64,20 @@ from ironlog.models.session import (
 # baseline REMOVED -- D1's pull-up slot is now Wide-Grip Pull-up
 # (PULL_UP_ROLLING_MAX, unassisted dead-hang), and Wide-Grip Pull-up
 # movements never carry a BASELINES entry anywhere in this program
-# (matches D4/D6's Wide-Grip Pull-up slots). d1_t3c (Lat Prayer) 60 -> 70
-# (real Wk1 lock, flagged under-loaded -- Wk2's 85-95 jump is a live
-# in-session decision, not seeded). New d1_t2f/d1_t2g/d1_t2e (Stryker Pad
-# Seated OHP / Matrix Machine Preacher Curl / Better Fly Standing Lateral
-# Raise) seed real Wk1 locks 65/55/20. d1_t3d (Ab Wheel Rollout,
-# relocated from its old d1_t4b slot into T3 GS) has NO entry --
+# (matches D4/D6's Wide-Grip Pull-up slots). New d1_t2f/d1_t2g/d1_t2e
+# (Stryker Pad Seated OHP / Matrix Machine Preacher Curl / Better Fly
+# Standing Lateral Raise) seed real Wk1 locks 65/55/20. d1_t3d (Ab Wheel
+# Rollout, relocated from its old d1_t4b slot into T3 GS) has NO entry --
 # bodyweight/REP_LADDER, matches the fact it never had a scalar baseline
 # at its old slot_id either.
+#
+# 2026-08-13: d1_t3c's ("load", 70, None) baseline (Lat Prayer, real Wk1
+# lock) REMOVED -- Lat Prayer [ANDREONI + FT] drops out of D1's wiring
+# entirely (replaced by Better Fly Sagittal Lat Pulldown [FT] at fresh slot
+# d1_t3e, athlete directive). The underlying MovementState row at d1_t3c is
+# left in place, not deleted, per the never-delete-orphans convention. The
+# new movement is needs-calibration, zero prior history -- no BASELINES
+# entry, matching this program's convention for genuinely new movements.
 #
 # 2026-08-11 (STAB maintenance-block redesign, Task 2 -- D2 rewritten to
 # match the FINAL doc's real D2 session): d2_t1b (Hip Thrust, "ht" 205 +
@@ -180,7 +186,6 @@ BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
     "d1_t2e": ("load", 20, None),
-    "d1_t3c": ("load", 70, None),
     "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None),
     "d2_t4a": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle

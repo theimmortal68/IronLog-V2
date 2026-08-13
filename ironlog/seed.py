@@ -1043,6 +1043,20 @@ MOVEMENTS = [
          load_code="FT", tags=["ANDREONI", "FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, primary_muscle="LATS", secondary_muscles=[]),
+    # 2026-08-13: replaces Lat Prayer [ANDREONI + FT] on D1's T3 GS (athlete
+    # directive) -- the Andreoni station's lat-prayer motion isn't reproducible
+    # on the Better Fly cuff; the Better Fly's own sagittal-plane (straight
+    # in front, not diagonal) pulldown is the closest correct substitute on
+    # that equipment, functionally the "Better Fly version" of a lat prayer.
+    # Distinct movement from D4's existing "Better Fly Lat Pulldown [FT]"
+    # (high-pulley, different plane) -- not a shared/reused row. Fresh slot
+    # "d1_t3e" on D1 (never-reassign-slot_id -- d1_t3c vacated, not reused).
+    # Needs-calibration, zero prior history.
+    dict(name="Better Fly Sagittal Lat Pulldown [FT]", base_name="Better Fly Sagittal Lat Pulldown",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
 
     # ─────────────────────────────────────────────────────────────────────────
     # 3 knee movements ADDED (beyond the 100 sheet rows — closes docs/06 §4 gap)

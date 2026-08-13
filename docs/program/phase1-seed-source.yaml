@@ -25,7 +25,7 @@ days:
       {m: better_fly_standing_lateral_raise_d1, reps: [10,15], rule: rpe_8_standard, load: 20}]}  # 2026-08-10: real Wk1 locked 20x3x12 RPE8
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
       {m: pull_up_d1, reps: [4,6], rule: pull_up_rolling_max},  # 2026-08-10: switched to Wide-Grip dead-hang unassisted (was assisted neutral-grip 3-band ladder), real Wk1 executed 4/4/4
-      {m: lat_prayer, reps: [8,12], rule: rpe_8_standard, load: 70},  # 2026-08-10: real Wk1 locked 70x3x12 (flagged under-loaded, RPE 6-7 -- Wk2 jump to 85-95 is a live in-session decision, not seeded)
+      {m: better_fly_sagittal_lat_pulldown_d1, reps: [8,12], rule: rpe_8_standard},  # 2026-08-13: replaces lat_prayer (Andreoni motion not reproducible on Better Fly) -- new, needs-calibration
       {m: ab_wheel_rollout_d1, reps: [8,12], rule: rep_ladder_at_cap}]}  # 2026-08-10: relocated from the now-removed T4 GS; D1's mandatory core slot (anti-extension), real Wk1 locked 3x8 bodyweight
     # T4 GS removed entirely 2026-08-10: Ab Wheel Rollout moved to T3 above;
     # Seated Cable Row and Cross-Body Rear Delt Fly (its old T4 co-members)
