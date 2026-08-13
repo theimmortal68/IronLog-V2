@@ -549,6 +549,47 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     return ex
 
 
+def prescribe_swap_sets(new_movement: Movement, day_role: str,
+                        tier_exercise_id: Optional[int],
+                        rep_low: Optional[int], rep_high: Optional[int],
+                        rpe_cap: Optional[float], db: DBSession) -> List[PlannedSet]:
+    """Build a fresh 3-set prescription for `new_movement`, matching the exact
+    per-set structure (target_load / target_reps / HT plates+bands / etc.)
+    _build_exercise produces during full-session generation -- reused here
+    for a mid-session swap so one exercise's remaining sets can be
+    recomputed without regenerating the whole session.
+
+    Deliberately calls _build_exercise with is_anchor=False: ramp sets are
+    always logged first (set_index -3..-1, before any WORKING set), so a
+    mid-exercise swap never needs to regenerate them even if the swapped
+    slot was originally an anchor.
+
+    Returns transient PlannedSet objects (not persisted) in set_index order
+    (0, 1, 2) -- the caller matches them onto the session's existing
+    not-yet-logged rows by set_index and copies over the target_* fields;
+    it does NOT create or delete PlannedSet rows.
+    """
+    from .context import resolve_context
+    from .skeleton import lay_skeleton
+
+    sk = lay_skeleton(day_role, db)
+
+    def week_keyer(d):
+        iso = d.isocalendar()
+        return (iso[0], iso[1])
+
+    ctx = resolve_context(day_role, sk, db, week_keyer)
+    band_inventory = [Band(bp.id, bp.bottom_lb, bp.peak_lb, bp.usable)
+                      for bp in db.exec(select(BandPair)).all()]
+    ex = _build_exercise(
+        new_movement, 0, ctx, db, prospective={}, day_role=day_role,
+        is_anchor=False, rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap,
+        band_inventory=band_inventory, prospective_ht={}, prospective_ht_unified={},
+        tier_exercise_id=tier_exercise_id,
+    )
+    return ex.planned_sets
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
