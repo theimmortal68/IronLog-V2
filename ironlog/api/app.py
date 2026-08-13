@@ -466,12 +466,37 @@ def submit_session(session_id: int, req: SubmitRequest, background_tasks: Backgr
 
     written = len(db.exec(select(SetLog).where(SetLog.session_id == session_id)).all())
     return SubmitResponse(
-        session_id=session_id, 
+        session_id=session_id,
         status=SessionStatus.COMPLETED.value,
-        set_logs_written=written, 
+        set_logs_written=written,
         already_completed=False,
         phase_transition_available=available_phase,
     )
+
+
+@app.post("/sessions/{session_id}/exercises/{exercise_id}/skip", response_model=ExerciseOut)
+def skip_exercise(session_id: int, exercise_id: int, db: Session = Depends(get_session)):
+    """Mark every not-yet-logged PlannedSet under this exercise as skipped.
+
+    Idempotent. Already-logged sets (a SetLog row referencing them exists) are
+    left untouched -- this only affects sets nobody has logged yet.
+    """
+    from ..models.session import PlannedExercise as PE, PlannedSet as PS
+    pe = db.get(PE, exercise_id)
+    if pe is None or pe.group.session_id != session_id:
+        raise HTTPException(404, "exercise not found in this session")
+    logged_planned_set_ids = {
+        sl.planned_set_id for sl in db.exec(
+            select(SetLog).where(SetLog.session_id == session_id)
+        ).all() if sl.planned_set_id is not None
+    }
+    for ps in pe.planned_sets:
+        if ps.id not in logged_planned_set_ids:
+            ps.is_skipped = True
+            db.add(ps)
+    db.commit()
+    db.refresh(pe)
+    return _serialize_exercise(pe, db)
 
 
 # ---------------------------------------------------------------------------
@@ -698,6 +723,39 @@ def revert_override(override_id: int, db: Session = Depends(get_session)):
 # Capture read path (logging round-trip — Task 3)
 # ---------------------------------------------------------------------------
 
+def _serialize_exercise(pe, db, sid=None, eid=None) -> ExerciseOut:
+    """Serialize a single (committed) PlannedExercise to ExerciseOut.
+
+    `sid`/`eid` let callers override id resolution for the uncommitted-preview
+    case (see `_serialize_session`, which passes its `_sid` counter and a
+    display-only exercise-id fallback); the default (`ps.id` / `pe.id`) is
+    correct for every already-committed caller, e.g. the skip endpoint, which
+    only ever operates on real PlannedExercise rows with real ids.
+    """
+    mv = db.get(Movement, pe.movement_id)
+    _sid = sid if sid is not None else (lambda ps: ps.id)
+    sets_out = [PlannedSetOut(
+        id=_sid(ps), set_index=ps.set_index, set_role=ps.set_role.value,
+        is_warmup=ps.is_warmup, is_skipped=ps.is_skipped, target_load=ps.target_load,
+        target_reps_low=ps.target_reps_low, target_reps_high=ps.target_reps_high,
+        target_rpe=ps.target_rpe, target_unassisted_reps=ps.target_unassisted_reps,
+        target_assisted_reps=ps.target_assisted_reps, target_plates=ps.target_plates,
+        band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
+        band_config=ps.band_config,
+    ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
+    unit_hint = (
+        _UNIT_HINTS.get(load_field_for_mode(mv.progression_mode))
+        if mv else None
+    )
+    return ExerciseOut(
+        id=(eid if eid is not None else pe.id), movement_id=pe.movement_id,
+        movement_name=(mv.name if mv else ""),
+        order_index=pe.order_index, scheme=pe.scheme.value, objective=pe.objective.value,
+        unit_hint=unit_hint, unilateral=(mv.unilateral if mv else False),
+        planned_sets=sets_out,
+    )
+
+
 def _serialize_session(ws, db, finisher=None, warmup=None) -> SessionDetailResponse:
     """Walk the relationship graph and serialize to SessionDetailResponse.
 
@@ -722,27 +780,9 @@ def _serialize_session(ws, db, finisher=None, warmup=None) -> SessionDetailRespo
     for gi, g in enumerate(groups):
         ex_out = []
         for ei, pe in enumerate(sorted(g.exercises, key=lambda e: e.order_index)):
-            mv = db.get(Movement, pe.movement_id)
-            sets_out = [PlannedSetOut(
-                id=_sid(ps), set_index=ps.set_index, set_role=ps.set_role.value,
-                is_warmup=ps.is_warmup, target_load=ps.target_load,
-                target_reps_low=ps.target_reps_low, target_reps_high=ps.target_reps_high,
-                target_rpe=ps.target_rpe, target_unassisted_reps=ps.target_unassisted_reps,
-                target_assisted_reps=ps.target_assisted_reps, target_plates=ps.target_plates,
-                band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
-                band_config=ps.band_config,
-            ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
-            unit_hint = (
-                _UNIT_HINTS.get(load_field_for_mode(mv.progression_mode))
-                if mv else None
-            )
-            ex_out.append(ExerciseOut(
-                id=(pe.id if pe.id is not None else ei), movement_id=pe.movement_id,
-                movement_name=(mv.name if mv else ""), order_index=pe.order_index,
-                scheme=pe.scheme.value, objective=pe.objective.value,
-                unit_hint=unit_hint,
-                unilateral=(mv.unilateral if mv else False),
-                planned_sets=sets_out,
+            ex_out.append(_serialize_exercise(
+                pe, db, sid=_sid,
+                eid=(pe.id if pe.id is not None else ei),
             ))
         groups_out.append(GroupOut(
             id=(g.id if g.id is not None else gi), order_index=g.order_index,
