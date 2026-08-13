@@ -12,7 +12,7 @@ from datetime import date, datetime
 from typing import List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Column, JSON
+from sqlalchemy import Column, JSON, Boolean, literal_column
 
 from .enums import (
     FeedbackTap, GroupType, NoteClass, Objective, Scheme, SessionStatus, SetRole,
@@ -53,6 +53,7 @@ class PlannedExercise(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     group_id: int = Field(foreign_key="exercisegroup.id", index=True)
     movement_id: int = Field(foreign_key="movement.id", index=True)
+    tier_exercise_id: Optional[int] = Field(default=None, foreign_key="tierexercise.id")
     order_index: int
     scheme: Scheme
     objective: Objective
@@ -67,6 +68,7 @@ class PlannedSet(SQLModel, table=True):
     set_index: int
     set_role: SetRole
     is_warmup: bool = False                        # real flag (the fix)
+    is_skipped: bool = Field(default=False, sa_column=Column(Boolean, nullable=False, server_default=literal_column("0")))
 
     target_load: Optional[float] = None
     target_reps_low: Optional[int] = None
