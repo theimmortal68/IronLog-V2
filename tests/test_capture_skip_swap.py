@@ -15,6 +15,7 @@ NO from __future__ import annotations (project-wide constraint).
 import importlib
 from datetime import date
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session as DbSession, create_engine, select
 from sqlmodel.pool import StaticPool
@@ -22,13 +23,16 @@ from sqlmodel.pool import StaticPool
 from ironlog.api.app import app, get_session
 from ironlog.models.library import Movement
 from ironlog.models.session import (
-    ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession,
+    ExerciseGroup, PlannedExercise, PlannedSet, SetLog, Session as WorkoutSession,
 )
-from ironlog.models.enums import GroupType, Objective, Scheme, SessionStatus, SetRole
+from ironlog.models.enums import (
+    FeedbackTap, GroupType, Objective, Scheme, SessionStatus, SetRole,
+)
 import ironlog.models  # noqa: F401 — ensure all tables registered
 
 
-def _client():
+@pytest.fixture
+def api_client():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
                            poolclass=StaticPool)
     import ironlog.db as db
@@ -43,7 +47,8 @@ def _client():
             yield s
 
     app.dependency_overrides[get_session] = _override
-    return TestClient(app), engine
+    yield TestClient(app), engine
+    app.dependency_overrides.clear()
 
 
 def _make_planned_session(db, movement_name="Bench Press [PB]"):
@@ -64,8 +69,8 @@ def _make_planned_session(db, movement_name="Bench Press [PB]"):
     return ws, pe
 
 
-def test_skip_marks_only_unlogged_sets_and_is_idempotent():
-    client, engine = _client()
+def test_skip_marks_only_unlogged_sets_and_is_idempotent(api_client):
+    client, engine = api_client
     with DbSession(engine) as db:
         ws, pe = _make_planned_session(db)
         session_id, exercise_id = ws.id, pe.id
@@ -79,4 +84,42 @@ def test_skip_marks_only_unlogged_sets_and_is_idempotent():
     resp2 = client.post(f"/sessions/{session_id}/exercises/{exercise_id}/skip")
     assert resp2.status_code == 200
     assert all(s["is_skipped"] for s in resp2.json()["planned_sets"])
-    app.dependency_overrides.clear()
+
+
+def test_skip_leaves_already_logged_sets_untouched(api_client):
+    client, engine = api_client
+    with DbSession(engine) as db:
+        ws, pe = _make_planned_session(db)
+        session_id, exercise_id = ws.id, pe.id
+        logged_set = pe.planned_sets[0]
+        logged_planned_set_id = logged_set.id
+        db.add(SetLog(
+            planned_set_id=logged_planned_set_id,
+            session_id=ws.id,
+            movement_id=pe.movement_id,
+            set_index=0,
+            actual_load=100.0,
+            actual_reps=5,
+            feedback_tap=FeedbackTap.ON_TARGET,
+        ))
+        db.commit()
+
+    resp = client.post(f"/sessions/{session_id}/exercises/{exercise_id}/skip")
+    assert resp.status_code == 200
+    body = resp.json()
+    for s in body["planned_sets"]:
+        if s["id"] == logged_planned_set_id:
+            assert s["is_skipped"] is False
+        else:
+            assert s["is_skipped"] is True
+
+
+def test_skip_404s_on_cross_session_exercise_id(api_client):
+    client, engine = api_client
+    with DbSession(engine) as db:
+        ws1, pe1 = _make_planned_session(db)
+        ws2, pe2 = _make_planned_session(db)
+        session1_id, exercise2_id = ws1.id, pe2.id
+
+    resp = client.post(f"/sessions/{session1_id}/exercises/{exercise2_id}/skip")
+    assert resp.status_code == 404
