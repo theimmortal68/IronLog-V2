@@ -320,3 +320,20 @@ def test_swap_same_set_count_still_succeeds(api_client):
     body = resp.json()
     assert body["movement_id"] == new_mv_id
     assert len(body["planned_sets"]) == 3
+
+
+def test_substitutes_share_primary_muscle_and_exclude_self(api_client):
+    """GET /movements/substitutes/{movement_id} returns ACTIVE movements
+    sharing the given movement's primary_muscle, excluding itself."""
+    client, engine = api_client
+    with DbSession(engine) as db:
+        bench = db.exec(select(Movement).where(Movement.name == "Bench Press [PB]")).one()
+        bench_id = bench.id
+        bench_primary_muscle = bench.primary_muscle
+
+    resp = client.get(f"/movements/substitutes/{bench_id}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert all(m["primary_muscle"] == bench_primary_muscle.value for m in body)
+    assert all(m["id"] != bench_id for m in body)
+    assert all(m["status"] == "ACTIVE" for m in body)
