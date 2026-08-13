@@ -212,3 +212,20 @@ def test_executescript_non_atomicity_first_stmt_persists_on_failure(mem_engine, 
     assert "001_multi_stmt" not in migrate.applied_versions(mem_engine), (
         "version must NOT be recorded when the migration script raises"
     )
+
+
+# ---------------------------------------------------------------------------
+# Task 5+ — migration-specific tests for new columns
+# ---------------------------------------------------------------------------
+
+def test_040_adds_is_skipped_and_tier_exercise_id():
+    """Verify migration 040 adds is_skipped column to plannedset and
+    tier_exercise_id column to plannedexercise."""
+    engine = create_engine("sqlite://")  # in-memory
+    applied = migrate.apply_pending(engine)
+    assert "040_planned_set_skip_and_exercise_slot" in applied
+    with engine.connect() as conn:
+        cols_ps = {row[1] for row in conn.execute(text("PRAGMA table_info(plannedset)"))}
+        cols_pe = {row[1] for row in conn.execute(text("PRAGMA table_info(plannedexercise)"))}
+    assert "is_skipped" in cols_ps
+    assert "tier_exercise_id" in cols_pe
