@@ -158,6 +158,12 @@ RAMP_ELIGIBLE_MOVEMENT_NAMES = {
     # The authoritative YAML ids rdl_d5 and rdl_conventional both resolve here.
     "RDL [PB]",
     "Staggered RDL [PB]",
+    # 2026-08-13: D4's T1 anchor since the STAB maintenance-block redesign
+    # (Task 3, 2026-08-11) -- plate-loaded barbell press, same heavy-anchor
+    # ramp treatment as every other T1 primary. Missed when Task 3 swapped
+    # it in for the old Standing OHP [PB] anchor; found live (no warmup
+    # ramp sets were generating for it, unlike D1's Bench Press).
+    "Seated BTN OHP [PB]",
 }
 
 WARMUP_CONFIGS: Dict[int, dict] = {

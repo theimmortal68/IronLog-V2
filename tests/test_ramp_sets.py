@@ -21,6 +21,9 @@ RAMP_ELIGIBLE_NAMES = {
     # The authoritative YAML maps both rdl_d5 and rdl_conventional to this row.
     "RDL [PB]",
     "Staggered RDL [PB]",
+    # 2026-08-13: D4's T1 anchor since the STAB redesign (Task 3, 2026-08-11) --
+    # plate-loaded barbell press, missed when it replaced Standing OHP [PB].
+    "Seated BTN OHP [PB]",
 }
 
 
