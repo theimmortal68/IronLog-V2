@@ -45,10 +45,12 @@ from ..integrations.withings_auth import (
 from ..models import (
     BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
     SessionStatus, SetLog, ExerciseSurvey, Note, SetRole, MovementWeaknessSignal,
+    Status,
 )
 from ..notes.classify import classify_session_notes
 from .schemas_capture import (SubmitRequest, SubmitResponse,
-                               SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut)
+                               SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut,
+                               SwapExerciseRequest)
 from .schemas_wizard import (
     StartProgramResponse, WizardMovement, WizardResolveRequest,
     WizardResolveResponse, WizardStateResponse,
@@ -494,6 +496,101 @@ def skip_exercise(session_id: int, exercise_id: int, db: Session = Depends(get_s
         if ps.id not in logged_planned_set_ids:
             ps.is_skipped = True
             db.add(ps)
+    db.commit()
+    db.refresh(pe)
+    return _serialize_exercise(pe, db)
+
+
+@app.post("/sessions/{session_id}/exercises/{exercise_id}/swap", response_model=ExerciseOut)
+def swap_exercise(session_id: int, exercise_id: int, req: SwapExerciseRequest,
+                  db: Session = Depends(get_session)):
+    """Replace the movement filling this exercise's remaining (not logged,
+    not skipped) sets. Already-logged SetLog rows keep their own
+    movement_id, captured at log time -- untouched here.
+
+    Reuses the real generation internals (resolve_context + _build_exercise)
+    via prescribe_swap_sets rather than reimplementing per-movement
+    load/rep/HT prescription -- see assembler.prescribe_swap_sets docstring.
+    """
+    from ..generation.assembler import prescribe_swap_sets
+    from ..models.session import PlannedExercise as PE
+    from ..models.program import SlotMovementOverride, TierExercise as TE
+    from ..models.enums import OverrideType
+
+    pe = db.get(PE, exercise_id)
+    if pe is None or pe.group.session_id != session_id:
+        raise HTTPException(404, "exercise not found in this session")
+    new_mv = db.get(Movement, req.new_movement_id)
+    if new_mv is None or new_mv.status != Status.ACTIVE:
+        raise HTTPException(422, "new_movement_id must reference an ACTIVE movement")
+    if req.make_permanent and pe.tier_exercise_id is None:
+        raise HTTPException(409, "this exercise has no tier_exercise_id (legacy session) "
+                                 "-- cannot make a permanent program change from it")
+
+    logged_planned_set_ids = {
+        sl.planned_set_id for sl in db.exec(
+            select(SetLog).where(SetLog.session_id == session_id)
+        ).all() if sl.planned_set_id is not None
+    }
+    remaining = sorted(
+        [ps for ps in pe.planned_sets
+         if ps.id not in logged_planned_set_ids and not ps.is_skipped],
+        key=lambda ps: ps.set_index,
+    )
+    te = db.get(TE, pe.tier_exercise_id) if pe.tier_exercise_id is not None else None
+    rep_low = te.rep_low if te else (remaining[0].target_reps_low if remaining else None)
+    rep_high = te.rep_high if te else (remaining[0].target_reps_high if remaining else None)
+    rpe_cap = te.rpe_cap if te else None
+
+    fresh_sets = prescribe_swap_sets(new_mv, pe.group.session.day_role, pe.tier_exercise_id,
+                                     rep_low, rep_high, rpe_cap, db)
+    fresh_by_index = {s.set_index: s for s in fresh_sets}
+    for ps in remaining:
+        fresh = fresh_by_index.get(ps.set_index)
+        if fresh is None:
+            continue
+        ps.target_load = fresh.target_load
+        ps.target_reps_low = fresh.target_reps_low
+        ps.target_reps_high = fresh.target_reps_high
+        ps.target_rpe = fresh.target_rpe
+        ps.target_unassisted_reps = fresh.target_unassisted_reps
+        ps.target_assisted_reps = fresh.target_assisted_reps
+        ps.target_plates = fresh.target_plates
+        ps.band_pair_id = fresh.band_pair_id
+        ps.target_felt_peak = fresh.target_felt_peak
+        ps.band_config = fresh.band_config
+        db.add(ps)
+
+    pe.movement_id = new_mv.id
+    db.add(pe)
+
+    if req.make_permanent:
+        # SlotMovementOverride.source_note_id is NOT NULL (FK to note.id) --
+        # this is a direct in-workout swap with no originating Note, so create
+        # a minimal synthetic one to satisfy the FK, mirroring the
+        # already-established placeholder-value convention for this table's
+        # other NOT NULL-but-conceptually-optional columns (see
+        # notes/apply.py's override_movement_id placeholder for LOAD/REPS rows).
+        note = Note(
+            session_id=session_id, movement_id=new_mv.id,
+            text=f"In-session swap to {new_mv.name!r} made permanent.",
+            classification=NoteClass.CONFIG_CHANGE, confirmed=True, applied=True,
+        )
+        db.add(note)
+        db.flush()
+
+        existing = db.exec(select(SlotMovementOverride).where(
+            SlotMovementOverride.tier_exercise_id == pe.tier_exercise_id,
+            SlotMovementOverride.override_type == OverrideType.MOVEMENT,
+            SlotMovementOverride.active == True)).first()  # noqa: E712
+        if existing is not None:
+            existing.active = False
+            db.add(existing)
+        db.add(SlotMovementOverride(
+            tier_exercise_id=pe.tier_exercise_id, override_type=OverrideType.MOVEMENT,
+            override_movement_id=new_mv.id, source_note_id=note.id,
+        ))
+
     db.commit()
     db.refresh(pe)
     return _serialize_exercise(pe, db)

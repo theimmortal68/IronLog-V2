@@ -43,6 +43,11 @@ class SubmitRequest(BaseModel):
     notes: List[NoteIn] = []
 
 
+class SwapExerciseRequest(BaseModel):
+    new_movement_id: int
+    make_permanent: bool = False
+
+
 class SubmitResponse(BaseModel):
     session_id: int
     status: str
