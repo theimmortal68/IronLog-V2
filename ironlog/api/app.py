@@ -200,6 +200,23 @@ def list_movements(session: Session = Depends(get_session)):
     return session.exec(select(Movement)).all()
 
 
+@app.get("/movements/substitutes/{movement_id}", response_model=List[Movement])
+def movement_substitutes(movement_id: int, session: Session = Depends(get_session)):
+    """ACTIVE movements sharing this movement's primary_muscle, excluding
+    itself -- powers the swap picker's 'suggested substitutes' list.
+    """
+    mv = session.get(Movement, movement_id)
+    if mv is None:
+        raise HTTPException(404, "movement not found")
+    if mv.primary_muscle is None:
+        return []
+    return session.exec(select(Movement).where(
+        Movement.primary_muscle == mv.primary_muscle,
+        Movement.id != movement_id,
+        Movement.status == Status.ACTIVE,
+    ).order_by(Movement.name)).all()
+
+
 @app.get("/movements/{movement_id}", response_model=Movement)
 def get_movement(movement_id: int, session: Session = Depends(get_session)):
     m = session.get(Movement, movement_id)
