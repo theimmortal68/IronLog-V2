@@ -249,3 +249,74 @@ def test_swap_ht_composite_target_recomputed(api_client):
     for s in body["planned_sets"]:
         assert s["target_load"] is None
         assert s["target_plates"] is not None
+
+
+def test_swap_rejects_mismatched_structure_ramp_sets_untouched(api_client):
+    """Opus review of df64b8d: the copy loop matches remaining PlannedSets to
+    freshly-prescribed sets purely by set_index and silently `continue`s on
+    any index it can't match. If a ramp-eligible anchor is swapped before its
+    unlogged ramp sets (set_index -3/-2/-1) are logged, prescribe_swap_sets
+    (called with is_anchor=False) never produces matching ramp indices, so
+    those rows would silently keep the OLD movement's ramp loads while
+    pe.movement_id points at the new movement. Prove the endpoint now 409s
+    instead, and that the exercise is left completely untouched (reject
+    before mutate, not partial-then-fail)."""
+    client, engine = api_client
+    with DbSession(engine) as db:
+        ws, pe = _make_planned_session(db, movement_name="Bench Press [PB]")
+        session_id, exercise_id = ws.id, pe.id
+        original_movement_id = pe.movement_id
+        # Extra unlogged ramp set alongside the helper's normal 0/1/2 rows,
+        # simulating a ramp-eligible anchor that hasn't started its ramp yet.
+        db.add(PlannedSet(planned_exercise_id=pe.id, set_index=-1, set_role=SetRole.RAMP,
+                          is_warmup=True, target_load=60.0, target_reps_low=5,
+                          target_reps_high=5))
+        db.commit()
+        original_targets = {
+            ps.id: (ps.set_index, ps.target_load, ps.target_reps_low, ps.target_reps_high)
+            for ps in db.exec(
+                select(PlannedSet).where(PlannedSet.planned_exercise_id == exercise_id)
+            ).all()
+        }
+        new_mv_id = db.exec(
+            select(Movement).where(Movement.name == "Incline DB Press [DB + BENCH]")
+        ).one().id
+
+    resp = client.post(f"/sessions/{session_id}/exercises/{exercise_id}/swap",
+                       json={"new_movement_id": new_mv_id, "make_permanent": False})
+    assert resp.status_code == 409
+
+    with DbSession(engine) as db:
+        pe_after = db.get(PlannedExercise, exercise_id)
+        assert pe_after.movement_id == original_movement_id
+        current_targets = {
+            ps.id: (ps.set_index, ps.target_load, ps.target_reps_low, ps.target_reps_high)
+            for ps in db.exec(
+                select(PlannedSet).where(PlannedSet.planned_exercise_id == exercise_id)
+            ).all()
+        }
+        assert current_targets == original_targets
+
+
+def test_swap_same_set_count_still_succeeds(api_client):
+    """Confirms the mismatch guard doesn't false-positive on the ordinary
+    case: 3 remaining WORKING sets swapping to a plain movement whose
+    _build_exercise also produces 3 sets. (Largely re-covers
+    test_swap_recomputes_remaining_sets_and_updates_movement; kept as an
+    explicit companion to the new guard's negative case.)"""
+    client, engine = api_client
+    with DbSession(engine) as db:
+        ws, pe = _make_planned_session(db, movement_name="Bench Press [PB]")
+        session_id, exercise_id = ws.id, pe.id
+        new_mv_id = db.exec(
+            select(Movement).where(Movement.name == "Incline DB Press [DB + BENCH]")
+        ).one().id
+
+    resp = client.post(
+        f"/sessions/{session_id}/exercises/{exercise_id}/swap",
+        json={"new_movement_id": new_mv_id, "make_permanent": False},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["movement_id"] == new_mv_id
+    assert len(body["planned_sets"]) == 3

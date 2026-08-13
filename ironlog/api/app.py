@@ -545,6 +545,32 @@ def swap_exercise(session_id: int, exercise_id: int, req: SwapExerciseRequest,
     fresh_sets = prescribe_swap_sets(new_mv, pe.group.session.day_role, pe.tier_exercise_id,
                                      rep_low, rep_high, rpe_cap, db)
     fresh_by_index = {s.set_index: s for s in fresh_sets}
+
+    # Every remaining (not-logged, not-skipped) set_index must have a
+    # matching freshly-prescribed set to copy onto it. It's fine for
+    # fresh_sets to contain EXTRA indices with no remaining counterpart --
+    # that just means some of this exercise's sets are already logged (an
+    # ordinary, common case: prescribe_swap_sets always returns the new
+    # movement's full set structure, regardless of how many of the old
+    # movement's sets are already logged). It is NOT fine for `remaining` to
+    # contain an index with no fresh counterpart -- that's the silent-copy-
+    # skip landmine (Opus review of df64b8d): the row would keep the OLD
+    # movement's target values while pe.movement_id now points at the new
+    # movement.
+    remaining_indices = {ps.set_index for ps in remaining}
+    fresh_indices = set(fresh_by_index.keys())
+    unmatched = remaining_indices - fresh_indices
+    if unmatched:
+        raise HTTPException(
+            409,
+            f"cannot swap: the new movement's prescribed set structure "
+            f"({sorted(fresh_indices)}) does not cover the remaining sets' "
+            f"structure ({sorted(remaining_indices)}) -- set_index(es) "
+            f"{sorted(unmatched)} would be left stale. This can happen when "
+            f"swapping into/out of a ramp-eligible anchor or a TOPSET_BACKOFF-"
+            f"scheme movement mid-exercise",
+        )
+
     for ps in remaining:
         fresh = fresh_by_index.get(ps.set_index)
         if fresh is None:
