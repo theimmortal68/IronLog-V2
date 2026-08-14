@@ -149,3 +149,83 @@ def test_d5_knee_modality_giant_tiers_stay_grouped(gen_db_calibrated):
         "Hybrid Board Tib Raise [D5]",
         "Better Fly Hip Adduction [FT]",
     ]
+
+
+def test_d1_group_order_is_unaffected_by_tier_order_fix(gen_db_calibrated):
+    """No-regression check for the tier_order fix (2026-08-14).
+
+    D1 Upper Push's anchor tiers (T1, T1b) are genuinely first in
+    Tier.tier_order -- sorting groups by TRUE tier_order instead of the old
+    anchors-always-first assumption must produce the EXACT SAME group
+    ordering as before: T1, T1b, T2 GS, T3 GS. This is the critical
+    no-regression case: every day whose anchors are actually first in the
+    program (D1, D4, D6 in production) must see zero behavior change.
+    """
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
+    groups = sorted(res.session.groups, key=lambda g: g.order_index)
+    layout = [(g.label, g.group_type.value) for g in groups]
+    assert layout == [
+        ("T1", "STRAIGHT"),
+        ("T1b", "STRAIGHT"),
+        ("T2 GS", "GIANT_SET"),
+        ("T3 GS", "GIANT_SET"),
+    ], f"D1's group order must be unchanged by the tier_order fix, got {layout}"
+
+
+def test_d2_trailing_anchor_tier_sorts_last_by_true_tier_order(gen_db_calibrated):
+    """Reproduces the real production bug (2026-08-14 fix).
+
+    D2 Lower A has a NEW trailing anchor tier, "T4" (tier_role="anchor",
+    TierKind.T1_STRAIGHT, Ab Trainer Decline Sit-up), seeded AFTER the two
+    GIANT_SET tiers in Tier.tier_order (T1=1, T2 GS=2, T3 GS=3, T4=4). The
+    old assembler put ALL anchors first regardless of true tier position, so
+    T4's exercise rendered as the session's SECOND exercise (right after T1)
+    instead of last. Confirmed live on production D2/D5 generation before
+    this fix; this test is the D2 half of that reproduction (D5 mirrors it
+    exactly with Ab Trainer Russian Twist -- see the twin case below).
+
+    Correct order per Tier.tier_order: T1, T2 GS, T3 GS, T4 (trailing).
+    """
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D2 Lower A", gen_db)
+    ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
+    res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
+    groups = sorted(res.session.groups, key=lambda g: g.order_index)
+    layout = [(g.label, g.group_type.value) for g in groups]
+    assert layout == [
+        ("T1", "STRAIGHT"),
+        ("T2 GS", "GIANT_SET"),
+        ("T3 GS", "GIANT_SET"),
+        ("T4", "STRAIGHT"),
+    ], f"D2's trailing anchor tier (T4) must sort LAST by true tier_order, got {layout}"
+    # The T4 group itself must contain the trailing anchor's exercise.
+    t4 = groups[-1]
+    assert _names_for_group(t4, gen_db) == ["Ab Trainer Decline Sit-up"]
+
+
+def test_d5_trailing_anchor_tier_sorts_last_by_true_tier_order(gen_db_calibrated):
+    """D5 Lower B twin of the D2 trailing-anchor-tier reproduction above.
+
+    D5's T4 (Ab Trainer Russian Twist) mirrors D2's T4 shape exactly --
+    same bug, same fix, different movement and program day.
+    """
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D5 Lower B", gen_db)
+    ctx = resolve_context("D5 Lower B", sk, gen_db, wk)
+    res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
+    groups = sorted(res.session.groups, key=lambda g: g.order_index)
+    layout = [(g.label, g.group_type.value) for g in groups]
+    assert layout == [
+        ("T1", "STRAIGHT"),
+        ("T2 GS", "GIANT_SET"),
+        ("T3 GS", "GIANT_SET"),
+        ("T4", "STRAIGHT"),
+    ], f"D5's trailing anchor tier (T4) must sort LAST by true tier_order, got {layout}"
+    t4 = groups[-1]
+    assert _names_for_group(t4, gen_db) == ["Ab Trainer Russian Twist"]

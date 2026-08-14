@@ -599,10 +599,16 @@ def assemble(selections: Selections, skeleton: Skeleton,
     """Turn the LLM's selections into a full in-memory Session.
 
     Layout:
-      1. Anchor movements → STRAIGHT groups in skeleton order (T1 first).
+      1. Anchor movements → STRAIGHT groups, one per anchor TierExercise.
       2. Adaptive slots → iterated in selections.ordering:
            giant tier  → exercises appended into one GIANT_SET group per source tier (rounds=3)
            other       → own STRAIGHT group each
+      All resulting groups (anchor + giant + straight adaptive) are then sorted
+      by the source Tier's TRUE tier_order before order_index is assigned --
+      anchors are NOT assumed to always sit first. A trailing anchor tier (e.g.
+      a core-work finisher placed after the giant-set tiers) must land last,
+      matching its real position in Tier.tier_order. Ties (shouldn't normally
+      happen -- each Tier has a unique tier_order) break on construction order.
 
     Computes prospective_current_loads for every movement but does NOT write
     to MovementState or commit anything.
@@ -620,13 +626,22 @@ def assemble(selections: Selections, skeleton: Skeleton,
     prospective: Dict[int, float] = {}
     prospective_ht: Dict[int, Tuple[float, list]] = {}
     prospective_ht_unified: Dict[Tuple[int, str], Tuple[float, list]] = {}
-    order = 0
 
-    # 1) Anchor movements — STRAIGHT groups, T1 ordering
+    # Every group built below (anchor STRAIGHT, giant GIANT_SET, adaptive
+    # STRAIGHT) is collected here tagged with (tier_order, construction_order)
+    # instead of being appended to session.groups / given an order_index
+    # immediately. The final order_index assignment sorts this list by the
+    # TRUE source-Tier tier_order (falling back to construction order as a
+    # stable tie-break) so a trailing anchor tier lands where it actually sits
+    # in the day, instead of anchors always being forced first.
+    construction_order = 0
+    pending_groups: List[Tuple[int, int, ExerciseGroup]] = []
+
+    # 1) Anchor movements — one STRAIGHT group per anchor TierExercise
     for mid, meta in zip(skeleton.anchor_movement_ids, skeleton.anchor_meta):
         m = movements[mid]
         group = ExerciseGroup(
-            order_index=order,
+            order_index=0,  # assigned below, after the true-tier-order sort
             group_type=GroupType.STRAIGHT,
             rounds=1,
             rest_seconds=meta.rest_seconds,
@@ -641,18 +656,18 @@ def assemble(selections: Selections, skeleton: Skeleton,
                              prospective_ht_unified=prospective_ht_unified,
                              tier_exercise_id=meta.tier_exercise_id)
         group.exercises.append(ex)
-        session.groups.append(group)
-        order += 1
+        pending_groups.append((meta.tier_order, construction_order, group))
+        construction_order += 1
 
     # 2) Adaptive layer — model's chosen ordering
     selected = {s.slot_id: s for s in selections.slots}
     slot_map = {s.slot_id: s for s in skeleton.adaptive_slots}
 
     # One ExerciseGroup per source tier for giant slots; dict preserves first-appearance
-    # order so the tier groups are added to the session in the proposer's intended order.
+    # order (used as the group's construction_order tie-break) so multiple slots
+    # of the same tier accumulate into a single group.
     giant_groups: Dict[str, ExerciseGroup] = {}
-    # Non-giant (knee / accessory) adaptive groups — collected and appended after giants.
-    straight_groups: List[ExerciseGroup] = []
+    giant_group_rank: Dict[str, Tuple[int, int]] = {}  # gk -> (tier_order, construction_order)
 
     for slot_id in selections.ordering:
         sel = selected.get(slot_id)
@@ -671,13 +686,15 @@ def assemble(selections: Selections, skeleton: Skeleton,
             gk = slot.group_key if slot.group_key else slot_id
             if gk not in giant_groups:
                 giant_groups[gk] = ExerciseGroup(
-                    order_index=0,  # assigned below after all slots are processed
+                    order_index=0,  # assigned below, after the true-tier-order sort
                     group_type=GroupType.GIANT_SET,
                     rounds=3,
                     rest_seconds=slot.rest_seconds,
                     label=slot.group_key or None,
                     shoe=slot.shoe,
                 )
+                giant_group_rank[gk] = (slot.tier_order, construction_order)
+                construction_order += 1
             gg = giant_groups[gk]
             ex = _build_exercise(m, len(gg.exercises), ctx, db, prospective,
                                  day_role=skeleton.day_role,
@@ -690,7 +707,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
         else:
             # knee / conditioning / accessory → own STRAIGHT group
             group = ExerciseGroup(
-                order_index=0,  # assigned below
+                order_index=0,  # assigned below, after the true-tier-order sort
                 group_type=GroupType.STRAIGHT,
                 rounds=1,
                 rest_seconds=slot.rest_seconds,
@@ -705,20 +722,19 @@ def assemble(selections: Selections, skeleton: Skeleton,
                                  prospective_ht_unified=prospective_ht_unified,
                                  tier_exercise_id=slot.tier_exercise_id)
             group.exercises.append(ex)
-            straight_groups.append(group)
+            pending_groups.append((slot.tier_order, construction_order, group))
+            construction_order += 1
 
-    # Assign clean sequential order_index:
-    #   anchors:            0 .. len(anchor_movement_ids)-1   (already set above)
-    #   giant tier groups:  next in first-appearance order
-    #   knee/accessory:     after all giant groups
-    for gg in giant_groups.values():
-        gg.order_index = order
-        order += 1
-        session.groups.append(gg)
+    for gk, gg in giant_groups.items():
+        tier_order, rank = giant_group_rank[gk]
+        pending_groups.append((tier_order, rank, gg))
 
-    for g in straight_groups:
+    # Assign order_index by TRUE tier_order (construction_order as a stable,
+    # defensive tie-break -- each Tier normally has a unique tier_order, so
+    # ties shouldn't occur in practice).
+    pending_groups.sort(key=lambda t: (t[0] if t[0] is not None else float("inf"), t[1]))
+    for order, (_, _, g) in enumerate(pending_groups):
         g.order_index = order
-        order += 1
         session.groups.append(g)
 
     program_day_id = _program_day_id_from_skeleton(skeleton, db)
