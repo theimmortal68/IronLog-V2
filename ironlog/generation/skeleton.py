@@ -49,6 +49,11 @@ class SlotSpec:
     # Task 1 (note-apply REDESIGN): this slot's TierExercise.id, so the assembler
     # can look up an active LOAD/REPS SlotMovementOverride at prescription time.
     tier_exercise_id: Optional[int] = None
+    # Tier-order fix: the source Tier's Tier.tier_order (1-based position within
+    # the day), so the assembler can sort ALL groups (anchor + giant + straight
+    # adaptive) by their TRUE position in the day instead of assuming anchors
+    # are always first. group_key/tier_label are display strings, not sortable.
+    tier_order: Optional[int] = None
 
 
 @dataclass
@@ -68,6 +73,11 @@ class AnchorSpec:
     # Task 1 (note-apply REDESIGN): this anchor's TierExercise.id, so the assembler
     # can look up an active LOAD/REPS SlotMovementOverride at prescription time.
     tier_exercise_id: Optional[int] = None
+    # Tier-order fix: the source Tier's Tier.tier_order (1-based position within
+    # the day) -- see SlotSpec.tier_order for why this is needed (anchors are
+    # not always first; a trailing anchor tier, e.g. D2/D5's T4, must sort by
+    # its true position, not be forced to the front).
+    tier_order: Optional[int] = None
 
 
 @dataclass
@@ -147,7 +157,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     rep_low=te.rep_low, rep_high=te.rep_high,
                     rpe_cap=te.rpe_cap, rest_seconds=tier.rest_seconds,
                     tier_label=tier.tier_label, shoe=tier.shoe,
-                    tier_exercise_id=te.id,
+                    tier_exercise_id=te.id, tier_order=tier.tier_order,
                 ))
             else:
                 adaptive_slots.append(SlotSpec(
@@ -161,7 +171,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     group_key=tier.tier_label,
                     rep_low=te.rep_low, rep_high=te.rep_high, rpe_cap=te.rpe_cap,
                     rest_seconds=tier.rest_seconds, shoe=tier.shoe,
-                    tier_exercise_id=te.id,
+                    tier_exercise_id=te.id, tier_order=tier.tier_order,
                 ))
 
     return Skeleton(
