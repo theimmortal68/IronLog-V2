@@ -230,10 +230,28 @@ MOVEMENTS = [
          primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES", "SPINAL_ERECTORS"]),
     # 2026-08-12: new D5 T2 GS movement (Task 4). Nordic Max attachment +
     # MX100 DBs, unilateral. Needs-calibration start, zero prior history.
+    # 2026-08-14: dropped from D5's T2 GS -- shares the Nordic Max rig with
+    # Nordic Curl Max [Ares] (same "NORDIC_MAX" tag), which can't be
+    # simultaneously mounted for two different exercises in the same giant
+    # set (same equipment-conflict class as the D4 Apex/Stryker Pad issue).
+    # Stays ACTIVE in the library, unwired everywhere -- not deleted, per
+    # the never-delete-orphans convention.
     dict(name="Nordic Max Bulgarian Split Squat", base_name="Nordic Max Bulgarian Split Squat",
          region=Region.LOWER, status=Status.ACTIVE, load_code="DB", tags=["DB", "NORDIC_MAX"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
+         primary_muscle="QUADS", secondary_muscles=["GLUTES", "HAMSTRINGS"]),
+    # 2026-08-14: replaces Nordic Max Bulgarian Split Squat on D5's T2 GS
+    # (athlete directive -- resolves the Nordic Max rig conflict with Nordic
+    # Curl Max [Ares] in the same giant set). Matrix Machine equipment,
+    # same family/shape as Matrix Machine Sissy Squat (load_code=None,
+    # tags=["MATRIX"], LADDER/DOUBLE_PROGRESSION) but still unilateral, same
+    # muscle targeting as the movement it replaces. Fresh slot on D5's T2 GS
+    # (never-reassign-slot_id) -- needs-calibration, zero prior history.
+    dict(name="Matrix Machine Bulgarian Split Squat", base_name="Matrix Machine Bulgarian Split Squat",
+         region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["MATRIX"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0, unilateral=True,
          primary_muscle="QUADS", secondary_muscles=["GLUTES", "HAMSTRINGS"]),
     # 2026-08-12: new D5 T2 GS movement (Task 4). Better Fly cuff, cable at
     # LOW pulley (distinct attach point from Better Fly Lat Pulldown's high

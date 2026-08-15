@@ -101,8 +101,13 @@ EXPECTED_NEEDS_CAL = {
     # as D2's above, but day-scoped state means D5's own track independently
     # needs-cal too. "Reverse Nordic Curl [GHR]" (d5_t3b) is UNCHANGED, still
     # calibrated -- not in this set.
+    # 2026-08-14: "Nordic Max Bulgarian Split Squat" REMOVED (not merged) --
+    # dropped from D5's wiring entirely, replaced by "Matrix Machine
+    # Bulgarian Split Squat" (athlete directive -- Nordic Max rig conflict
+    # with Nordic Curl Max in the same giant set). New movement, zero prior
+    # history, needs-calibration.
     "D5 Lower B": {
-        "Kickstand RDL [DB]", "Nordic Max Bulgarian Split Squat",
+        "Kickstand RDL [DB]", "Matrix Machine Bulgarian Split Squat",
         "Nordic Curl Max [Ares]", "Better Fly Kickback [FT]",
         "Hybrid Board Calf Raise [D5]", "Hybrid Board Tib Raise [D5]",
         "Better Fly Hip Adduction [FT]", "Ab Trainer Russian Twist",

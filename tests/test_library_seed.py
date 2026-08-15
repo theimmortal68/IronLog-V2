@@ -85,7 +85,10 @@ def test_total_count_103(seeded):
     # 2026-08-13: +1 "Better Fly Sagittal Lat Pulldown [FT]" (D1's T3 GS,
     # replaces Lat Prayer [ANDREONI + FT], athlete directive -- Andreoni
     # lat-prayer motion isn't reproducible on the Better Fly cuff): 141 -> 142.
-    assert len(_all(seeded)) == 142
+    # 2026-08-14: +1 "Matrix Machine Bulgarian Split Squat" (D5's T2 GS,
+    # replaces Nordic Max Bulgarian Split Squat, athlete directive -- Nordic
+    # Max rig conflict with Nordic Curl Max in the same giant set): 142 -> 143.
+    assert len(_all(seeded)) == 143
 
 
 def test_status_counts(seeded):
@@ -114,7 +117,9 @@ def test_status_counts(seeded):
     # Pull-up [TOWER + TUBES]: 133 -> 134.
     # 2026-08-13: +1 ACTIVE Better Fly Sagittal Lat Pulldown [FT] (D1 T3 GS,
     # replaces Lat Prayer, athlete directive): 134 -> 135.
-    assert c[Status.ACTIVE] == 135
+    # 2026-08-14: +1 ACTIVE Matrix Machine Bulgarian Split Squat (D5 T2 GS,
+    # replaces Nordic Max Bulgarian Split Squat, athlete directive): 135 -> 136.
+    assert c[Status.ACTIVE] == 136
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

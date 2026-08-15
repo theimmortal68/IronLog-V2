@@ -117,7 +117,7 @@ def test_rpe_from_reverse_hyper_recovery_cap(gen_db):
 
 def test_unilateral_surfaces_in_session_detail(gen_db):
     """Movement.unilateral surfaces per-exercise in the /sessions/{id} serialization.
-    Nordic Max Bulgarian Split Squat (D5 T2 GS, seeded unilateral=True) must read
+    Matrix Machine Bulgarian Split Squat (D5 T2 GS, seeded unilateral=True) must read
     unilateral True in the serialized ExerciseOut; Reverse Nordic Curl [GHR]
     (D5 T3 GS, unilateral=False) must read False.
 
@@ -129,6 +129,11 @@ def test_unilateral_surfaces_in_session_detail(gen_db):
     repointed to Reverse Nordic Curl [GHR] (D5 T3 GS, unchanged, still
     unilateral=False by default), keeping both examples within the same
     generated D5 session.
+
+    2026-08-14: repointed again to Matrix Machine Bulgarian Split Squat --
+    Nordic Max Bulgarian Split Squat dropped from D5's wiring (Nordic Max
+    rig conflict with Nordic Curl Max in the same giant set), replacement
+    is also seeded unilateral=True, same test intent holds.
     """
     out = generate_session("D5 Lower B", gen_db, _proposer_for("D5 Lower B", gen_db), _week_keyer)
     assert out.exhausted is False
@@ -139,7 +144,7 @@ def test_unilateral_surfaces_in_session_detail(gen_db):
 
     detail = _serialize_session(sess, gen_db)
     by_mid = {ex.movement_id for g in detail.groups for ex in g.exercises}
-    bss_id = _movement_id(gen_db, "Nordic Max Bulgarian Split Squat")
+    bss_id = _movement_id(gen_db, "Matrix Machine Bulgarian Split Squat")
     assert bss_id in by_mid
 
     bss_ex = next(ex for g in detail.groups for ex in g.exercises if ex.movement_id == bss_id)

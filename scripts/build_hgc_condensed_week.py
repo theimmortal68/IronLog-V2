@@ -71,6 +71,12 @@ RATIONALE = "HGC condensed week"
 # entry, same fallback pattern as Task 4's Better Fly Kickback pick
 # above). Face Pull [FT] (7/27 entry) is unchanged, already IS D6's real
 # GS3 wiring (only its rep range changed, which this script doesn't carry).
+#
+# 2026-08-14: D5's T2 GS turned over again -- Nordic Max Bulgarian Split
+# Squat dropped (Nordic Max rig conflict with Nordic Curl Max in the same
+# giant set, athlete directive), so the 7/29 D5 entry below is repointed to
+# "Matrix Machine Bulgarian Split Squat" (its direct replacement, same
+# role/slot).
 MINI_SESSIONS = [
     (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Stryker Pad Seated OHP [DB]"]),
     (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Hybrid Board Tib Raise [D2]"]),
@@ -82,7 +88,7 @@ MINI_SESSIONS = [
     (date(2026, 7, 29), "D4 Upper Pull", ["Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]", "PureTorque Pro Rotation"]),
     (date(2026, 7, 29), "D6 Weak Points", ["Dips [TOWER + TUBES]", "Better Fly OH Tricep Extension [FT]", "AbMat Ab Bench Pad Cable Crunch [FT]"]),
     (date(2026, 7, 29), "D1 Upper Push", ["Matrix Machine Preacher Curl [EZ]"]),
-    (date(2026, 7, 29), "D5 Lower B", ["Nordic Max Bulgarian Split Squat"]),
+    (date(2026, 7, 29), "D5 Lower B", ["Matrix Machine Bulgarian Split Squat"]),
 ]
 
 

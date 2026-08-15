@@ -135,9 +135,12 @@ def test_d5_knee_modality_giant_tiers_stay_grouped(gen_db_calibrated):
 
     # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5's T2/T3 GS
     # composition rewritten to match the FINAL doc's real D5 session.
+    # 2026-08-14: Nordic Max Bulgarian Split Squat -> Matrix Machine
+    # Bulgarian Split Squat (Nordic Max rig conflict with Nordic Curl Max
+    # in the same giant set, athlete directive).
     t2 = _giant_group_by_label(res.session, "T2 GS")
     assert _names_for_group(t2, gen_db) == [
-        "Nordic Max Bulgarian Split Squat",
+        "Matrix Machine Bulgarian Split Squat",
         "Nordic Curl Max [Ares]",
         "Better Fly Kickback [FT]",
     ]

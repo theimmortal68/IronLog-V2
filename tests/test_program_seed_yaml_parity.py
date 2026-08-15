@@ -92,6 +92,7 @@ YAML_M_TO_LIBRARY = {
     "hyper_pro_calf_raise":             "Calf Raise [GHR]",
     "kickstand_rdl_d5":                 "Kickstand RDL [DB]",
     "nordic_max_bss_d5":                "Nordic Max Bulgarian Split Squat",
+    "matrix_machine_bss_d5":            "Matrix Machine Bulgarian Split Squat",
     "nordic_curl_max_d5":               "Nordic Curl Max [Ares]",
     "better_fly_kickback_d5":           "Better Fly Kickback [FT]",
     "hybrid_board_calf_raise_d5":       "Hybrid Board Calf Raise [D5]",

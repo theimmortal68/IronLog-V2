@@ -99,7 +99,7 @@ def test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation(gen_db):
     2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over (d5_t2b no
     longer exists) -- there is no real adaptive-role meso rotation left
     anywhere in the program. This test now inserts a synthetic, test-only
-    MesoRotation row directly on D5's real d5_t2d slot (Nordic Max Bulgarian
+    MesoRotation row directly on D5's real d5_t2h slot (Matrix Machine Bulgarian
     Split Squat, "free" role), pointing at an already-seeded-but-otherwise-
     unwired movement ("Reverse Hyper - Single Leg [REV_HYPER]", preserving
     continuity with the old test's target), rather than reading a real
@@ -110,7 +110,7 @@ def test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation(gen_db):
     week_keyer = lambda d: (d.year, d.isocalendar()[1])
 
     te = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2d")
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2h")
     ).one()
     single_leg = gen_db.exec(
         select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
@@ -126,12 +126,12 @@ def test_slot_rep_scheme_resolves_at_meso2_with_adaptive_rotation(gen_db):
     ).one()
 
     sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
-    slot = next(s for s in sk.adaptive_slots if s.slot_id == "d5_t2d")
+    slot = next(s for s in sk.adaptive_slots if s.slot_id == "d5_t2h")
     assert slot.program_movement_id == mr.movement_id, \
         "effective movement at meso 2 is the rotated one (differs from base)"
 
     ctx = resolve_context("D5 Lower B", sk, gen_db, week_keyer)
-    rs = ctx.slot_rep_schemes.get("d5_t2d")
+    rs = ctx.slot_rep_schemes.get("d5_t2h")
     assert rs is not None, \
         "rep_scheme must resolve even when the slot's effective movement != its base"
     assert rs["rep_low"] == te.rep_low

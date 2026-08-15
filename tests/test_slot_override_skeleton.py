@@ -247,18 +247,18 @@ def test_adaptive_slot_meso_rotation_fires_through_skeleton(gen_db):
     2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over (d5_t2b
     no longer exists) -- there is no real adaptive-role meso rotation left
     anywhere in the program. This test now inserts a synthetic, test-only
-    MesoRotation row directly on D5's real d5_t2d slot (Nordic Max Bulgarian
+    MesoRotation row directly on D5's real d5_t2h slot (Matrix Machine Bulgarian
     Split Squat, "free" role), mirroring test_generation_context.py's
     identical fix, rather than reading a real production rotation.
     """
     te = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2d")
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2h")
     ).one()
     single_leg = gen_db.exec(
         select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
     ).one()
     assert single_leg.id != te.movement_id, \
-        "the synthetic d5_t2d meso-2 rotation must be a real movement swap"
+        "the synthetic d5_t2h meso-2 rotation must be a real movement swap"
     gen_db.add(MesoRotation(tier_exercise_id=te.id, meso_number=2, movement_id=single_leg.id))
     gen_db.commit()
     mr = gen_db.exec(
@@ -269,12 +269,12 @@ def test_adaptive_slot_meso_rotation_fires_through_skeleton(gen_db):
     ).one()
 
     m2 = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
-    slot2 = next(s for s in m2.adaptive_slots if s.slot_id == "d5_t2d")
+    slot2 = next(s for s in m2.adaptive_slots if s.slot_id == "d5_t2h")
     assert slot2.program_movement_id == mr.movement_id, \
         "meso-2 adaptive slot resolves to the seeded MesoRotation target (Reverse Hyper - Single Leg)"
 
     m1 = lay_skeleton("D5 Lower B", gen_db, meso_number=1)
-    slot1 = next(s for s in m1.adaptive_slots if s.slot_id == "d5_t2d")
+    slot1 = next(s for s in m1.adaptive_slots if s.slot_id == "d5_t2h")
     assert slot1.program_movement_id == te.movement_id, \
         "meso-1 adaptive slot emits the base movement — rotation is meso-gated"
 

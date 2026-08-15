@@ -80,7 +80,11 @@ CHANGED_REP_TARGETS = {
     # own NEEDS_CONTEXT round-trip). New T4 straight tier (d5_t4a, Ab
     # Trainer Russian Twist).
     "d5_t1_kickstand_rdl": (4, 6),
-    "d5_t2d": (8, 12),
+    # 2026-08-14: d5_t2d (Nordic Max Bulgarian Split Squat) vacated --
+    # replaced by fresh d5_t2h (Matrix Machine Bulgarian Split Squat, Nordic
+    # Max rig conflict with Nordic Curl Max in the same giant set), same
+    # rep target (8-12).
+    "d5_t2h": (8, 12),
     "d5_t2e": (6, 8),
     "d5_t2f": (10, 15),
     "d5_t3e": (10, 15),

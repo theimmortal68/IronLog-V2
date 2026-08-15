@@ -78,6 +78,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 turnover.
     "Kickstand RDL":                                "Kickstand RDL [DB]",
     "Nordic Max Bulgarian Split Squat":              "Nordic Max Bulgarian Split Squat",
+    "Matrix Machine Bulgarian Split Squat":          "Matrix Machine Bulgarian Split Squat",
     "Better Fly Kickback":                          "Better Fly Kickback [FT]",
     "Hybrid Board Calf Raise D5":                   "Hybrid Board Calf Raise [D5]",
     "Hybrid Board Tib Raise D5":                    "Hybrid Board Tib Raise [D5]",
@@ -844,8 +845,17 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # be applied independently here, matching D2's precedent (its own
     # d5_t2c predecessor, "Assisted Nordic (eccentric)", already carried
     # knee_modality=NORDIC too -- established program convention, not new).
+    #
+    # 2026-08-14: Nordic Max Bulgarian Split Squat (old d5_t2d) replaced by
+    # Matrix Machine Bulgarian Split Squat (athlete directive) -- both it
+    # and Nordic Curl Max [Ares] need the Nordic Max rig, which can't serve
+    # two exercises in the same giant set at once (same equipment-conflict
+    # class as D4's Apex/Stryker Pad fix). Genuinely new movement filling a
+    # vacated spot -> fresh slot_id "d5_t2h" (never-reassign-slot_id);
+    # d5_t2d is vacated, not reused. Nordic Max Bulgarian Split Squat stays
+    # ACTIVE in the library, unwired everywhere now -- not deleted.
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
-    _add_te(db, t2.id, "d5_t2d", "Nordic Max Bulgarian Split Squat", lib, 1, "free",
+    _add_te(db, t2.id, "d5_t2h", "Matrix Machine Bulgarian Split Squat", lib, 1, "free",
             pattern="lunge", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d5_t2e", "Nordic Curl Max", lib, 2, "free",

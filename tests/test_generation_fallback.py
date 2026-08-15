@@ -378,6 +378,12 @@ def test_last_valid_matches_prior_meso_rotation_variant_after_reorder(gen_db):
     d5_t2d/e/f with a synthetic, test-only MesoRotation inserted on d5_t2e
     (Nordic Curl Max [Ares]), mirroring the identical fix in
     test_generation_context.py / test_slot_override_skeleton.py.
+
+    2026-08-14: d5_t2d itself was later replaced by d5_t2h (Nordic Max
+    Bulgarian Split Squat -> Matrix Machine Bulgarian Split Squat, Nordic
+    Max rig conflict with Nordic Curl Max in the same giant set) -- this
+    test's slot_id references below were updated accordingly; d5_t2e's
+    MesoRotation fixture is unaffected.
     """
     from ironlog.models.library import Movement
     from ironlog.models.program import MesoRotation, TierExercise
@@ -392,8 +398,8 @@ def test_last_valid_matches_prior_meso_rotation_variant_after_reorder(gen_db):
     gen_db.add(MesoRotation(tier_exercise_id=d5_t2e.id, meso_number=2, movement_id=single_leg.id))
     gen_db.commit()
 
-    old_order = {"d5_t2d": 1, "d5_t2e": 2, "d5_t2f": 3}
-    current_order = {"d5_t2f": 1, "d5_t2d": 2, "d5_t2e": 3}
+    old_order = {"d5_t2h": 1, "d5_t2e": 2, "d5_t2f": 3}
+    current_order = {"d5_t2f": 1, "d5_t2h": 2, "d5_t2e": 3}
 
     _set_slot_orders(gen_db, old_order)
     old_sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
@@ -429,7 +435,7 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
     ("free" role) meso-rotation example, unaffected by that task.
 
     2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over (d5_t2b
-    no longer exists, replaced by d5_t2d/e/f) -- there is no real adaptive-
+    no longer exists, replaced by d5_t2h/e/f) -- there is no real adaptive-
     role meso rotation left anywhere in the program. Repointed to d5_t2e
     with a synthetic, test-only MesoRotation inserted first (then deleted,
     as this test's own scenario requires), mirroring the identical fix in
