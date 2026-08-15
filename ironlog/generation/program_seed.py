@@ -669,7 +669,14 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # forward (Cable Tibialis Raise itself stays ACTIVE in the library, now
     # fully unwired program-wide since D5 also drops it -- not deleted, per
     # the never-delete-orphans convention).
-    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Adipower II")
+    # 2026-08-14 (athlete directive): T3 GS's shoe switched from Adipower II
+    # to Metcon 9 (flat) -- Hybrid Board Tib Raise [D2] needs full ankle
+    # dorsiflexion range that Adipower's elevated heel restricts. ATG Split
+    # Squat also wants a flat shoe for the same reason (maximal ankle
+    # dorsiflexion is the whole point of "ATG"), so this fixes both members
+    # at once. No documented rationale existed for T3 needing the heel in
+    # the first place (unlike T2's BSS-family movements, which do).
+    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, t3.id, "d2_t3a", "ATG Split Squat", lib, 1, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
@@ -895,7 +902,14 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # convention for Nordic Curl Max / Matrix Machine Sissy Squat -- the OLD
     # Cable Tibialis Raise movement baked knee_modality onto the Movement
     # row itself, which is the superseded pattern, not repeated here).
-    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Adipower II")
+    #
+    # 2026-08-14 (athlete directive): T3 GS's shoe switched from Adipower II
+    # to Metcon 9 (flat) -- Hybrid Board Tib Raise [D5] needs full ankle
+    # dorsiflexion range that Adipower's elevated heel restricts. No
+    # documented rationale existed for T3 needing the heel in the first
+    # place (unlike T2's BSS-family movements, which do). Mirrors the
+    # identical D2 T3 GS fix above.
+    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, t3.id, "d5_t3b", "Reverse Nordic (assisted)", lib, 1, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
