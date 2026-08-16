@@ -101,15 +101,15 @@ def test_d6_gs1_slots_share_giant_tier_group(gen_db):
     Camber-14 (d6_g1a/e/f) -- Hip Thrust (d6_g1c) and Cable Bicep Curl
     (d6_g1d) removed.
 
-    2026-08-16 (athlete directive): Close-Grip Bench Camber-14 (d6_g1f)
-    swapped OUT for Better Fly Rear Delt Extension (d6_g2f, was GS2) --
-    Dips + CG Press are both heavy compound presses, rotating them together
-    causes interference. GS1 is now Pull-up / Dips / Rear Delt Extension
-    (d6_g1a/e/d6_g2f)."""
+    2026-08-16 (athlete directive, revised): Dips (d6_g1e) and Close-Grip
+    Bench Camber-14 (d6_g1f) directly traded GS placement -- Dips + CG
+    Press are both heavy compound presses, rotating them together causes
+    interference. GS1 is now Pull-up / CG Press / Rear Delt Extension
+    (d6_g1a/d6_g1f/d6_g2f); Dips moved to GS2."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    for slot_id in ("d6_g1a", "d6_g1e", "d6_g2f"):
+    for slot_id in ("d6_g1a", "d6_g1f", "d6_g2f"):
         assert slots[slot_id].is_giant_tier is True
         assert slots[slot_id].group_key == "GS1"
 
@@ -126,10 +126,11 @@ def test_d6_gs1_slot_order_preserves_pullup_first(gen_db):
     """D6 GS1 keeps Pull-up first in the shared giant set, followed by
     Dips then Close-Grip Bench Camber-14 (2026-08-12, Task 5).
 
-    2026-08-16: Close-Grip Bench Camber-14 (d6_g1f) swapped out for Better
-    Fly Rear Delt Extension (d6_g2f) -- see test_d6_gs1_slots_share_giant_
-    tier_group's updated docstring for why."""
+    2026-08-16 (revised): Dips (d6_g1e) and Close-Grip Bench Camber-14
+    (d6_g1f) directly traded GS placement -- see test_d6_gs1_slots_share_
+    giant_tier_group's updated docstring for why. GS1 order is now
+    Pull-up / CG Press / Rear Delt Extension."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     gs1_slots = [s.slot_id for s in sk.adaptive_slots if s.group_key == "GS1"]
 
-    assert gs1_slots == ["d6_g1a", "d6_g1e", "d6_g2f"]
+    assert gs1_slots == ["d6_g1a", "d6_g1f", "d6_g2f"]

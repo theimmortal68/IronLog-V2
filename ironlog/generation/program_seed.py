@@ -992,18 +992,20 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # ironlog/seed.py (see that file's comment for the full reasoning: FINAL
     # doc's D6 dips equipment lists NO assistance gear and current_load: 150
     # is the movement's exact original pre-2026-07-26 cable-loaded baseline).
-    _add_te(db, gs1.id, "d6_g1e", "Dips", lib, 2, "free",
-            pattern="vertical_push", rep_low=8, rep_high=12,
+    # 2026-08-16 (athlete directive, revised): Close-Grip Bench Camber-14
+    # (d6_g1f) and Dips (d6_g1e) directly traded GS placement -- Dips +
+    # CG Press are both heavy compound pressing movements (triceps/chest
+    # dominant), rotating them together in the same giant set creates
+    # interference (no recovery between them). CG Press now sits here in
+    # GS1 (Dips moves to GS2, see below); Better Fly Rear Delt Extension
+    # (d6_g2f) stays in GS1 from the earlier interim fix. Swapped tier_id/
+    # exercise_order only; slot_id, pattern, rep targets, scheme are
+    # unchanged/movement-intrinsic, per this session's established
+    # tier-swap convention (mirrors the D4 Ab Trainer/PureTorque
+    # Apex-conflict fix).
+    _add_te(db, gs1.id, "d6_g1f", "Close-Grip Bench Camber-14", lib, 2, "free",
+            pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
             scheme="DOUBLE_PROGRESSION")
-    # 2026-08-16 (athlete directive): Close-Grip Bench Camber-14 (Swiss Bar
-    # CG Press [SB]) swapped OUT of GS1 for Better Fly Rear Delt Extension
-    # (was GS2's d6_g2f) -- Dips + CG Press are both heavy compound pressing
-    # movements (triceps/chest dominant), rotating them together in the same
-    # giant set creates interference (no recovery between them). CG Press
-    # moves to GS2 in exchange (see below) -- swapped tier_id/exercise_order
-    # only; slot_id, pattern, rep targets, scheme are unchanged/movement-
-    # intrinsic, per this session's established tier-swap convention (mirrors
-    # the D4 Ab Trainer/PureTorque Apex-conflict swap).
     _add_te(db, gs1.id, "d6_g2f", "Better Fly Rear Delt Extension", lib, 3, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
@@ -1017,11 +1019,10 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # reused -- new members get fresh slots d6_g2d/e/f. All three new
     # movements are needs-calibration (zero prior history).
     #
-    # 2026-08-16 (athlete directive): d6_g2f (Better Fly Rear Delt Extension)
-    # swapped into GS1 above; Close-Grip Bench Camber-14 (was GS1's d6_g1f)
-    # takes its place here instead -- now paired with Bicep Curl and
-    # Stryker Pad CSR Cables (both pull-ish/isolation), no press-press
-    # overlap.
+    # 2026-08-16 (athlete directive, revised): Dips (was GS1's d6_g1e)
+    # traded places with Close-Grip Bench Camber-14 -- now paired with
+    # Bicep Curl and Stryker Pad CSR Cables (both pull-ish/isolation), no
+    # press-press overlap.
     gs2 = _add_tier(db, pd.id, "GS2", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, gs2.id, "d6_g2d", "Better Fly Cable Bicep Curl", lib, 1, "free",
             pattern="bicep_curl", rep_low=10, rep_high=15,
@@ -1029,8 +1030,8 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, gs2.id, "d6_g2e", "Stryker Pad CSR Cables", lib, 2, "free",
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, gs2.id, "d6_g1f", "Close-Grip Bench Camber-14", lib, 3, "free",
-            pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
+    _add_te(db, gs2.id, "d6_g1e", "Dips", lib, 3, "free",
+            pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
 
     # GS3 -- Face Pull RETAINED (unchanged slot_id d6_g3a, existing movement)
