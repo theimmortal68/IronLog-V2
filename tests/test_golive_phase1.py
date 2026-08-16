@@ -135,10 +135,14 @@ EXPECTED_NEEDS_CAL = {
     # plain CABLE_LB assist value (see ironlog/seed.py's Dips comment).
     # Real Wk1 last-set data (purple band alone, 12 reps @ RPE 8.5) seeded
     # as assist_level=50 -- NOT needs-cal, not in this set.
+    #
+    # 2026-08-16 (athlete directive, effective next week): "Better Fly Cable
+    # Bicep Curl [FT]" replaced by "D-Handle Cable Bicep Curl [FT]" -- the
+    # Better Fly cuff doesn't work well for curls. New movement, needs-cal.
     "D6 Weak Points": {
         "Wide-Grip Pull-up [TOWER + TUBES]",
         "Swiss Bar CG Press [SB]",
-        "Better Fly Cable Bicep Curl [FT]",
+        "D-Handle Cable Bicep Curl [FT]",
         "Stryker Pad CSR Cables [FT]",
         "Better Fly Rear Delt Extension [FT]",
         "Better Fly OH Tricep Extension [FT]",

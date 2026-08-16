@@ -141,6 +141,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     # the library. Was never wired anywhere in the program before this task.
     "Close-Grip Bench Camber-14":                   "Swiss Bar CG Press [SB]",
     "Better Fly Cable Bicep Curl":                  "Better Fly Cable Bicep Curl [FT]",
+    "D-Handle Cable Bicep Curl":                    "D-Handle Cable Bicep Curl [FT]",
     "Stryker Pad CSR Cables":                       "Stryker Pad CSR Cables [FT]",
     "Better Fly Rear Delt Extension":               "Better Fly Rear Delt Extension [FT]",
     "Better Fly OH Tricep Extension":               "Better Fly OH Tricep Extension [FT]",
@@ -1023,8 +1024,16 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # traded places with Close-Grip Bench Camber-14 -- now paired with
     # Bicep Curl and Stryker Pad CSR Cables (both pull-ish/isolation), no
     # press-press overlap.
+    #
+    # 2026-08-16 (athlete directive, effective next week): Better Fly Cable
+    # Bicep Curl (d6_g2d) replaced by D-Handle Cable Bicep Curl -- the Better
+    # Fly cuff doesn't work well for curls, athlete switched to D-handles
+    # mid-session. Genuinely new movement filling a vacated spot -> fresh
+    # slot_id "d6_g2g" (never-reassign-slot_id); d6_g2d is vacated, not
+    # reused. Better Fly Cable Bicep Curl [FT] stays ACTIVE in the library,
+    # unwired -- not deleted.
     gs2 = _add_tier(db, pd.id, "GS2", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, gs2.id, "d6_g2d", "Better Fly Cable Bicep Curl", lib, 1, "free",
+    _add_te(db, gs2.id, "d6_g2g", "D-Handle Cable Bicep Curl", lib, 1, "free",
             pattern="bicep_curl", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs2.id, "d6_g2e", "Stryker Pad CSR Cables", lib, 2, "free",

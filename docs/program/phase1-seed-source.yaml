@@ -164,10 +164,15 @@ days:
     # (2nd flip) -- real stackable-band setup (green 50-120lb, purple
     # 25-80lb, black 10-50lb, combined/swapped mid-session), modeled as a
     # plain CABLE_LB assist value (see ironlog/seed.py's Dips comment).
-    # Needs-calibration -- the athlete is actively determining today's real
-    # assist amount live, no baseline seeded.
+    # Real Wk1 last-set data (purple alone, 12 reps @ RPE 8.5) seeds
+    # assist_level=50 -- not needs-cal.
+    #
+    # 2026-08-16 (athlete directive, effective next week): better_fly_
+    # cable_bicep_curl_d6 replaced by d_handle_cable_bicep_curl_d6 -- the
+    # Better Fly cuff doesn't work well for curls, athlete switched to
+    # D-handles mid-session.
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
+      {m: d_handle_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
       {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
       {m: dips, reps: [8,12], rule: assistance_reduction}]}
     # GS3: Face Pull retained (rep range corrected 15-20 -> 10-15 per the

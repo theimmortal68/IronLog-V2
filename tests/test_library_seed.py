@@ -88,7 +88,10 @@ def test_total_count_103(seeded):
     # 2026-08-14: +1 "Matrix Machine Bulgarian Split Squat" (D5's T2 GS,
     # replaces Nordic Max Bulgarian Split Squat, athlete directive -- Nordic
     # Max rig conflict with Nordic Curl Max in the same giant set): 142 -> 143.
-    assert len(_all(seeded)) == 143
+    # 2026-08-16: +1 "D-Handle Cable Bicep Curl [FT]" (D6's GS2, replaces
+    # Better Fly Cable Bicep Curl [FT], athlete directive -- Better Fly cuff
+    # doesn't work well for curls): 143 -> 144.
+    assert len(_all(seeded)) == 144
 
 
 def test_status_counts(seeded):
@@ -119,7 +122,9 @@ def test_status_counts(seeded):
     # replaces Lat Prayer, athlete directive): 134 -> 135.
     # 2026-08-14: +1 ACTIVE Matrix Machine Bulgarian Split Squat (D5 T2 GS,
     # replaces Nordic Max Bulgarian Split Squat, athlete directive): 135 -> 136.
-    assert c[Status.ACTIVE] == 136
+    # 2026-08-16: +1 ACTIVE D-Handle Cable Bicep Curl [FT] (D6 GS2, replaces
+    # Better Fly Cable Bicep Curl, athlete directive): 136 -> 137.
+    assert c[Status.ACTIVE] == 137
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

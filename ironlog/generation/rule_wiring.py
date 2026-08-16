@@ -163,6 +163,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "cable_v_bar_pushdown":              "Cable V-Bar Pushdown [FT]",
     "close_grip_bench_camber_14_d6":     "Swiss Bar CG Press [SB]",
     "better_fly_cable_bicep_curl_d6":    "Better Fly Cable Bicep Curl [FT]",
+    "d_handle_cable_bicep_curl_d6":       "D-Handle Cable Bicep Curl [FT]",
     "stryker_pad_csr_cables_d6":         "Stryker Pad CSR Cables [FT]",
     "better_fly_rear_delt_ext_d6":       "Better Fly Rear Delt Extension [FT]",
     "better_fly_oh_tricep_ext_d6":       "Better Fly OH Tricep Extension [FT]",

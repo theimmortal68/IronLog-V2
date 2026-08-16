@@ -999,6 +999,17 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
          primary_muscle="BICEPS", secondary_muscles=[]),
+    # 2026-08-16 (athlete directive, effective next week): replaces Better
+    # Fly Cable Bicep Curl [FT] on D6's GS2 -- the Better Fly cuff attachment
+    # doesn't work well for curls (athlete switched to D-handles mid-session
+    # for set 3 today). Same cable rig, different attachment -- [FT] bracket
+    # kept (Ares cable, single), same LADDER/DOUBLE_PROGRESSION shape.
+    # Needs-calibration, zero prior history under this attachment.
+    dict(name="D-Handle Cable Bicep Curl [FT]", base_name="D-Handle Cable Bicep Curl",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="BICEPS", secondary_muscles=[]),
     # Chest-supported row, Ares cable (not the D4 barbell variant) -- distinct
     # resistance curve per the FINAL doc's `differs_from_d4: cable_resistance_
     # curve` note. Same MID_BACK/LATS/REAR_DELT/BICEPS muscle mapping as
