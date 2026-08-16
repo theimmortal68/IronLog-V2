@@ -146,19 +146,27 @@ days:
       # baseline, not a fresh estimate). Moves from its own vacated T1 tier
       # into GS1's 2nd slot.
       {m: dips, reps: [8,12], rule: rpe_8_standard, load: 150},
+      # 2026-08-16 (athlete directive): close_grip_bench_camber_14_d6 swapped
+      # OUT for better_fly_rear_delt_ext_d6 (was GS2) -- Dips + CG Press are
+      # both heavy compound presses, rotating them together causes
+      # interference. CG Press moves to GS2 below.
+      {m: better_fly_rear_delt_ext_d6, reps: [10,15], rule: rpe_8_standard}]}
+    # GS2: FULL turnover -- hip_thrust_d6 (3rd/final Hip Thrust removal this
+    # redesign), reverse_hyper_recovery, db_seal_row, lateral_raise_ares all
+    # drop out entirely. All three new members are needs-calibration (zero
+    # prior history).
+    #
+    # 2026-08-16: better_fly_rear_delt_ext_d6 swapped into GS1 above;
+    # close_grip_bench_camber_14_d6 (was GS1) takes its place here, now
+    # paired with pull-ish/isolation movements instead of another press.
+    GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
+      {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
+      {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
       # close_grip_bench_camber_14_d6: NEW to D6, reuses the existing
       # "Swiss Bar CG Press [SB]" movement (see program_seed.py's
       # PROGRAM_TO_LIBRARY comment) -- needs-calibration, wk1_calibration_
       # estimate 135-145 per the FINAL doc (135 <= 155*0.90=139.5 <= 145).
       {m: close_grip_bench_camber_14_d6, reps: [4,6], rule: rpe_8_standard}]}
-    # GS2: FULL turnover -- hip_thrust_d6 (3rd/final Hip Thrust removal this
-    # redesign), reverse_hyper_recovery, db_seal_row, lateral_raise_ares all
-    # drop out entirely. All three new members are needs-calibration (zero
-    # prior history).
-    GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
-      {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
-      {m: better_fly_rear_delt_ext_d6, reps: [10,15], rule: rpe_8_standard}]}
     # GS3: Face Pull retained (rep range corrected 15-20 -> 10-15 per the
     # FINAL doc). cable_v_bar_pushdown and t_bar_row_wide_kleva drop out
     # entirely, replaced by two new needs-calibration movements.
