@@ -1030,9 +1030,14 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, gs2.id, "d6_g2e", "Stryker Pad CSR Cables", lib, 2, "free",
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
+    # 2026-08-16 (athlete directive): scheme DOUBLE_PROGRESSION -> REP_RATIO,
+    # matching the Movement-level LADDER->ASSISTED conversion (see
+    # ironlog/seed.py's Dips comment) -- back to band-assisted, this time
+    # as a plain CABLE_LB assist value, not the old discrete band-count
+    # ladder from the 2026-07-26 experiment.
     _add_te(db, gs2.id, "d6_g1e", "Dips", lib, 3, "free",
             pattern="vertical_push", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
+            scheme="REP_RATIO")
 
     # GS3 -- Face Pull RETAINED (unchanged slot_id d6_g3a, existing movement)
     # but rep range corrected 15-20 -> 10-15 per the FINAL doc's face_pull

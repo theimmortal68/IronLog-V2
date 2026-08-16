@@ -56,12 +56,12 @@ def test_named_movements_map_to_expected_rules(gen_db):
         # PULL_UP_ROLLING_MAX), so "Pull-up [TOWER + TUBES]" is no longer
         # programmed on ANY day and carries no wired progression_rule.
         # 2026-08-12 (STAB maintenance-block redesign, Task 5): Dips reverted
-        # from bodyweight+band-assist back to cable-loaded (RPE_8_STANDARD),
-        # so it no longer carries ASSISTANCE_REDUCTION -- see ironlog/seed.py's
-        # Dips comment. ASSISTANCE_REDUCTION's spot-check moves to "Nordic
-        # Curl Max [Ares]" (D2 d2_t2e / D5 d5_t2e, still real and wired, ARES
-        # cable weighted assist).
-        "Dips [TOWER + TUBES]":        ProgressionRule.RPE_8_STANDARD.value,
+        # from bodyweight+band-assist back to cable-loaded (RPE_8_STANDARD).
+        # 2026-08-16 (athlete directive): converted BACK to band assist (2nd
+        # flip) -- real stackable-band setup, plain CABLE_LB assist value --
+        # see ironlog/seed.py's Dips comment. Carries ASSISTANCE_REDUCTION
+        # again.
+        "Dips [TOWER + TUBES]":        ProgressionRule.ASSISTANCE_REDUCTION.value,
         "Nordic Curl Max [Ares]":      ProgressionRule.ASSISTANCE_REDUCTION.value,
         # 2026-08-12 (STAB maintenance-block redesign, Task 5): D6's Hip
         # Thrust slot (d6_g1c) removed -- 3rd and final Hip Thrust removal
@@ -139,7 +139,9 @@ def test_derive_movement_rules_is_internally_consistent():
     # RPE_8_STANDARD (cable-loaded again) -- see ironlog/seed.py's Dips
     # comment. "Nordic Curl Max [Ares]" (D2/D5, still real and wired) is now
     # the real, wired ASSISTANCE_REDUCTION example.
-    assert rules["Dips [TOWER + TUBES]"] == ProgressionRule.RPE_8_STANDARD
+    # 2026-08-16 (athlete directive): Dips converted BACK to band assist
+    # (2nd flip) -- carries ASSISTANCE_REDUCTION again.
+    assert rules["Dips [TOWER + TUBES]"] == ProgressionRule.ASSISTANCE_REDUCTION
     assert rules["Nordic Curl Max [Ares]"] == ProgressionRule.ASSISTANCE_REDUCTION
     assert rules["Wide-Grip Pull-up [TOWER]"] == ProgressionRule.PULL_UP_ROLLING_MAX
 

@@ -116,8 +116,6 @@ EXPECTED_NEEDS_CAL = {
     # the FINAL doc's real D6 session. "Cable Bicep Curl [FT]" drops out of
     # D6's wiring entirely (removed from this set -- it's simply not
     # programmed on D6 anymore, so verify_all_days never reports it at all).
-    # Dips [TOWER + TUBES] is NO LONGER needs-cal (reverted to cable-loaded,
-    # current_load=150 baseline -- see ironlog/seed.py's Dips comment).
     # 6 new movements, all needs-cal, zero prior history: Swiss Bar CG Press
     # [SB] (reused, never wired before), Better Fly Cable Bicep Curl [FT],
     # Stryker Pad CSR Cables [FT], Better Fly Rear Delt Extension [FT],
@@ -130,6 +128,13 @@ EXPECTED_NEEDS_CAL = {
     # design.md §5). The new movement IS needs-cal (brand new, zero prior
     # history -- the design doc's "7 unassisted Set 1" note is context only,
     # not a seeded baseline).
+    #
+    # 2026-08-16 (athlete directive): Dips [TOWER + TUBES] converted back to
+    # band assist (2nd flip -- was cable-loaded/current_load=150 since the
+    # STAB redesign reversion) -- real stackable-band setup, modeled as a
+    # plain CABLE_LB assist value (see ironlog/seed.py's Dips comment).
+    # Real Wk1 last-set data (purple band alone, 12 reps @ RPE 8.5) seeded
+    # as assist_level=50 -- NOT needs-cal, not in this set.
     "D6 Weak Points": {
         "Wide-Grip Pull-up [TOWER + TUBES]",
         "Swiss Bar CG Press [SB]",
@@ -154,18 +159,18 @@ def test_golive_all_days_generate_clean(gen_db):
         assert report[role]["loaded_slots"] > 0
 
 
-def test_d6_dips_resolves_seeded_current_load(gen_db):
-    """D6 Dips now starts cable-loaded again, in GS1 (folded back in from its
-    since-eliminated standalone T1 slot).
+def test_d6_dips_resolves_seeded_assist_level(gen_db):
+    """D6 Dips is band-assisted again (2nd flip), real Wk1 baseline seeded.
 
     2026-08-12 (STAB maintenance-block redesign, Task 5): reverted from the
-    2026-07-26 bodyweight+band-assist experiment back to cable-loaded --
-    the FINAL doc's D6 GS1 `dips` entry lists NO assistance equipment and
-    gives `current_load: 150`, which is the movement's own original
-    pre-2026-07-26 baseline (see ironlog/seed.py's Dips comment for the full
-    reasoning). baseline_seed.BASELINES["d6_g1e"] now seeds current_load=150
-    (not assist_level), and generation must prescribe 150 on the loaded
-    scalar path.
+    2026-07-26 bodyweight+band-assist experiment back to cable-loaded.
+
+    2026-08-16 (athlete directive): converted BACK to band assist -- real
+    stackable-band setup (green/purple/black, combined mid-session), modeled
+    as a plain CABLE_LB assist value (see ironlog/seed.py's Dips comment).
+    baseline_seed.BASELINES["d6_g1e"] now seeds assist_level=50 (real Wk1
+    last-set data: purple band alone, rated 25-80lb, midpoint), and
+    generation must prescribe 50 on the assist scalar path.
     """
     from sqlmodel import select
 
@@ -191,8 +196,8 @@ def test_d6_dips_resolves_seeded_current_load(gen_db):
             MovementState.day_id == "D6 Weak Points",
         )
     ).one()
-    assert state.current_load == 150
-    assert state.assist_level is None
+    assert state.assist_level == 50
+    assert state.current_load is None
 
     dips_exercises = [
         ex
@@ -204,7 +209,7 @@ def test_d6_dips_resolves_seeded_current_load(gen_db):
     for ex in dips_exercises:
         assert ex.planned_sets, "Dips slot has no planned sets"
         for ps in ex.planned_sets:
-            assert ps.target_load == 150, (
-                f"Dips planned set target_load={ps.target_load!r}, expected 150 "
-                "(seeded current_load from baseline_seed BASELINES['d6_g1e'])"
+            assert ps.target_load == 50, (
+                f"Dips planned set target_load={ps.target_load!r}, expected 50 "
+                "(seeded assist_level from baseline_seed BASELINES['d6_g1e'])"
             )

@@ -968,12 +968,24 @@ MOVEMENTS = [
     # doesn't read that key at all; the real source of truth is rule_wiring.py
     # (derive_movement_rules/wire_progression_rules), driven by
     # phase1-seed-source.yaml's `rule:` field.
+    # 2026-08-16 (athlete directive): converted back to bodyweight + band
+    # assist (2nd flip -- was cable-loaded since the 2026-08-12 STAB redesign
+    # reversion). Real equipment: stackable resistance bands (green
+    # 50-120lb, purple 25-80lb, black 10-50lb rated, combined/swapped
+    # mid-session as needed) -- modeled as a plain CABLE_LB assist value
+    # (same mechanism as Nordic Curl [GHR]/Nordic Curl Max [Ares]), not a
+    # discrete band-count ladder like D6's Wide-Grip Pull-up, since bands
+    # are combined in varying combinations rather than swapped 1-for-1.
+    # assist_ladder is a fresh 10lb-step range (0-120, matching a single
+    # green band's rated max) -- needs-calibration, the athlete is actively
+    # determining today's real assist amount live, no baseline seeded.
     dict(name="Dips [TOWER + TUBES]", base_name="Dips",
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="TOWER", tags=["TOWER", "TUBES"],
-         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5], min_step=5, load_floor=10,
-         assist_ladder=[40, 30, 18, 9, 0], primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         assist_ladder=[120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0],
+         assist_unit=AssistUnit.CABLE_LB,
+         primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
     # ─────────────────────────────────────────────────────────────────────────
     # New D6 GS2/GS3 movements (2026-08-12, STAB maintenance-block redesign,
     # Task 5) -- FINAL doc's D6 GS2 full turnover + GS3 partial turnover.

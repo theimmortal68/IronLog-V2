@@ -158,14 +158,18 @@ days:
     # 2026-08-16 (athlete directive, revised): dips (was GS1) traded places
     # with close_grip_bench_camber_14_d6 -- now paired with Bicep Curl and
     # Stryker Pad CSR Cables (both pull-ish/isolation), no press-press
-    # overlap. dips: reverted from bodyweight+band-assist back to
-    # cable-loaded (see ironlog/seed.py's Dips comment for the full
-    # reasoning -- current_load: 150 is the movement's original
-    # pre-2026-07-26 baseline, not a fresh estimate).
+    # overlap.
+    #
+    # 2026-08-16 (athlete directive): dips converted back to band assist
+    # (2nd flip) -- real stackable-band setup (green 50-120lb, purple
+    # 25-80lb, black 10-50lb, combined/swapped mid-session), modeled as a
+    # plain CABLE_LB assist value (see ironlog/seed.py's Dips comment).
+    # Needs-calibration -- the athlete is actively determining today's real
+    # assist amount live, no baseline seeded.
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
       {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
-      {m: dips, reps: [8,12], rule: rpe_8_standard, load: 150}]}
+      {m: dips, reps: [8,12], rule: assistance_reduction}]}
     # GS3: Face Pull retained (rep range corrected 15-20 -> 10-15 per the
     # FINAL doc). cable_v_bar_pushdown and t_bar_row_wide_kleva drop out
     # entirely, replaced by two new needs-calibration movements.

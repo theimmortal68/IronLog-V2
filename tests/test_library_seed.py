@@ -5,7 +5,7 @@ from sqlmodel import Session, create_engine, select
 
 import ironlog.db as db
 from ironlog.models import (Equipment, Movement, Status, Scheme,
-                            ProgressionMode, KneeModality)
+                            ProgressionMode, KneeModality, AssistUnit)
 
 TOPSET_SIX = {
     "Bench Press [PB]", "Back Squat [PB]", "Front Squat [PB]",
@@ -207,15 +207,15 @@ def test_golive_library_additions(gen_db):
     # 2026-08-12 (STAB maintenance-block redesign, Task 5): Dips reverted
     # from bodyweight+band-assist (ASSISTED/STRAIGHT) back to cable-loaded
     # (LADDER/DOUBLE_PROGRESSION) -- see ironlog/seed.py's Dips comment.
-    # assist_ladder is kept for historical reference, unused once
-    # progression_mode is LADDER (same treatment as "Reverse Nordic Curl
-    # [GHR]"'s identical 2026-07-24 assisted->loaded conversion).
-    assert dips.progression_mode == ProgressionMode.LADDER
-    assert dips.scheme == Scheme.DOUBLE_PROGRESSION
-    assert dips.increment_ladder == [5]
-    assert dips.min_step == 5
-    assert dips.load_floor == 10
-    assert dips.assist_ladder == [40, 30, 18, 9, 0]
+    #
+    # 2026-08-16 (athlete directive): converted BACK to band assist (2nd
+    # flip) -- real stackable-band setup (green/purple/black, combined
+    # mid-session), modeled as a plain CABLE_LB assist value, not the old
+    # discrete band-count ladder from the 2026-07-26 experiment.
+    assert dips.progression_mode == ProgressionMode.ASSISTED
+    assert dips.scheme == Scheme.REP_RATIO
+    assert dips.assist_ladder == [120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0]
+    assert dips.assist_unit == AssistUnit.CABLE_LB
     assert "TOWER" in dips.equipment_tags and "TUBES" in dips.equipment_tags
 
 

@@ -182,6 +182,13 @@ from ironlog.models.session import (
 # slot_id and calibrated load carry forward
 # unaffected. All six removed slot_ids' underlying MovementState rows are
 # left in place, not deleted, per the never-delete-orphans convention.
+#
+# 2026-08-16 (athlete directive): d6_g1e's ("load", 150, None) baseline
+# REMOVED -- Dips converted back to band assist (2nd flip, see ironlog/
+# seed.py's Dips comment), no longer cable-loaded. Real Wk1 last-set data:
+# purple band alone (rated 25-80lb), 12 reps @ RPE 8.5 -- seeded as
+# ("assist", 50, None), the rated midpoint (athlete's call), which lands
+# exactly on an existing assist_ladder rung.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
@@ -191,7 +198,8 @@ BASELINES = {
     "d2_t4a": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle
     "d4_t3a": ("load", 10, None),
     "d5_t3b": ("load", 0, None),
-    "d6_g1e": ("load", 150, None), "d6_g3a": ("load", 30, None),
+    "d6_g1e": ("assist", 50, None),  # Dips, real Wk1 last-set band (purple alone, rated midpoint)
+    "d6_g3a": ("load", 30, None),
 }
 
 
