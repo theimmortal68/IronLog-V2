@@ -11,9 +11,9 @@ from sqlmodel import select
 from . import migrate
 from .db import create_db_and_tables, engine, get_session
 from .models import (
-    BandCalStatus, BandPair, CalibrationStatus, EngineState, Equipment,
-    KneeModality, LiftCategory, LoadUnit, Movement, MovementState, Objective,
-    Phase, PhasePolicy, ProgressionMode, Region, Scheme, Status,
+    AssistUnit, BandCalStatus, BandPair, CalibrationStatus, EngineState,
+    Equipment, KneeModality, LiftCategory, LoadUnit, Movement, MovementState,
+    Objective, Phase, PhasePolicy, ProgressionMode, Region, Scheme, Status,
     StickingPointTaxonomy,
 )
 
@@ -311,6 +311,7 @@ MOVEMENTS = [
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
          assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+         assist_unit=AssistUnit.DEGREES,
          primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Pull-up [TOWER + TUBES]", base_name="Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
@@ -365,10 +366,16 @@ MOVEMENTS = [
     # Set 1" note is carried as CONTEXT only, not a seeded baseline number
     # (D6's actual current numbers need the athlete's real current state,
     # same treatment as D1's own baselines in §7 of that doc).
+    # 2026-08-16: athlete confirmed the real assist mechanism is discrete
+    # band count (3/2/1/0 bands), not a single 20lb band -- assist_ladder
+    # corrected from [20, 0] (wrong single-band-weight assumption) to
+    # [3, 2, 1, 0] (band count, descending = harder as bands are removed,
+    # per the program's established assist-ladder convention). assist_unit
+    # now set so the client stops rendering this as degrees.
     dict(name="Wide-Grip Pull-up [TOWER + TUBES]", base_name="Wide-Grip Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
-         assist_ladder=[20, 0],
+         assist_ladder=[3, 2, 1, 0], assist_unit=AssistUnit.TUBE_COUNT,
          primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -799,6 +806,7 @@ MOVEMENTS = [
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
          assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+         assist_unit=AssistUnit.DEGREES,
          primary_muscle="ABS", secondary_muscles=[]),
     # 2026-08-11: new D4 T2 GS movement (maintenance block, STAB redesign,
     # Task 3). Anti-extension hip flexion on the Ab Trainer apparatus (FINAL
@@ -812,6 +820,7 @@ MOVEMENTS = [
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
          assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+         assist_unit=AssistUnit.DEGREES,
          primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Ab Wheel [WHEEL]", base_name="Ab Wheel",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["WHEEL"],
@@ -1106,7 +1115,8 @@ MOVEMENTS = [
     dict(name="Face-Up Incline Knee Raise", base_name="Face-Up Incline Knee Raise",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["BW"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
-         assist_ladder=[25, 20, 15, 10, 5, 0], primary_muscle="ABS", secondary_muscles=[]),
+         assist_ladder=[25, 20, 15, 10, 5, 0], assist_unit=AssistUnit.DEGREES,
+         primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Andreoni Cable Pullover", base_name="Andreoni Cable Pullover",
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="ANDREONI", tags=["ANDREONI", "FT"],
@@ -1166,6 +1176,7 @@ def seed() -> None:
                 objective_override=m.get("objective_override"),
                 increment_ladder=m.get("increment_ladder", []),
                 assist_ladder=m.get("assist_ladder"),
+                assist_unit=m.get("assist_unit"),
                 min_step=m.get("min_step"), load_floor=m.get("load_floor"),
                 cap=m.get("cap"),
                 rpe_capped=m.get("rpe_capped", False),
