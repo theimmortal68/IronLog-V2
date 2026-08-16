@@ -371,11 +371,16 @@ MOVEMENTS = [
     # corrected from [20, 0] (wrong single-band-weight assumption) to
     # [3, 2, 1, 0] (band count, descending = harder as bands are removed,
     # per the program's established assist-ladder convention). assist_unit
-    # now set so the client stops rendering this as degrees.
+    # now set so the client stops rendering this as degrees. min_step=1/
+    # load_floor=0 explicitly set -- without them, _step_and_floor's
+    # default (2.5) rounds a band count to the nearest 2.5, e.g. 3 -> 2.5;
+    # band count is a discrete integer, not a weight increment (found live,
+    # generation prescribed 2.5 "bands" instead of the real 3).
     dict(name="Wide-Grip Pull-up [TOWER + TUBES]", base_name="Wide-Grip Pull-up", region=Region.UPPER,
          status=Status.ACTIVE, load_code="TOWER", tags=["TOWER", "TUBES"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
          assist_ladder=[3, 2, 1, 0], assist_unit=AssistUnit.TUBE_COUNT,
+         min_step=1, load_floor=0,
          primary_muscle="LATS", secondary_muscles=["BICEPS", "MID_BACK"]),
 
     # ─────────────────────────────────────────────────────────────────────────
