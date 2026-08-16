@@ -43,9 +43,9 @@ from ..integrations.withings_auth import (
     set_pending_state,
 )
 from ..models import (
-    BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase, PhasePolicy,
-    SessionStatus, SetLog, ExerciseSurvey, Note, SetRole, MovementWeaknessSignal,
-    Status,
+    AssistUnit, BandPair, Equipment, FeedbackTap, Movement, NoteClass, Phase,
+    PhasePolicy, ProgressionMode, SessionStatus, SetLog, ExerciseSurvey, Note,
+    SetRole, MovementWeaknessSignal, Status,
 )
 from ..notes.classify import classify_session_notes
 from .schemas_capture import (SubmitRequest, SubmitResponse,
@@ -863,6 +863,38 @@ def revert_override(override_id: int, db: Session = Depends(get_session)):
 # Capture read path (logging round-trip — Task 3)
 # ---------------------------------------------------------------------------
 
+_ASSIST_UNIT_HINTS = {
+    AssistUnit.DEGREES: "assist_degrees",
+    AssistUnit.TUBE_COUNT: "assist_bands",
+    AssistUnit.CABLE_LB: "assist_lb",
+    AssistUnit.REP_COUNT: "assist_reps",
+}
+
+
+def _unit_hint_for(mv: Movement) -> Optional[str]:
+    """Client display-unit hint for a movement's load field.
+
+    LADDER/COMPOSITE movements are always plain "lb" (current_load-based).
+    ASSISTED movements are display-ambiguous: the raw assist_level value
+    could be degrees, band count, cable lb, or rep count depending on the
+    actual hardware. When the movement's real mechanism is known
+    (assist_unit set), report the specific hint so the client renders the
+    right suffix. When it's not yet classified (assist_unit is None), fall
+    back to the old generic "assist" hint — this is intentional and
+    preserves current (imperfect) client display behavior for every
+    ASSISTED movement not yet classified, rather than guessing.
+    Every other mode (PROTOCOL/CONDITIONING/FINISHER/NONE) has no
+    load-bearing unit to hint.
+    """
+    if mv.progression_mode in (ProgressionMode.LADDER, ProgressionMode.COMPOSITE):
+        return "lb"
+    if mv.progression_mode == ProgressionMode.ASSISTED:
+        if mv.assist_unit is not None:
+            return _ASSIST_UNIT_HINTS.get(mv.assist_unit, "assist")
+        return "assist"
+    return None
+
+
 def _serialize_exercise(pe, db, sid=None, eid=None) -> ExerciseOut:
     """Serialize a single (committed) PlannedExercise to ExerciseOut.
 
@@ -883,10 +915,7 @@ def _serialize_exercise(pe, db, sid=None, eid=None) -> ExerciseOut:
         band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
         band_config=ps.band_config,
     ) for ps in sorted(pe.planned_sets, key=lambda x: x.set_index)]
-    unit_hint = (
-        _UNIT_HINTS.get(load_field_for_mode(mv.progression_mode))
-        if mv else None
-    )
+    unit_hint = _unit_hint_for(mv) if mv else None
     return ExerciseOut(
         id=(eid if eid is not None else pe.id), movement_id=pe.movement_id,
         movement_name=(mv.name if mv else ""),
