@@ -46,6 +46,16 @@ def gemini_generate_json(api_key, model, system_instruction, user_text, response
         "generationConfig": {
             "responseMimeType": "application/json",
             "responseJsonSchema": response_schema,
+            # 2026-08-19: tried bounding this to a fixed 4096-token budget after
+            # a production hang, expecting faster/more-predictable latency --
+            # measured WORSE (24-30s vs the dynamic default's 6-10s typical):
+            # a fixed budget appears to force the model to use the full budget
+            # rather than stopping early when confident. Reverted to -1
+            # (dynamic thinking, ~7s typical/~45s worst-case per call). The
+            # real fix for the production hang was elsewhere: the client's
+            # request timeout (see ApiClient.kt) was far shorter than this
+            # call's own worst-case latency, compounded by
+            # propose_validate_repair's up-to-3x retry loop.
             "thinkingConfig": {"thinkingBudget": -1},
         },
     }
