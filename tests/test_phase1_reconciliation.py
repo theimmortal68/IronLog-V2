@@ -139,10 +139,9 @@ TIER_REST_MAP = {
     # redesign, Task 2) -- D2's Hip Thrust T1b tier no longer exists.
     ("D2 Lower A", "T2 GS"): 90,
     ("D2 Lower A", "T3 GS"): 60,
-    # ("D2 Lower A", "T4") added 2026-08-11, new straight tier
-    # (Ab Trainer Decline Sit-up); tier_label "T4" not "T4 GS" (not a
-    # GIANT_SET), so it's a distinct key from the "*_GS" convention below.
-    ("D2 Lower A", "T4"): 90,
+    # ("D2 Lower A", "T4") added 2026-08-11 (Ab Trainer Decline Sit-up),
+    # removed 2026-08-19 -- merged into T2 GS as a 3rd giant-set member
+    # (athlete directive); D2's T4 tier no longer exists.
     ("D4 Upper Pull", "T1"): 120,
     ("D4 Upper Pull", "T1b"): 180,
     ("D4 Upper Pull", "T2 GS"): 90,

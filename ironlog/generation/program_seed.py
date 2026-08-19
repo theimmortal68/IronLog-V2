@@ -631,6 +631,28 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # own knee_health_note on this movement (VMO/deep knee flexion) and is
     # the program's first-ever wired SISSY slot (KNEE_TARGETS["SISSY"]=1/week,
     # previously unmet program-wide).
+    #
+    # 2026-08-12: Matrix Machine Sissy Squat temporarily swapped for Reverse
+    # Nordic Curl [GHR] on this same slot (d2_t2d, knee_modality KOT) --
+    # equipment unavailable (attachment part on order), explicitly temporary/
+    # reversible, live-DB-only (no code/seed.py change at the time).
+    #
+    # 2026-08-19 (athlete directive): Sissy Squat attachment now available --
+    # RESTORED. Back to Matrix Machine Sissy Squat / knee_modality=SISSY on
+    # d2_t2d, matching this function's original (and intended long-term)
+    # design.
+    #
+    # 2026-08-19 (athlete directive): D2's T4 (Ab Trainer Decline Sit-up,
+    # previously its own standalone straight tier) merged INTO this giant
+    # set as a 3rd member -- see the T4 removal note below. Fresh slot
+    # "d2_t2f" (never-reassign-slot_id -- d2_t4a is vacated, not reused;
+    # mirrors D6's Dips T1->GS1 tier-move precedent). tier_role="free"
+    # (GIANT_SET-member convention, not "anchor" -- it was T4's own solo
+    # anchor role, which doesn't carry over to a giant-set slot). Same rep
+    # target (10-15) and pattern ("core"), scheme left unset so it inherits
+    # the movement's own REP_RATIO (assisted incline-angle progression, per
+    # the 2026-08-12 fix) -- unchanged from T4's own TierExercise, which
+    # also left scheme unset.
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t2.id, "d2_t2d", "Matrix Machine Sissy Squat", lib, 1, "free",
             knee_modality=KneeModality.SISSY, rep_low=8, rep_high=12,
@@ -638,6 +660,8 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t2.id, "d2_t2e", "Nordic Curl Max", lib, 2, "free",
             knee_modality=KneeModality.NORDIC, rep_low=6, rep_high=8,
             scheme="REP_RATIO")
+    _add_te(db, t2.id, "d2_t2f", "Ab Trainer Decline Sit-up", lib, 3, "free",
+            pattern="core", rep_low=10, rep_high=15)
 
     # T3 GS — ATG Split Squat (unchanged) / Hybrid Board Calf Raise [D2]
     # (new) / Hybrid Board Tib Raise [D2] (new, 2026-08-12 follow-up
@@ -688,18 +712,9 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 
-    # T4 straight (NEW tier, 2026-08-11) — Ab Trainer Decline Sit-up. D2's
-    # mandatory core slot (spine flexion, bodyweight) -- FINAL doc's
-    # core_distribution table assigns D2 "ab_trainer_decline_situp". Solo
-    # exercise in a non-GIANT_SET tier -> tier_role="anchor" (schema
-    # convention: T1/T1b's solo exercises are anchors too; "free"/"semi" are
-    # GIANT_SET-member concepts). scheme="REP_LADDER" mirrors D1's Ab Wheel
-    # Rollout (d1_t3d) -- same PROTOCOL/STRAIGHT-movement-driven-by-
-    # rep_ladder_at_cap shape. Tier orders renumber sequentially now that
-    # T1b is gone: T1=1, T2 GS=2, T3 GS=3, T4=4.
-    t4 = _add_tier(db, pd.id, "T4", 4, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Adipower II")
-    _add_te(db, t4.id, "d2_t4a", "Ab Trainer Decline Sit-up", lib, 1, "anchor",
-            pattern="core", rep_low=10, rep_high=15)
+    # T4 straight tier (added 2026-08-11, Ab Trainer Decline Sit-up) removed
+    # 2026-08-19 -- merged into T2 GS above as slot d2_t2f (3rd giant-set
+    # member, athlete directive). See the T2 GS block's 2026-08-19 note.
 
 
 # ---------------------------------------------------------------------------

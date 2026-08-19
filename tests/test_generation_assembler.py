@@ -179,19 +179,16 @@ def test_d1_group_order_is_unaffected_by_tier_order_fix(gen_db_calibrated):
     ], f"D1's group order must be unchanged by the tier_order fix, got {layout}"
 
 
-def test_d2_trailing_anchor_tier_sorts_last_by_true_tier_order(gen_db_calibrated):
-    """Reproduces the real production bug (2026-08-14 fix).
+def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
+    """D2's former trailing-anchor-tier reproduction case, updated 2026-08-19.
 
-    D2 Lower A has a NEW trailing anchor tier, "T4" (tier_role="anchor",
-    TierKind.T1_STRAIGHT, Ab Trainer Decline Sit-up), seeded AFTER the two
-    GIANT_SET tiers in Tier.tier_order (T1=1, T2 GS=2, T3 GS=3, T4=4). The
-    old assembler put ALL anchors first regardless of true tier position, so
-    T4's exercise rendered as the session's SECOND exercise (right after T1)
-    instead of last. Confirmed live on production D2/D5 generation before
-    this fix; this test is the D2 half of that reproduction (D5 mirrors it
-    exactly with Ab Trainer Russian Twist -- see the twin case below).
-
-    Correct order per Tier.tier_order: T1, T2 GS, T3 GS, T4 (trailing).
+    D2 Lower A used to have a NEW trailing anchor tier, "T4" (tier_role=
+    "anchor", TierKind.T1_STRAIGHT, Ab Trainer Decline Sit-up), seeded AFTER
+    the two GIANT_SET tiers -- see test_d5_trailing_anchor_tier_sorts_last_
+    by_true_tier_order below for the still-live twin of that original
+    tier_order bug reproduction. As of 2026-08-19 (athlete directive), D2's
+    T4 was merged into T2 GS as a 3rd giant-set member and no longer exists
+    as its own tier -- this test now asserts that merged shape instead.
     """
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
@@ -204,11 +201,13 @@ def test_d2_trailing_anchor_tier_sorts_last_by_true_tier_order(gen_db_calibrated
         ("T1", "STRAIGHT"),
         ("T2 GS", "GIANT_SET"),
         ("T3 GS", "GIANT_SET"),
-        ("T4", "STRAIGHT"),
-    ], f"D2's trailing anchor tier (T4) must sort LAST by true tier_order, got {layout}"
-    # The T4 group itself must contain the trailing anchor's exercise.
-    t4 = groups[-1]
-    assert _names_for_group(t4, gen_db) == ["Ab Trainer Decline Sit-up"]
+    ], f"D2 must have no standalone T4 tier after the T4->T2 GS merge, got {layout}"
+    t2 = groups[1]
+    assert _names_for_group(t2, gen_db) == [
+        "Matrix Machine Sissy Squat",
+        "Nordic Curl Max [Ares]",
+        "Ab Trainer Decline Sit-up",
+    ]
 
 
 def test_d5_trailing_anchor_tier_sorts_last_by_true_tier_order(gen_db_calibrated):

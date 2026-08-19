@@ -195,7 +195,7 @@ BASELINES = {
     "d1_t2e": ("load", 20, None),
     "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None),
-    "d2_t4a": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle
+    "d2_t2f": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle (2026-08-19: relocated from d2_t4a into T2 GS)
     "d4_t3a": ("load", 10, None),
     "d5_t3b": ("load", 0, None),
     "d6_g1e": ("assist", 50, None),  # Dips, real Wk1 last-set band (purple alone, rated midpoint)

@@ -41,17 +41,21 @@ days:
     # (FINAL doc states 60s explicitly for D2's T3 GS, matches D5's already-
     # correct T3 GS rest). New T4_STRAIGHT tier for D2's mandatory core slot
     # (Ab Trainer Decline Sit-up).
+    #
+    # 2026-08-19 (athlete directive): T4_STRAIGHT (Ab Trainer Decline
+    # Sit-up) removed as a standalone tier and merged into T2_GIANT as a
+    # 3rd giant-set member -- same Movement (ab_trainer_decline_situp_d2),
+    # same rep target, same rule/assist config, just relocated tier.
     T1_STRAIGHT: {group_key: "T1", rest: 150, shoe: "Adipower II", anchor: true, ex: [
       {m: belt_squat, reps: [4,6], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [
       {m: matrix_machine_sissy_squat, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (bodyweight first, add DBs once easy). knee_modality=SISSY on the TierExercise (program_seed.py) -- closes the program's previously-unfilled SISSY weekly target.
-      {m: nordic_curl_max_d2, reps: [6,8], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,55,50,45,40,35,30,25,20,15,10,5,0]}]}  # 2026-08-11: new, Ares cable weighted assist (60lb LOCKED, chest/shoulder attach, NOT monster bands). knee_modality=NORDIC on the TierExercise -- same Movement row reused by D5/Task 4 (independent day-scoped assist track), each day's TierExercise tags its own knee_modality.
+      {m: nordic_curl_max_d2, reps: [6,8], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,55,50,45,40,35,30,25,20,15,10,5,0]},  # 2026-08-11: new, Ares cable weighted assist (60lb LOCKED, chest/shoulder attach, NOT monster bands). knee_modality=NORDIC on the TierExercise -- same Movement row reused by D5/Task 4 (independent day-scoped assist track), each day's TierExercise tags its own knee_modality.
+      {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: incline_reduction, assist_level: 15, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]}]}  # 2026-08-19: relocated from D2's now-removed standalone T4_STRAIGHT tier into this giant set as a 3rd member (athlete directive). Config unchanged from its original T4 wiring.
     T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
       {m: atg_split_squat, reps: [8,12], rule: rpe_8_standard, load: 25, unilateral: true},
       {m: hybrid_board_calf_raise_d2, reps: [10,15], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (test_loadability per FINAL doc)
       {m: hybrid_board_tib_raise_d2, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-12: D2 follow-up correction (Task 4/D5 plan-owner addendum) -- Cable Tib Raise replaced program-wide by the new Hybrid Board Tib Raise movement (separate [D2] row, needs-calibration, zero prior history; cable_tib_raise_d2 stays fully unwired program-wide, not deleted)
-    T4_STRAIGHT: {group_key: "T4", rest: 90, shoe: "Adipower II", anchor: true, ex: [
-      {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: incline_reduction, assist_level: 15, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]}]}  # 2026-08-11: new, D2's mandatory core slot (spine flexion). 2026-08-12: corrected to real incline-angle progression (0-85 degrees, 5-degree steps, real Wk1 performed at 15) -- not weight/rep-ladder as originally modeled.
 
   d4:  # Upper B / Pull — shoe: Metcon 9 (no swap).
     # 2026-08-11 (STAB maintenance-block redesign, Task 3): reconciled to
