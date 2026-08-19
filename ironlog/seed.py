@@ -212,10 +212,25 @@ MOVEMENTS = [
     # Update"). Attach point is upper body (chest/shoulder), not hip/low back
     # (proved inefficient in testing). Shares identity with D5's Task 4 slot
     # (same Movement row, independent day-scoped MovementState/assist track).
+    #
+    # 2026-08-19 (athlete directive): switched back to band assist -- 2x
+    # Rogue Monster Green bands (#3), used together. Rogue's own official
+    # spec (roguefitness.com, verified via web search) rates a single Green
+    # band at 40 lb resistance at 100% stretch; 2 bands combined = 80 lb.
+    # NOT the same product as Dips' "Diaper's Strength" bands (different
+    # manufacturer/rating scale -- that brand's Green is 50-120lb, do not
+    # confuse the two). Modeled as a plain CABLE_LB assist value (same
+    # mechanism as Dips/Nordic Curl [GHR]), 10lb steps to the 2-band max of
+    # 80. assist_unit was never explicitly set on this Movement (predates
+    # the assist-unit display-hint work) -- set explicitly now. Applies to
+    # BOTH D2 and D5 (shared Movement row); day-scoped MovementState
+    # (current assist_level) is untouched by this change, athlete will
+    # calibrate each day's real live value.
     dict(name="Nordic Curl Max [Ares]", base_name="Nordic Curl Max",
          region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["FT", "NORDIC_MAX"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
-         assist_ladder=[60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0],
+         assist_ladder=[80, 70, 60, 50, 40, 30, 20, 10, 0],
+         assist_unit=AssistUnit.CABLE_LB,
          primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES"]),
     # 2026-08-12: new D5 T1 movement (maintenance block, STAB redesign,
     # Task 4). Unilateral DB RDL, B-stance (front foot flat, back foot on
