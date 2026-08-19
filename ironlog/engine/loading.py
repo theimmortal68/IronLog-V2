@@ -5,6 +5,7 @@ The validator and autoregulation both lean on these. A barbell can't make 47.3 l
 a single Ares stack can't go below 10. Everything routes through here so the engine
 never prescribes an impossible load.
 """
+import math
 from typing import List, Optional
 
 
@@ -12,6 +13,19 @@ def round_to_achievable(target: float, floor: Optional[float], step: float) -> f
     """Snap `target` to the nearest reachable load: a multiple of `step`, not
     below `floor`."""
     snapped = round(target / step) * step
+    if floor is not None and snapped < floor:
+        return floor
+    return snapped
+
+
+def round_up_to_step(target: float, floor: Optional[float], step: float) -> float:
+    """Snap `target` UP (ceiling) to the nearest multiple of `step` — never
+    down and never to the nearest, always up. Still not below `floor`.
+
+    Used for warmup ramp sets, which always round up to a clean step
+    regardless of the movement's own load increment.
+    """
+    snapped = math.ceil(target / step) * step
     if floor is not None and snapped < floor:
         return floor
     return snapped

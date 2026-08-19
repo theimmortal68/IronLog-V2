@@ -5,13 +5,13 @@ NO from __future__ import annotations (project-wide constraint).
 import pytest
 from sqlmodel import select
 
-from ironlog.engine.loading import round_to_achievable
+from ironlog.engine.loading import round_to_achievable, round_up_to_step
 from ironlog.generation.assembler import assemble
 from ironlog.generation.context import resolve_context
 from ironlog.generation.proposer import Selections, SlotSelection
 from ironlog.generation.skeleton import lay_skeleton
 from ironlog.models.enums import SetRole
-from ironlog.models.library import Movement
+from ironlog.models.library import Movement, MovementState
 
 
 RAMP_ELIGIBLE_NAMES = {
@@ -79,11 +79,55 @@ def test_d2_belt_squat_anchor_gets_three_ramp_sets_before_working_sets(gen_db_ca
     working_load = working[0].target_load
     assert working_load is not None
     assert [planned_set.target_load for planned_set in working] == [working_load] * 3
+    # Ramp sets always round UP to a clean 5lb step -- NOT belt.min_step (2.5) and
+    # NOT nearest-rounding. See test_bench_ramp_sets_round_up_to_5_not_movement_own_step
+    # below for a case where this diverges numerically from the old nearest-2.5 behavior.
     expected_loads = [
-        round_to_achievable(working_load * pct, belt.load_floor, belt.min_step)
+        round_up_to_step(working_load * pct, belt.load_floor, 5)
         for pct in (0.4, 0.6, 0.8)
     ]
     assert [planned_set.target_load for planned_set in ramps] == pytest.approx(expected_loads)
+
+
+def test_bench_ramp_sets_round_up_to_5_not_movement_own_step(gen_db_calibrated):
+    """Athlete directive: ramp sets always round UP to the nearest 5lb, regardless
+    of the movement's own working-set increment. Bench Press [PB]'s own min_step
+    is 2.5 -- pick a working load (185) where load*0.6 and load*0.8 land on values
+    that are NOT multiples of 5, so the old nearest-2.5 rounding and the new
+    round-up-to-5 rounding produce genuinely different numbers:
+      - load*0.6 = 111  -> old (nearest 2.5): 110   | new (up to 5): 115
+      - load*0.8 = 148  -> old (nearest 2.5): 147.5  | new (up to 5): 150
+    """
+    bench = _movement(gen_db_calibrated, "Bench Press [PB]")
+    state = gen_db_calibrated.exec(
+        select(MovementState).where(MovementState.movement_id == bench.id)
+    ).one()
+    state.current_load = 185.0
+    gen_db_calibrated.add(state)
+    gen_db_calibrated.commit()
+
+    assembled = _assemble("D1 Upper Push", gen_db_calibrated)
+    exercise = _exercise_for(assembled, bench.id)
+
+    sets = exercise.planned_sets
+    ramps = sets[:3]
+    working = sets[3:]
+
+    working_load = working[0].target_load
+    assert working_load == 185.0
+
+    # Sanity: prove these expected values are NOT what old nearest-to-2.5
+    # rounding would have produced, so this test can't pass by coincidence.
+    old_behavior_loads = [
+        round_to_achievable(working_load * pct, bench.load_floor, bench.min_step)
+        for pct in (0.4, 0.6, 0.8)
+    ]
+    assert old_behavior_loads == [75.0, 110.0, 147.5]
+
+    expected_loads = [round_up_to_step(working_load * pct, bench.load_floor, 5) for pct in (0.4, 0.6, 0.8)]
+    assert expected_loads == [75.0, 115.0, 150.0]
+    assert [planned_set.target_load for planned_set in ramps] == pytest.approx(expected_loads)
+    assert expected_loads != old_behavior_loads
 
 
 def test_non_ramp_eligible_pullup_anchor_gets_no_ramp_sets(gen_db_calibrated):
