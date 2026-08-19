@@ -115,16 +115,17 @@ def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
     # longer share a source ExerciseGroup (2026-08-10: that co-member is now
     # Stryker Pad Seated OHP [DB], per the STAB maintenance-block redesign's
     # T2 GS turnover -- same "doesn't cluster" fact, different movement).
-    # Mini-session 2 (D2: Belt Squat / ATG Split Squat / Hybrid Board Calf
+    # Mini-session 2 (D2: Belt Squat / ATG Split Squat / Hybrid Board Tib
     # Raise [D2]) still has a genuine 2-member shared giant-set cluster
     # (D2's T3 GS), so this test moved there. 2026-08-12 (STAB maintenance-
     # block redesign, Task 4 addendum): "Cable Tibialis Raise" -> "Hybrid
     # Board Tib Raise [D2]" (program-wide TIB movement replacement).
-    # 2026-08-19: "Hybrid Board Tib Raise [D2]" -> "Hybrid Board Calf Raise
-    # [D2]" -- Tib Raise traded out of T3 GS into T2 GS (deconflicting
-    # bench-attachment contention with Ab Trainer Decline Sit-up, which
-    # traded the other way); Calf Raise is T3 GS's remaining ATG Split
-    # Squat co-member.
+    # 2026-08-19: briefly repointed to "Hybrid Board Calf Raise [D2]" when
+    # Tib Raise traded out of T3 GS into T2 GS (deconflicting bench-
+    # attachment contention with Ab Trainer Decline Sit-up). Revised same
+    # day: Tib Raise's flat-shoe requirement conflicted with T2's heeled
+    # shoe, so Calf Raise (less shoe-sensitive) traded into T2 instead and
+    # Tib Raise moved back to T3 GS -- reverted to match.
     apply(gen_db_calibrated)
 
     session = _hgc_sessions(gen_db_calibrated)[1]
@@ -139,7 +140,7 @@ def test_hgc_condensed_week_clusters_shared_source_giant_set(gen_db_calibrated):
     assert _group_movement_names(gen_db_calibrated, groups[0]) == ["Belt Squat [GHR + FT]"]
     assert _group_movement_names(gen_db_calibrated, groups[1]) == [
         "ATG Split Squat",
-        "Hybrid Board Calf Raise [D2]",
+        "Hybrid Board Tib Raise [D2]",
     ]
 
 

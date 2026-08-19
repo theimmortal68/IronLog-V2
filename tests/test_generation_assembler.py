@@ -190,9 +190,12 @@ def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
     T4 was merged into T2 GS as a 3rd giant-set member and no longer exists
     as its own tier -- this test now asserts that merged shape instead.
 
-    Same day, later: Ab Trainer Decline Sit-up direct-traded into T3 GS
-    with Hybrid Board Tib Raise [D2] (T3 GS -> T2 GS) to deconflict
-    bench-attachment contention -- T2 GS's 3rd-slot member updated below.
+    Same day, later: Ab Trainer Decline Sit-up direct-traded into T3 GS to
+    deconflict bench-attachment contention. First attempt paired this with
+    Hybrid Board Tib Raise [D2] moving T3->T2, but that reintroduced a shoe
+    conflict (Tib Raise needs T3's flat shoe); revised same day to trade
+    Hybrid Board Calf Raise [D2] into T2 instead (less shoe-sensitive) and
+    keep Tib Raise in T3 -- T2 GS's 3rd-slot member updated below.
     """
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
@@ -210,7 +213,7 @@ def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
     assert _names_for_group(t2, gen_db) == [
         "Matrix Machine Sissy Squat",
         "Nordic Curl Max [Ares]",
-        "Hybrid Board Tib Raise [D2]",
+        "Hybrid Board Calf Raise [D2]",
     ]
 
 

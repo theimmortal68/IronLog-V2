@@ -48,20 +48,25 @@ days:
     # same rep target, same rule/assist config, just relocated tier.
     #
     # 2026-08-19 (athlete directive, same day): Ab Trainer Decline Sit-up
-    # and Hybrid Board Tib Raise [D2] directly traded T2/T3 giant-set
-    # placement to deconflict bench-attachment contention (mirrors the D6
-    # Dips/CG-Press direct-trade precedent). Ab Trainer now sits in T3_GIANT,
-    # Hybrid Board Tib Raise [D2] now sits in T2_GIANT. Config unchanged for
-    # both, just relocated.
+    # directly traded T2/T3 giant-set placement with T3_GIANT to deconflict
+    # bench-attachment contention (mirrors the D6 Dips/CG-Press direct-trade
+    # precedent) -- Ab Trainer now sits in T3_GIANT. First attempt paired
+    # this with Hybrid Board Tib Raise [D2] moving the other way into
+    # T2_GIANT, but Tib Raise needs the same full-ankle-dorsiflexion flat
+    # shoe as ATG Split Squat (2026-08-14 T3 shoe fix) -- T2's heeled
+    # Adipower II reintroduced that conflict. Revised same day: Hybrid Board
+    # Calf Raise [D2] takes T2_GIANT's 3rd slot instead (far less
+    # shoe-sensitive than the TIB pattern), Tib Raise stays in T3_GIANT with
+    # the flat shoe it needs.
     T1_STRAIGHT: {group_key: "T1", rest: 150, shoe: "Adipower II", anchor: true, ex: [
       {m: belt_squat, reps: [4,6], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [
       {m: matrix_machine_sissy_squat, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (bodyweight first, add DBs once easy). knee_modality=SISSY on the TierExercise (program_seed.py) -- closes the program's previously-unfilled SISSY weekly target.
       {m: nordic_curl_max_d2, reps: [6,8], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,55,50,45,40,35,30,25,20,15,10,5,0]},  # 2026-08-11: new, Ares cable weighted assist (60lb LOCKED, chest/shoulder attach, NOT monster bands). knee_modality=NORDIC on the TierExercise -- same Movement row reused by D5/Task 4 (independent day-scoped assist track), each day's TierExercise tags its own knee_modality.
-      {m: hybrid_board_tib_raise_d2, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-19: traded in from T3_GIANT (see above note); config unchanged. NOTE: T2 GS's shoe is Adipower II (heeled), reintroducing the ankle-dorsiflexion conflict the 2026-08-14 T3 shoe fix (Metcon 9) addressed for this movement -- flagged, not resolved (athlete directive was the placement swap only).
+      {m: hybrid_board_calf_raise_d2, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-19: traded in from T3_GIANT (see above note); config unchanged.
     T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
       {m: atg_split_squat, reps: [8,12], rule: rpe_8_standard, load: 25, unilateral: true},
-      {m: hybrid_board_calf_raise_d2, reps: [10,15], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (test_loadability per FINAL doc)
+      {m: hybrid_board_tib_raise_d2, reps: [10,15], rule: rpe_8_standard},  # 2026-08-19: moved back here from a same-day T2_GIANT trial (see above note); config unchanged, keeps the flat shoe this movement needs.
       {m: ab_trainer_decline_situp_d2, reps: [10,15], rule: incline_reduction, assist_level: 15, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]}]}  # 2026-08-19: traded in from T2_GIANT (see above note); config unchanged.
 
   d4:  # Upper B / Pull — shoe: Metcon 9 (no swap).
