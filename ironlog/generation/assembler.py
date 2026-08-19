@@ -20,7 +20,7 @@ from sqlmodel import Session as DBSession, select
 from ..engine.band_composite import (
     Band, config_peak, ht_performed_floor, resolved_band_config,
 )
-from ..engine.loading import clamp_to_cap, round_to_achievable
+from ..engine.loading import clamp_to_cap, round_to_achievable, round_up_to_step
 from ..engine.progression import resolve_objective
 from ..models.enums import (
     GroupType, LiftCategory, ProgressionMode, ProgressionRule, Scheme,
@@ -462,7 +462,9 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                 set_index=set_index,
                 set_role=SetRole.RAMP,
                 is_warmup=True,
-                target_load=round_to_achievable(load * pct, floor, step),
+                # Ramp sets always round UP to a clean 5lb increment, never
+                # nearest and never the movement's own working-set step.
+                target_load=round_up_to_step(load * pct, floor, 5),
                 target_reps_low=reps,
                 target_reps_high=reps,
             )
