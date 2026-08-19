@@ -195,7 +195,7 @@ BASELINES = {
     "d1_t2e": ("load", 20, None),
     "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None),
-    "d2_t2f": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle (2026-08-19: relocated from d2_t4a into T2 GS)
+    "d2_t2f": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle (2026-08-19: slot_id d2_t2f is now seated in T3 GS -- relocated d2_t4a->T2 GS then same-day traded T2 GS->T3 GS with Hybrid Board Tib Raise [D2]; slot_id is movement-intrinsic and doesn't change with tier)
     "d4_t3a": ("load", 10, None),
     "d5_t3b": ("load", 0, None),
     "d6_g1e": ("assist", 50, None),  # Dips, real Wk1 last-set band (purple alone, rated midpoint)

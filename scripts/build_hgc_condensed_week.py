@@ -79,7 +79,13 @@ RATIONALE = "HGC condensed week"
 # role/slot).
 MINI_SESSIONS = [
     (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Stryker Pad Seated OHP [DB]"]),
-    (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Hybrid Board Tib Raise [D2]"]),
+    # 2026-08-19: "Hybrid Board Tib Raise [D2]" -> "Hybrid Board Calf Raise
+    # [D2]" -- Tib Raise traded out of T3 GS into T2 GS (athlete directive,
+    # deconflicting bench-attachment contention with Ab Trainer Decline
+    # Sit-up, which traded the other way). Calf Raise stays in T3 GS
+    # alongside ATG Split Squat, preserving this entry's 2-member
+    # shared-giant-set clustering premise (see test_hgc_condensed_week.py).
+    (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Hybrid Board Calf Raise [D2]"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
     (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [DB]", "Better Fly Kickback [FT]", "Reverse Nordic Curl [GHR]"]),
     (date(2026, 7, 28), "D2 Lower A", ["Nordic Curl Max [Ares]"]),

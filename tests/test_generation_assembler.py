@@ -189,6 +189,10 @@ def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
     tier_order bug reproduction. As of 2026-08-19 (athlete directive), D2's
     T4 was merged into T2 GS as a 3rd giant-set member and no longer exists
     as its own tier -- this test now asserts that merged shape instead.
+
+    Same day, later: Ab Trainer Decline Sit-up direct-traded into T3 GS
+    with Hybrid Board Tib Raise [D2] (T3 GS -> T2 GS) to deconflict
+    bench-attachment contention -- T2 GS's 3rd-slot member updated below.
     """
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
@@ -206,7 +210,7 @@ def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
     assert _names_for_group(t2, gen_db) == [
         "Matrix Machine Sissy Squat",
         "Nordic Curl Max [Ares]",
-        "Ab Trainer Decline Sit-up",
+        "Hybrid Board Tib Raise [D2]",
     ]
 
 

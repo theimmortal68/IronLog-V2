@@ -653,6 +653,20 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # the movement's own REP_RATIO (assisted incline-angle progression, per
     # the 2026-08-12 fix) -- unchanged from T4's own TierExercise, which
     # also left scheme unset.
+    #
+    # 2026-08-19 (athlete directive, same day): Ab Trainer Decline Sit-up
+    # (d2_t2f) and Hybrid Board Tib Raise [D2] (was T3 GS's d2_t3e) directly
+    # traded GS placement to deconflict bench-attachment contention within
+    # the giant set (mirrors the D6 Dips/CG-Press direct-trade precedent).
+    # Ab Trainer now lives in T3 GS (see that block below); Hybrid Board Tib
+    # Raise [D2] takes this 3rd T2 GS slot. Swapped tier_id/exercise_order
+    # only; slot_id, pattern, rep targets, scheme, knee_modality are
+    # unchanged/movement-intrinsic, per this session's established
+    # tier-swap convention. NOTE: T2 GS's shoe stays Adipower II (heeled) --
+    # this reintroduces the ankle-dorsiflexion conflict the 2026-08-14 T3
+    # shoe fix (Metcon 9) was specifically about for this same movement;
+    # flagged, not resolved here (athlete directive was the placement swap
+    # only).
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t2.id, "d2_t2d", "Matrix Machine Sissy Squat", lib, 1, "free",
             knee_modality=KneeModality.SISSY, rep_low=8, rep_high=12,
@@ -660,8 +674,9 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t2.id, "d2_t2e", "Nordic Curl Max", lib, 2, "free",
             knee_modality=KneeModality.NORDIC, rep_low=6, rep_high=8,
             scheme="REP_RATIO")
-    _add_te(db, t2.id, "d2_t2f", "Ab Trainer Decline Sit-up", lib, 3, "free",
-            pattern="core", rep_low=10, rep_high=15)
+    _add_te(db, t2.id, "d2_t3e", "Hybrid Board Tib Raise D2", lib, 3, "free",
+            knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
 
     # T3 GS — ATG Split Squat (unchanged) / Hybrid Board Calf Raise [D2]
     # (new) / Hybrid Board Tib Raise [D2] (new, 2026-08-12 follow-up
@@ -708,13 +723,18 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t3.id, "d2_t3d", "Hybrid Board Calf Raise D2", lib, 2, "free",
             pattern="calf", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d2_t3e", "Hybrid Board Tib Raise D2", lib, 3, "free",
-            knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
-            scheme="DOUBLE_PROGRESSION")
+    # 2026-08-19 (athlete directive): direct trade with T2 GS's Ab Trainer
+    # Decline Sit-up (see that block's 2026-08-19 note) -- deconflicts
+    # bench-attachment contention. Slot_id d2_t2f carries over unchanged
+    # (movement-intrinsic identity, tier-swap convention).
+    _add_te(db, t3.id, "d2_t2f", "Ab Trainer Decline Sit-up", lib, 3, "free",
+            pattern="core", rep_low=10, rep_high=15)
 
     # T4 straight tier (added 2026-08-11, Ab Trainer Decline Sit-up) removed
     # 2026-08-19 -- merged into T2 GS above as slot d2_t2f (3rd giant-set
     # member, athlete directive). See the T2 GS block's 2026-08-19 note.
+    # (Same day, later: d2_t2f traded into T3 GS here; d2_t3e traded into
+    # T2 GS above.)
 
 
 # ---------------------------------------------------------------------------
