@@ -1,5 +1,15 @@
 # Spec: WeekParityRotation — automatic week-A/B movement rotation
 
+> **2026-08-20 addendum (post-review fix):** this spec's original
+> `week_parity()` design below (raw `isocalendar()[1] % 2`) shipped with a
+> real bug — ISO years with a week 53 produce the same A/B letter for that
+> year's final week and the next year's first week, breaking strict
+> alternation. The shipped implementation instead anchors to a fixed Monday
+> epoch (`(as_of - epoch).days // 7 % 2`), which alternates strictly forever.
+> Everywhere below that says "even/odd ISO week" describes the ORIGINAL
+> (buggy) plan, not what actually shipped — see `ironlog/generation/
+> skeleton.py`'s `week_parity()` for the real logic.
+
 ## Objective
 
 Add a new, automatic (no manual toggle) week-alternation mechanism so a single
