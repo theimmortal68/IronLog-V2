@@ -812,8 +812,19 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # needed). Andreoni Cable Pullover (old d4_t3b) drops out of D4's wiring
     # entirely, not referenced by any other day -- fully unwired, not
     # deleted.
+    #
+    # 2026-08-20 (athlete directive): DB Rear Delt Fly (d4_t3a) replaced by
+    # Better Fly Rear Delt Extension [FT] -- genuinely different Movement
+    # row (not a reconfiguration of the same one), so per this session's
+    # never-reassign-slot_id precedent (mirrors D1's Lat Prayer -> Better
+    # Fly Sagittal Lat Pulldown swap) this gets a fresh slot_id "d4_t3f";
+    # d4_t3a is VACATED, not reused. Same rep target (10-15) and pattern
+    # ("rear_delt") as the movement it replaces, matching this Movement's
+    # own D6 wiring (d6_g2f) for consistency. Better Fly Rear Delt
+    # Extension [FT] is an EXISTING shared Movement row (already wired on
+    # D6 GS1) -- day-scoped MovementState, independent assist/load track.
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
-    _add_te(db, t3.id, "d4_t3a", "DB Rear Delt Fly", lib, 1, "free",
+    _add_te(db, t3.id, "d4_t3f", "Better Fly Rear Delt Extension", lib, 1, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d4_t3e", "Lying Tricep Extension", lib, 2, "free",

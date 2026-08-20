@@ -94,6 +94,11 @@ EXPECTED_NEEDS_CAL = {
         "Stryker Pad CSR Barbell [PB]", "Ab Trainer Hanging Leg Raise",
         "Better Fly Cable Pullover [FT]", "Lying Tricep Extension [SB]",
         "PureTorque Pro Rotation",
+        # 2026-08-20 (athlete directive): DB Rear Delt Fly (d4_t3a, real
+        # Wk1 baseline, calibrated) replaced by Better Fly Rear Delt
+        # Extension [FT] (fresh slot d4_t3f) -- new movement at this slot,
+        # zero prior D4 history, needs-calibration.
+        "Better Fly Rear Delt Extension [FT]",
     },
     # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 reconciled to
     # the FINAL doc's real D5 session -- 7 new movements, all needs-cal, zero
@@ -160,7 +165,15 @@ def test_golive_all_days_generate_clean(gen_db):
         expected = EXPECTED_NEEDS_CAL.get(role, set())
         unexpected = set(report[role]["needs_cal"]) - expected
         assert not unexpected, f"{role} has unexpected needs-calibration slots: {unexpected}"
-        assert report[role]["loaded_slots"] > 0
+        # 2026-08-20: D4's only real Wk1-locked baseline (d4_t3a, DB Rear
+        # Delt Fly) was vacated -- replaced by Better Fly Rear Delt
+        # Extension [FT], needs-calibration (see EXPECTED_NEEDS_CAL above).
+        # D4 now has zero loaded_slots, genuinely -- every other D4 slot was
+        # already needs-cal from its own 2026-08-11 reconciliation.
+        if role == "D4 Upper Pull":
+            assert report[role]["loaded_slots"] == 0
+        else:
+            assert report[role]["loaded_slots"] > 0
 
 
 def test_d6_dips_resolves_seeded_assist_level(gen_db):

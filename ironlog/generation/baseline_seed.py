@@ -117,9 +117,14 @@ from ironlog.models.session import (
 # PULL_UP_ROLLING_MAX and never carried one) -- stays with no entry, needs-
 # calibration is correct for the brand-new movement now at that slot_id.
 # d4_t3a (DB Rear Delt Fly, "load" 10) and d4_t3d (PureTorque Pro Rotation,
-# already no entry) are UNCHANGED -- d4_t3a's rep range widened (8-12 ->
-# 10-15, program_seed.py) but its slot_id and calibrated load carry
-# forward unaffected.
+# already no entry) were UNCHANGED at the time -- d4_t3a's rep range widened
+# (8-12 -> 10-15, program_seed.py) but its slot_id and calibrated load
+# carried forward unaffected.
+#
+# 2026-08-20 (athlete directive): d4_t3a (DB Rear Delt Fly) VACATED --
+# replaced by fresh slot d4_t3f (Better Fly Rear Delt Extension [FT]),
+# needs-calibration, no BASELINES entry (the old "load" 10 entry doesn't
+# carry forward to a different Movement/slot).
 #
 # 2026-08-12 (STAB maintenance-block redesign, Task 4 -- D5 rewritten to
 # match the FINAL doc's real D5 session): d5_t1 ("load" 255) and d5_t1b
@@ -196,7 +201,6 @@ BASELINES = {
     "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None),
     "d2_t2f": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle (2026-08-19: slot_id d2_t2f is now seated in T3 GS -- relocated d2_t4a->T2 GS then same-day traded T2 GS->T3 GS with Hybrid Board Tib Raise [D2]; slot_id is movement-intrinsic and doesn't change with tier)
-    "d4_t3a": ("load", 10, None),
     "d5_t3b": ("load", 0, None),
     "d6_g1e": ("assist", 50, None),  # Dips, real Wk1 last-set band (purple alone, rated midpoint)
     "d6_g3a": ("load", 30, None),

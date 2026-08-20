@@ -99,8 +99,14 @@ days:
       {m: stryker_pad_csr_barbell_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration
       {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]},  # 2026-08-11: new. 2026-08-12: corrected to real incline-angle progression -- needs-calibration (never trained yet, no real starting angle)
       {m: better_fly_cable_pullover_d4, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration
+    # 2026-08-20 (athlete directive): DB Rear Delt Fly (old d4_t3a) VACATED --
+    # replaced by Better Fly Rear Delt Extension [FT] (fresh slot "d4_t3f",
+    # never-reassign-slot_id -- genuinely different Movement row, mirrors
+    # the D1 Lat Prayer -> Better Fly Sagittal Lat Pulldown precedent).
+    # Existing shared Movement row, already wired on D6 (m-id
+    # better_fly_rear_delt_ext_d6) -- this is D4's own day-scoped m-id.
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: db_rear_delt_fly, reps: [10,15], rule: rpe_8_standard, load: 10},  # 2026-08-11: rep range widened 8-12 -> 10-15, load/slot unchanged
+      {m: better_fly_rear_delt_ext_d4, reps: [10,15], rule: rpe_8_standard},  # 2026-08-20: new slot, needs-calibration
       {m: lying_tricep_extension_camber7_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: reused movement (Lying Tricep Extension [SB]), fresh slot "d4_t3e" -- needs-calibration. grip: 7_inch is a physical-setup detail (same BMF Camber Bar family as D1 Bench Press's 21" grip note), not a schema field.
       # 2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation (athlete
       # directive -- "Cable Woodchopper" in the original proposal, this

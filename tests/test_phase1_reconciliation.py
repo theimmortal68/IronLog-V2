@@ -56,16 +56,20 @@ CHANGED_REP_TARGETS = {
     # d4_t2a/d4_t2b (Meadows Row / Single-Arm DB Row) no longer exist,
     # replaced by d4_t2d/d4_t2e/d4_t2f (Stryker Pad CSR Barbell / Ab Trainer
     # Hanging Leg Raise / Better Fly Cable Pullover). d4_t3a (DB Rear Delt
-    # Fly) widens 8-12 -> 10-15. d4_t3b (Andreoni Cable Pullover) no longer
-    # exists, replaced by d4_t3e (Lying Tricep Extension [SB], reused
-    # movement, fresh slot) at 8-12.
+    # Fly) widens 8-12 -> 10-15 -- VACATED 2026-08-20 (see below), no longer
+    # a live slot_id. d4_t3b (Andreoni Cable Pullover) no longer exists,
+    # replaced by d4_t3e (Lying Tricep Extension [SB], reused movement,
+    # fresh slot) at 8-12.
     "d4_t1_btn_ohp": (4, 6),
     "d4_t1": (6, 8),
     "d4_t2d": (8, 12),
     "d4_t2e": (8, 12),
     "d4_t2f": (10, 15),
-    "d4_t3a": (10, 15),
     "d4_t3e": (8, 12),
+    # 2026-08-20 (athlete directive): d4_t3a (DB Rear Delt Fly) VACATED --
+    # replaced by fresh slot d4_t3f (Better Fly Rear Delt Extension [FT]),
+    # same 10-15 rep target.
+    "d4_t3f": (10, 15),
     # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 reconciled to
     # the FINAL doc's real D5 session. T1 RDL [PB] (was UNCHANGED_REP_TARGETS
     # "d5_t1") -> Kickstand RDL [DB] (fresh slot "d5_t1_kickstand_rdl"),

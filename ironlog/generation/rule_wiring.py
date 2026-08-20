@@ -103,6 +103,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "db_rear_delt_fly":                  "Rear Delt Fly [DB]",
     "andreoni_bar_cable_pullover":       "Andreoni Cable Pullover",
     "puretorque_pro_rotation_d4":        "PureTorque Pro Rotation",
+    "better_fly_rear_delt_ext_d4":       "Better Fly Rear Delt Extension [FT]",
     "seated_btn_ohp_d4":                 "Seated BTN OHP [PB]",
     "better_fly_lat_pulldown_d4":        "Better Fly Lat Pulldown [FT]",
     "stryker_pad_csr_barbell_d4":        "Stryker Pad CSR Barbell [PB]",
