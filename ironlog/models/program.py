@@ -2,7 +2,7 @@
 program.py — the program definition layer (the evolving-seed prior).
 
 DEFINITION tables (static, what a program *is*):
-    Program, ProgramDay, Tier, TierExercise, MesoRotation
+    Program, ProgramDay, Tier, TierExercise, MesoRotation, WeekParityRotation
 
 These are seeded once per training block and read by the generation layer
 (skeleton.py) to provide the program prior for each generated session.
@@ -109,6 +109,32 @@ class MesoRotation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     tier_exercise_id: int = Field(foreign_key="tierexercise.id")
     meso_number: int
+    movement_id: int = Field(foreign_key="movement.id")
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None
+
+
+class WeekParityRotation(SQLModel, table=True):
+    """Per-slot movement (+ optional rep-target) override keyed by ISO-week
+    parity, resolved automatically from the current date at generation time
+    -- no manual toggle, no note-apply flow. Two rows per rotating slot: one
+    week_parity="A" (even ISO week), one week_parity="B" (odd ISO week).
+
+    Precedence in lay_skeleton's _effective_movement_id: an active
+    SlotMovementOverride still wins first (explicit live-state swap always
+    takes priority), then a matching WeekParityRotation row for the current
+    date's parity, then MesoRotation(meso_number), then te.movement_id
+    (unchanged fallback order, WeekParityRotation inserted as a new tier).
+
+    rep_low/rep_high are optional: when set, they override the TierExercise's
+    own rep_low/rep_high for the SlotSpec/AnchorSpec built for the matched
+    week (so two rotating movements can carry genuinely different rep
+    targets, not just different movement identities). When left None, the
+    TierExercise's own rep_low/rep_high apply unchanged.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tier_exercise_id: int = Field(foreign_key="tierexercise.id", index=True)
+    week_parity: str  # "A" or "B" -- validated by callers, not a DB constraint
     movement_id: int = Field(foreign_key="movement.id")
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None
