@@ -232,6 +232,46 @@ MOVEMENTS = [
          assist_ladder=[80, 70, 60, 50, 40, 30, 20, 10, 0],
          assist_unit=AssistUnit.CABLE_LB,
          primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES"]),
+    # 2026-08-20 (athlete directive): new movement -- the Apex Nordic Curl
+    # Max bench attachment, angle-adjustable difficulty (unassisted, no
+    # external load). Higher bench angle = EASIER (more of bodyweight
+    # supported); lower angle toward flat/0deg = HARDER (full unassisted
+    # Nordic). This is the OPPOSITE direction convention from the Ab
+    # Trainer family (where higher degree = harder) -- assist_ladder is
+    # deliberately DESCENDING [20,15,10,5,0] so _incline_reduction's
+    # forward-stepping ladder walk advances toward harder (lower) angles as
+    # performance clears each window, matching this movement's actual
+    # geometry. Real Wk1 baseline: 15deg x4-6 (seeded via BASELINES,
+    # program_seed.py/baseline_seed.py). Pairs with Nordic Curl Max [Ares]
+    # (flat + band-assisted) in a WeekParityRotation A/B rotation on D2's
+    # T2 GS slot -- see that TierExercise's wiring for the actual weekly
+    # alternation. Same "NORDIC_MAX" rig tag as Nordic Curl Max [Ares] /
+    # Nordic Max Bulgarian Split Squat (equipment-conflict class), though in
+    # practice A/B rotation means this and [Ares] are never both active in
+    # the same generated session.
+    dict(name="Nordic Curl Max [Apex]", base_name="Nordic Curl Max",
+         region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["NORDIC_MAX"],
+         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         assist_ladder=[20, 15, 10, 5, 0],
+         assist_unit=AssistUnit.DEGREES,
+         primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES"]),
+    # 2026-08-20 (athlete directive): D5's T2 GS Nordic Curl Max [Ares] slot
+    # (d5_t2e) swapped for a hamstring-curl movement -- cable lying leg
+    # curl using the GHR bench + Ares cable stack together (distinct
+    # equipment combo from the OLD, long-unwired "Lying Leg Curl [GHR]"
+    # movement, which was GHR-only/plate-loaded and dropped from D2 back on
+    # 2026-08-11 -- that movement stays ACTIVE/unwired, not reused here;
+    # this is a genuinely new Movement, not a rename). Cable-loaded
+    # (Ares), plain lb progression -- same LADDER/DOUBLE_PROGRESSION shape
+    # as the old GHR-only version, load_floor/increment carried forward
+    # from that movement's own numbers as a reasonable starting point
+    # (needs-calibration regardless, zero prior history on this exact
+    # equipment combo).
+    dict(name="Lying Leg Curl [GHR + Ares]", base_name="Lying Leg Curl",
+         region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["GHR", "FT"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         primary_muscle="HAMSTRINGS", secondary_muscles=[]),
     # 2026-08-12: new D5 T1 movement (maintenance block, STAB redesign,
     # Task 4). Unilateral DB RDL, B-stance (front foot flat, back foot on
     # ball for balance) -- replaces RDL [PB] as D5's T1 anchor (RDL [PB]

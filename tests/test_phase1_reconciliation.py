@@ -89,7 +89,10 @@ CHANGED_REP_TARGETS = {
     # Max rig conflict with Nordic Curl Max in the same giant set), same
     # rep target (8-12).
     "d5_t2h": (8, 12),
-    "d5_t2e": (6, 8),
+    # 2026-08-20: d5_t2e (Nordic Curl Max [Ares]) VACATED -- D5 no longer
+    # has any Nordic slot; replaced by fresh d5_t2i (Lying Leg Curl [GHR +
+    # Ares]).
+    "d5_t2i": (10, 15),
     "d5_t2f": (10, 15),
     "d5_t3e": (10, 15),
     "d5_t3f": (10, 15),

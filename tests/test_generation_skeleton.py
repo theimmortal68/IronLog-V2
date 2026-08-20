@@ -51,12 +51,19 @@ def test_knee_slots_in_giant_tiers_remember_giant_tier(gen_db):
     slot moved from the old d5_t2c (Assisted Nordic, dropped) to d5_t2e
     (Nordic Curl Max [Ares], knee_modality=NORDIC). T3 GS slots repointed
     from the dropped d5_t3a/c/d to the new d5_t3e/f/g (d5_t3b unchanged).
+
+    2026-08-20 (athlete directive): d5_t2e VACATED -- D5 no longer has any
+    Nordic/knee-tagged slot in T2 GS at all, replaced by fresh d5_t2i
+    (Lying Leg Curl [GHR + Ares], no knee_modality -- hamstring curl isn't
+    part of the knee taxonomy). d5_t2i is still a GIANT_SET member (kind
+    "giant", not "knee"), which is what this test actually verifies now --
+    T3's knee-tagged slots (d5_t3b/f) are unaffected and still covered.
     """
     sk = lay_skeleton("D5 Lower B", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    assert slots["d5_t2e"].kind == "knee"
-    assert slots["d5_t2e"].is_giant_tier is True
+    assert slots["d5_t2i"].kind == "giant"
+    assert slots["d5_t2i"].is_giant_tier is True
     for slot_id in ("d5_t3b", "d5_t3e", "d5_t3f", "d5_t3g"):
         assert slots[slot_id].is_giant_tier is True
 

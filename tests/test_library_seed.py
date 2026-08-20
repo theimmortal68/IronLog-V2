@@ -91,7 +91,11 @@ def test_total_count_103(seeded):
     # 2026-08-16: +1 "D-Handle Cable Bicep Curl [FT]" (D6's GS2, replaces
     # Better Fly Cable Bicep Curl [FT], athlete directive -- Better Fly cuff
     # doesn't work well for curls): 143 -> 144.
-    assert len(_all(seeded)) == 144
+    # 2026-08-20: +2 "Nordic Curl Max [Apex]" (D2's WeekParityRotation "A"
+    # week, angle-adjustable unassisted Nordic) and "Lying Leg Curl [GHR +
+    # Ares]" (D5's new T2 GS movement, replaces Nordic Curl Max [Ares] --
+    # D5 no longer has a Nordic slot at all): 144 -> 146.
+    assert len(_all(seeded)) == 146
 
 
 def test_status_counts(seeded):
@@ -124,7 +128,9 @@ def test_status_counts(seeded):
     # replaces Nordic Max Bulgarian Split Squat, athlete directive): 135 -> 136.
     # 2026-08-16: +1 ACTIVE D-Handle Cable Bicep Curl [FT] (D6 GS2, replaces
     # Better Fly Cable Bicep Curl, athlete directive): 136 -> 137.
-    assert c[Status.ACTIVE] == 137
+    # 2026-08-20: +2 ACTIVE Nordic Curl Max [Apex] and Lying Leg Curl [GHR +
+    # Ares]: 137 -> 139.
+    assert c[Status.ACTIVE] == 139
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

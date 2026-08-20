@@ -22,6 +22,7 @@ from ironlog.models.enums import (
 from ironlog.models.library import Movement, MovementState
 from ironlog.models.program import (
     DayFinisher, MesoRotation, Program, ProgramDay, Tier, TierExercise, TierKind,
+    WeekParityRotation,
 )
 
 # ---------------------------------------------------------------------------
@@ -54,6 +55,8 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Cable Tib Raise":                              "Cable Tibialis Raise",
     "Matrix Machine Sissy Squat":                   "Matrix Machine Sissy Squat",
     "Nordic Curl Max":                               "Nordic Curl Max [Ares]",
+    "Nordic Curl Max [Apex]":                        "Nordic Curl Max [Apex]",
+    "Lying Leg Curl [GHR + Ares]":                   "Lying Leg Curl [GHR + Ares]",
     "Hybrid Board Calf Raise D2":                   "Hybrid Board Calf Raise [D2]",
     "Ab Trainer Decline Sit-up":                    "Ab Trainer Decline Sit-up",
     # ── D4 Upper Pull ────────────────────────────────────────────────────────
@@ -417,6 +420,21 @@ def _add_mr(db: Session, te: TierExercise, meso_number: int,
     return mr
 
 
+def _add_wpr(db: Session, te: TierExercise, week_parity: str,
+             prog_name: str, lib: Dict[str, int],
+             rep_low: Optional[int] = None,
+             rep_high: Optional[int] = None) -> WeekParityRotation:
+    wpr = WeekParityRotation(
+        tier_exercise_id=te.id,
+        week_parity=week_parity,
+        movement_id=_resolve(prog_name, lib),
+        rep_low=rep_low,
+        rep_high=rep_high,
+    )
+    db.add(wpr)
+    return wpr
+
+
 def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
     finishers = {
         1: {
@@ -674,9 +692,22 @@ def _seed_d2(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t2.id, "d2_t2d", "Matrix Machine Sissy Squat", lib, 1, "free",
             knee_modality=KneeModality.SISSY, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d2_t2e", "Nordic Curl Max", lib, 2, "free",
-            knee_modality=KneeModality.NORDIC, rep_low=6, rep_high=8,
+    # 2026-08-20 (athlete directive): d2_t2e now rotates A/B automatically
+    # via WeekParityRotation (feature/week-parity-rotation) instead of
+    # staying pinned to Nordic Curl Max [Ares] year-round -- week "A" =
+    # Nordic Curl Max [Apex] (Apex bench attachment, angle-adjustable,
+    # unassisted, 4-8 reps, working toward a true flat/0deg Nordic), week
+    # "B" = Nordic Curl Max [Ares] (flat + 2x Rogue Monster band assist,
+    # 8-12 reps). te.movement_id/rep_low/rep_high stay Nordic Curl Max
+    # [Ares]'s own values as the fallback (used only if a WeekParityRotation
+    # row is ever missing). knee_modality=NORDIC stays on the TierExercise
+    # regardless of which movement resolves for a given week -- both
+    # variants are the same NORDIC knee pattern.
+    d2_t2e = _add_te(db, t2.id, "d2_t2e", "Nordic Curl Max", lib, 2, "free",
+            knee_modality=KneeModality.NORDIC, rep_low=8, rep_high=12,
             scheme="REP_RATIO")
+    _add_wpr(db, d2_t2e, "A", "Nordic Curl Max [Apex]", lib, rep_low=4, rep_high=8)
+    _add_wpr(db, d2_t2e, "B", "Nordic Curl Max", lib, rep_low=8, rep_high=12)
     _add_te(db, t2.id, "d2_t3d", "Hybrid Board Calf Raise D2", lib, 3, "free",
             pattern="calf", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
@@ -931,13 +962,27 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # vacated spot -> fresh slot_id "d5_t2h" (never-reassign-slot_id);
     # d5_t2d is vacated, not reused. Nordic Max Bulgarian Split Squat stays
     # ACTIVE in the library, unwired everywhere now -- not deleted.
+    # 2026-08-20 (athlete directive): d5_t2e (Nordic Curl Max [Ares]) swapped
+    # for Lying Leg Curl [GHR + Ares] -- genuinely different Movement row
+    # (not the old, long-unwired "Lying Leg Curl [GHR]" from D2's pre-
+    # 2026-08-11 wiring -- that was GHR-only/plate-loaded; this is a
+    # different equipment combo, GHR bench + Ares cable), so per this
+    # session's never-reassign-slot_id precedent this gets a fresh slot_id
+    # "d5_t2i"; d5_t2e is VACATED, not reused. D5 no longer has a Nordic
+    # Curl slot at all -- D2's d2_t2e now carries the program's sole
+    # weekly Nordic exposure, rotating A/B (Apex angle / Ares flat+band)
+    # via WeekParityRotation. No knee_modality (hamstring curl, not part
+    # of the knee taxonomy) -- Nordic Curl Max [Ares]'s NORDIC tag does
+    # not carry forward (movement-intrinsic, not slot-intrinsic in this
+    # case since it's a genuine movement swap, not a reconfiguration).
+    # Needs-calibration: zero prior history on this equipment combo.
     t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
     _add_te(db, t2.id, "d5_t2h", "Matrix Machine Bulgarian Split Squat", lib, 1, "free",
             pattern="lunge", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d5_t2e", "Nordic Curl Max", lib, 2, "free",
-            knee_modality=KneeModality.NORDIC, rep_low=6, rep_high=8,
-            scheme="REP_RATIO")
+    _add_te(db, t2.id, "d5_t2i", "Lying Leg Curl [GHR + Ares]", lib, 2, "free",
+            pattern="leg_curl", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d5_t2f", "Better Fly Kickback", lib, 3, "free",
             pattern="glute", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")

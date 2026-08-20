@@ -88,6 +88,13 @@ EXPECTED_NEEDS_CAL = {
         "Hybrid Board Tib Raise [D2]",
         # Ab Trainer Decline Sit-up REMOVED (2026-08-12): now seeded with a
         # real Wk1 baseline (15-degree incline angle), no longer needs-cal.
+        # 2026-08-20: d2_t2e rotates A/B via WeekParityRotation -- whichever
+        # parity this test runs under, the resolved movement (Apex or Ares)
+        # is needs-cal (neither has a BASELINES entry: Apex is brand new,
+        # Ares's real Wk1 band-assist baseline was applied live-DB-only,
+        # never added to this dict -- see baseline_seed.py's note). Both
+        # listed so this test is stable regardless of which day it runs.
+        "Nordic Curl Max [Apex]",
     },
     "D4 Upper Pull": {
         "Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]",
@@ -113,7 +120,9 @@ EXPECTED_NEEDS_CAL = {
     # history, needs-calibration.
     "D5 Lower B": {
         "Kickstand RDL [DB]", "Matrix Machine Bulgarian Split Squat",
-        "Nordic Curl Max [Ares]", "Better Fly Kickback [FT]",
+        # 2026-08-20: Nordic Curl Max [Ares] VACATED from D5 (no Nordic slot
+        # left there at all) -- replaced by Lying Leg Curl [GHR + Ares].
+        "Lying Leg Curl [GHR + Ares]", "Better Fly Kickback [FT]",
         "Hybrid Board Calf Raise [D5]", "Hybrid Board Tib Raise [D5]",
         "Better Fly Hip Adduction [FT]", "Ab Trainer Russian Twist",
     },

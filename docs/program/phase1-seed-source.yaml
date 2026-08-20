@@ -62,7 +62,15 @@ days:
       {m: belt_squat, reps: [4,6], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [
       {m: matrix_machine_sissy_squat, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (bodyweight first, add DBs once easy). knee_modality=SISSY on the TierExercise (program_seed.py) -- closes the program's previously-unfilled SISSY weekly target.
-      {m: nordic_curl_max_d2, reps: [6,8], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,55,50,45,40,35,30,25,20,15,10,5,0]},  # 2026-08-11: new, Ares cable weighted assist (60lb LOCKED, chest/shoulder attach, NOT monster bands). knee_modality=NORDIC on the TierExercise -- same Movement row reused by D5/Task 4 (independent day-scoped assist track), each day's TierExercise tags its own knee_modality.
+      # 2026-08-20 (athlete directive): d2_t2e now rotates A/B automatically
+      # via WeekParityRotation -- week "A" = Nordic Curl Max [Apex] (Apex
+      # bench attachment, angle-adjustable, unassisted, 4-8 reps), week "B"
+      # = Nordic Curl Max [Ares] (flat + 2x Rogue Monster band assist,
+      # 8-12 reps). This YAML schema has no representation for a two-
+      # movement rotating slot -- the entry below is the base/fallback
+      # (Ares, "B") TierExercise config only; the actual A/B wiring lives
+      # in program_seed.py's _add_wpr calls, not expressible here.
+      {m: nordic_curl_max_d2, reps: [8,12], rule: assistance_reduction, assist_level: 80, assist_ladder: [80,70,60,50,40,30,20,10,0]},  # base/fallback (week "B") config only -- see above note. Ares cable/band assist. knee_modality=NORDIC on the TierExercise -- same Movement row reused by D5/Task 4 (independent day-scoped assist track), each day's TierExercise tags its own knee_modality.
       {m: hybrid_board_calf_raise_d2, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-19: traded in from T3_GIANT (see above note); config unchanged.
     T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
       {m: atg_split_squat, reps: [8,12], rule: rpe_8_standard, load: 25, unilateral: true},
@@ -142,9 +150,16 @@ days:
     # preserves it without relaxing that test.
     T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
       {m: kickstand_rdl_d5, reps: [4,6], rule: rpe_8_standard, unilateral: true}]}  # 2026-08-12: new, needs-calibration (zero prior history)
+    # 2026-08-20 (athlete directive): nordic_curl_max_d5 (d5_t2e) VACATED --
+    # D5 no longer has any Nordic Curl slot at all. Replaced by
+    # lying_leg_curl_ghr_ares_d5 (fresh slot "d5_t2i", cable lying leg curl,
+    # GHR bench + Ares cable stack -- distinct equipment combo from the old,
+    # long-unwired D2 "Lying Leg Curl [GHR]"). D2's own Nordic Curl slot
+    # (d2_t2e) now carries the program's sole weekly Nordic exposure,
+    # rotating A/B via WeekParityRotation (see that YAML section).
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [   # <-- SHOE SWAP
       {m: matrix_machine_bss_d5, reps: [8,12], rule: rpe_8_standard, unilateral: true},  # 2026-08-14: replaces nordic_max_bss_d5 -- shares the Nordic Max rig with nordic_curl_max_d5, can't serve both in the same giant set. New, needs-calibration
-      {m: nordic_curl_max_d5, reps: [6,8], rule: assistance_reduction, assist_level: 60, assist_ladder: [60,55,50,45,40,35,30,25,20,15,10,5,0]},  # 2026-08-12: SAME Movement row as D2's nordic_curl_max_d2 (independent day-scoped assist track). knee_modality=NORDIC on the TierExercise (program_seed.py), applied independently -- does not carry forward from D2's tag.
+      {m: lying_leg_curl_ghr_ares_d5, reps: [10,15], rule: rpe_8_standard},  # 2026-08-20: new, needs-calibration -- see above note
       {m: better_fly_kickback_d5, reps: [10,15], rule: rpe_8_standard, unilateral: true}]}  # 2026-08-12: new, needs-calibration
     T3_GIANT: {group_key: "T3 GS", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
       {m: reverse_nordic_assisted, reps: [8,12], rule: rpe_8_standard, load: 0},  # UNCHANGED -- 2026-07-24: rep range corrected 8-10 -> 8-12; converted from assisted to loaded double-progression (bodyweight start, load once 12 reps clears), both D2 and D5

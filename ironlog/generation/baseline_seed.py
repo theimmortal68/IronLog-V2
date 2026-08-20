@@ -194,6 +194,16 @@ from ironlog.models.session import (
 # purple band alone (rated 25-80lb), 12 reps @ RPE 8.5 -- seeded as
 # ("assist", 50, None), the rated midpoint (athlete's call), which lands
 # exactly on an existing assist_ladder rung.
+# 2026-08-20 (athlete directive): d2_t2e now rotates A/B between two
+# movements via WeekParityRotation (Nordic Curl Max [Apex] / Nordic Curl
+# Max [Ares]) -- this BASELINES dict has NO entry for it, and structurally
+# can't carry one for both: seed_movement_baselines() above always upserts
+# against te.movement_id (the base TierExercise's own movement, Ares),
+# never the WeekParityRotation-resolved one, so a "d2_t2e" entry here could
+# only ever seed the Ares side. Both movements' real Wk1 baselines (Apex
+# 15deg x4-6, Ares carries its existing 2026-08-19 band-assist baseline)
+# are applied live-DB-only when this ships, matching how every other
+# real-data correction landed this session -- not through this dict.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),

@@ -13,6 +13,8 @@ RPE-adaptive rest.
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
 """
+from datetime import date
+
 from ironlog.generation.assembler import assemble
 from ironlog.generation.context import resolve_context
 from ironlog.generation.proposer import Selections, SlotSelection
@@ -138,10 +140,14 @@ def test_d5_knee_modality_giant_tiers_stay_grouped(gen_db_calibrated):
     # 2026-08-14: Nordic Max Bulgarian Split Squat -> Matrix Machine
     # Bulgarian Split Squat (Nordic Max rig conflict with Nordic Curl Max
     # in the same giant set, athlete directive).
+    # 2026-08-20: Nordic Curl Max [Ares] (d5_t2e) VACATED -- D5 no longer
+    # has a Nordic slot at all, replaced by Lying Leg Curl [GHR + Ares]
+    # (fresh slot d5_t2i). D2's Nordic slot now carries the program's sole
+    # weekly Nordic exposure (rotating A/B via WeekParityRotation).
     t2 = _giant_group_by_label(res.session, "T2 GS")
     assert _names_for_group(t2, gen_db) == [
         "Matrix Machine Bulgarian Split Squat",
-        "Nordic Curl Max [Ares]",
+        "Lying Leg Curl [GHR + Ares]",
         "Better Fly Kickback [FT]",
     ]
 
@@ -196,10 +202,15 @@ def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
     conflict (Tib Raise needs T3's flat shoe); revised same day to trade
     Hybrid Board Calf Raise [D2] into T2 instead (less shoe-sensitive) and
     keep Tib Raise in T3 -- T2 GS's 3rd-slot member updated below.
+
+    2026-08-20: d2_t2e (Nordic Curl Max) now rotates A/B via
+    WeekParityRotation -- pin as_of to a fixed "A"-week date (the epoch
+    Monday itself) so this test's 2nd-slot expectation is deterministic
+    instead of depending on which real-world week it happens to run in.
     """
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    sk = lay_skeleton("D2 Lower A", gen_db)
+    sk = lay_skeleton("D2 Lower A", gen_db, as_of=date(2026, 1, 5))
     ctx = resolve_context("D2 Lower A", sk, gen_db, wk)
     res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
     groups = sorted(res.session.groups, key=lambda g: g.order_index)
@@ -212,7 +223,7 @@ def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
     t2 = groups[1]
     assert _names_for_group(t2, gen_db) == [
         "Matrix Machine Sissy Squat",
-        "Nordic Curl Max [Ares]",
+        "Nordic Curl Max [Apex]",
         "Hybrid Board Calf Raise [D2]",
     ]
 

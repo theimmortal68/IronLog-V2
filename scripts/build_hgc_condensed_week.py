@@ -92,7 +92,16 @@ MINI_SESSIONS = [
     (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Hybrid Board Tib Raise [D2]"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
     (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [DB]", "Better Fly Kickback [FT]", "Reverse Nordic Curl [GHR]"]),
-    (date(2026, 7, 28), "D2 Lower A", ["Nordic Curl Max [Ares]"]),
+    # 2026-08-20: repointed from "Nordic Curl Max [Ares]" -- that slot
+    # (d2_t2e) now rotates A/B via WeekParityRotation (Apex angle / Ares
+    # flat+band), so which movement `lay_skeleton(day_role, db)` resolves
+    # here (called with no `as_of`, defaulting to real date.today()) is no
+    # longer stable across test runs. This entry only needs ANY real,
+    # non-rotating D2 movement to exercise the single-movement-mini-session
+    # path -- Matrix Machine Sissy Squat (T2 GS, not part of the rotation)
+    # is not already referenced by the 7/27 D2 entry above, matching the
+    # original selection rule.
+    (date(2026, 7, 28), "D2 Lower A", ["Matrix Machine Sissy Squat"]),
     (date(2026, 7, 28), "D6 Weak Points", ["Stryker Pad CSR Cables [FT]", "Better Fly Rear Delt Extension [FT]"]),
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
     (date(2026, 7, 29), "D4 Upper Pull", ["Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]", "PureTorque Pro Rotation"]),

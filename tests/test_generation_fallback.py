@@ -382,24 +382,28 @@ def test_last_valid_matches_prior_meso_rotation_variant_after_reorder(gen_db):
     2026-08-14: d5_t2d itself was later replaced by d5_t2h (Nordic Max
     Bulgarian Split Squat -> Matrix Machine Bulgarian Split Squat, Nordic
     Max rig conflict with Nordic Curl Max in the same giant set) -- this
-    test's slot_id references below were updated accordingly; d5_t2e's
-    MesoRotation fixture is unaffected.
+    test's slot_id references below were updated accordingly.
+
+    2026-08-20: d5_t2e (Nordic Curl Max [Ares]) VACATED -- replaced by
+    fresh d5_t2i (Lying Leg Curl [GHR + Ares]). This test's synthetic
+    test-only MesoRotation fixture repointed to d5_t2i (its content is
+    incidental to what this test verifies -- meso-rotation replay logic).
     """
     from ironlog.models.library import Movement
     from ironlog.models.program import MesoRotation, TierExercise
 
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    d5_t2e = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2e")
+    d5_t2i = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2i")
     ).one()
     single_leg = gen_db.exec(
         select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
     ).one()
-    gen_db.add(MesoRotation(tier_exercise_id=d5_t2e.id, meso_number=2, movement_id=single_leg.id))
+    gen_db.add(MesoRotation(tier_exercise_id=d5_t2i.id, meso_number=2, movement_id=single_leg.id))
     gen_db.commit()
 
-    old_order = {"d5_t2h": 1, "d5_t2e": 2, "d5_t2f": 3}
-    current_order = {"d5_t2f": 1, "d5_t2h": 2, "d5_t2e": 3}
+    old_order = {"d5_t2h": 1, "d5_t2i": 2, "d5_t2f": 3}
+    current_order = {"d5_t2f": 1, "d5_t2h": 2, "d5_t2i": 3}
 
     _set_slot_orders(gen_db, old_order)
     old_sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
@@ -436,22 +440,25 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
 
     2026-08-12, Task 4: D5's own T2 GS is now ALSO fully turned over (d5_t2b
     no longer exists, replaced by d5_t2h/e/f) -- there is no real adaptive-
-    role meso rotation left anywhere in the program. Repointed to d5_t2e
-    with a synthetic, test-only MesoRotation inserted first (then deleted,
-    as this test's own scenario requires), mirroring the identical fix in
+    role meso rotation left anywhere in the program.
+
+    2026-08-20: d5_t2e (Nordic Curl Max [Ares]) VACATED -- replaced by
+    fresh d5_t2i (Lying Leg Curl [GHR + Ares]). Repointed to d5_t2i with a
+    synthetic, test-only MesoRotation inserted first (then deleted, as
+    this test's own scenario requires), mirroring the identical fix in
     the reorder test above.
     """
     from ironlog.models.library import Movement
     from ironlog.models.program import MesoRotation, TierExercise
 
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    d5_t2e = gen_db.exec(
-        select(TierExercise).where(TierExercise.slot_id == "d5_t2e")
+    d5_t2i = gen_db.exec(
+        select(TierExercise).where(TierExercise.slot_id == "d5_t2i")
     ).one()
     single_leg = gen_db.exec(
         select(Movement).where(Movement.base_name == "Reverse Hyper - Single Leg")
     ).one()
-    gen_db.add(MesoRotation(tier_exercise_id=d5_t2e.id, meso_number=2, movement_id=single_leg.id))
+    gen_db.add(MesoRotation(tier_exercise_id=d5_t2i.id, meso_number=2, movement_id=single_leg.id))
     gen_db.commit()
 
     old_sk = lay_skeleton("D5 Lower B", gen_db, meso_number=2)
@@ -465,7 +472,7 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
     )
 
     rotation = gen_db.exec(
-        select(MesoRotation).where(MesoRotation.tier_exercise_id == d5_t2e.id)
+        select(MesoRotation).where(MesoRotation.tier_exercise_id == d5_t2i.id)
     ).one()
     gen_db.delete(rotation)
     gen_db.commit()
@@ -479,7 +486,7 @@ def test_last_valid_retired_prior_rotation_falls_back_to_slot_program_movement(g
         s.slot_id: old_movement_by_slot.get(s.slot_id, s.program_movement_id)
         for s in current_slots
     }
-    current_movement_by_slot["d5_t2e"] = d5_t2e.movement_id
+    current_movement_by_slot["d5_t2i"] = d5_t2i.movement_id
 
     assert last_valid_selections(current_sk, ctx, gen_db) == _expected_last_valid(
         current_slots,
