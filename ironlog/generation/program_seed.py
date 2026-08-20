@@ -791,12 +791,23 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # convention). Old slot_ids d4_t2a/d4_t2b/d4_t2c are VACATED, not reused
     # -- all three new members get fresh slot_ids (d4_t2d/d4_t2e/d4_t2f).
     # All three new movements are needs-calibration (zero prior history).
+    #
+    # 2026-08-20 (code/live reconciliation, athlete confirmed live is
+    # correct): Ab Trainer Hanging Leg Raise (d4_t2e) and PureTorque Pro
+    # Rotation (d4_t3d) direct-traded T2/T3 placement at some earlier point
+    # this session live-DB-only (an Apex/Stryker Pad equipment-conflict fix,
+    # never committed to code -- this closes that gap). PureTorque now
+    # lives in T2 GS; Ab Trainer Hanging Leg Raise moves to T3 GS (see that
+    # block below). Swapped tier_id/exercise_order only; slot_id, pattern,
+    # rep targets, scheme are unchanged/movement-intrinsic, per this
+    # session's established tier-swap convention.
     t2 = _add_tier(db, pd.id, "T2 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, t2.id, "d4_t2d", "Stryker Pad CSR Barbell", lib, 1, "free",
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d4_t2e", "Ab Trainer Hanging Leg Raise", lib, 2, "free",
-            pattern="core", rep_low=8, rep_high=12)
+    _add_te(db, t2.id, "d4_t3d", "PureTorque Pro Rotation", lib, 2, "free",
+            pattern="rotation", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
     _add_te(db, t2.id, "d4_t2f", "Better Fly Cable Pullover", lib, 3, "free",
             pattern="lat", rep_low=10, rep_high=15, scheme="DOUBLE_PROGRESSION")
 
@@ -823,6 +834,11 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # own D6 wiring (d6_g2f) for consistency. Better Fly Rear Delt
     # Extension [FT] is an EXISTING shared Movement row (already wired on
     # D6 GS1) -- day-scoped MovementState, independent assist/load track.
+    #
+    # 2026-08-20 (same reconciliation as T2 GS above): PureTorque Pro
+    # Rotation moved OUT of this tier into T2 GS; Ab Trainer Hanging Leg
+    # Raise (d4_t2e) moves IN here instead (was T2 GS). Slot_id/config
+    # unchanged for both, tier-swap only.
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d4_t3f", "Better Fly Rear Delt Extension", lib, 1, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
@@ -830,9 +846,8 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t3.id, "d4_t3e", "Lying Tricep Extension", lib, 2, "free",
             pattern="tricep_extension", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d4_t3d", "PureTorque Pro Rotation", lib, 3, "free",
-            pattern="rotation", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t3.id, "d4_t2e", "Ab Trainer Hanging Leg Raise", lib, 3, "free",
+            pattern="core", rep_low=8, rep_high=12)
 
 
 # ---------------------------------------------------------------------------

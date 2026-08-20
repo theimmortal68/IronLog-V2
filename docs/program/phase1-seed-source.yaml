@@ -95,9 +95,18 @@ days:
       {m: seated_btn_ohp_d4, reps: [4,6], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration (zero prior history).
     T1b: {group_key: "T1b", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
       {m: better_fly_lat_pulldown_d4, reps: [6,8], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration. Reuses slot_id "d4_t1" (program_seed.py comment) -- the anchor slot's content changed, not its identity.
+    # 2026-08-20 (code/live reconciliation, athlete confirmed live is
+    # correct): Ab Trainer Hanging Leg Raise and PureTorque Pro Rotation
+    # direct-traded T2/T3 placement at some earlier point this session
+    # live-DB-only (an Apex/Stryker Pad equipment-conflict fix, never
+    # committed to code -- this closes that gap). PureTorque now sits in
+    # T2_GIANT; Ab Trainer Hanging Leg Raise moves to T3_GIANT.
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: stryker_pad_csr_barbell_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration
-      {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]},  # 2026-08-11: new. 2026-08-12: corrected to real incline-angle progression -- needs-calibration (never trained yet, no real starting angle)
+      # 2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation (athlete
+      # directive -- "Cable Woodchopper" in the original proposal, this
+      # existing library movement IS that rotational core pattern).
+      {m: puretorque_pro_rotation_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-20: traded in from T3_GIANT (see above note); config unchanged.
       {m: better_fly_cable_pullover_d4, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration
     # 2026-08-20 (athlete directive): DB Rear Delt Fly (old d4_t3a) VACATED --
     # replaced by Better Fly Rear Delt Extension [FT] (fresh slot "d4_t3f",
@@ -108,10 +117,7 @@ days:
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
       {m: better_fly_rear_delt_ext_d4, reps: [10,15], rule: rpe_8_standard},  # 2026-08-20: new slot, needs-calibration
       {m: lying_tricep_extension_camber7_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: reused movement (Lying Tricep Extension [SB]), fresh slot "d4_t3e" -- needs-calibration. grip: 7_inch is a physical-setup detail (same BMF Camber Bar family as D1 Bench Press's 21" grip note), not a schema field.
-      # 2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation (athlete
-      # directive -- "Cable Woodchopper" in the original proposal, this
-      # existing library movement IS that rotational core pattern).
-      {m: puretorque_pro_rotation_d4, reps: [8,12], rule: rpe_8_standard}]}
+      {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]}]}  # 2026-08-20: traded in from T2_GIANT (see above note); config unchanged.
 
   d5:  # Lower B — shoe: Metcon 9 through T1, SWAP -> Adipower II at T2 (moved from T3
        # 2026-07-17: BSS-family needs the heel, so the swap must land before BSS, not after)
