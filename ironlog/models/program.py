@@ -13,7 +13,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Column, JSON, REAL, text
+from sqlalchemy import Column, JSON, REAL, UniqueConstraint, text
 from sqlmodel import Field, SQLModel
 
 from .enums import KneeModality, OverrideType  # noqa: F401 — used in TierExercise/SlotMovementOverride column types
@@ -115,12 +115,12 @@ class MesoRotation(SQLModel, table=True):
 
 
 class WeekParityRotation(SQLModel, table=True):
-    """Per-slot movement (+ optional rep-target) override keyed by ISO-week
+    """Per-slot movement (+ optional rep-target) override keyed by fixed week
     parity, resolved automatically from the current date at generation time
     -- no manual toggle, no note-apply flow. Two rows per rotating slot: one
-    week_parity="A" (even ISO week), one week_parity="B" (odd ISO week).
+    week_parity="A", one week_parity="B".
 
-    Precedence in lay_skeleton's _effective_movement_id: an active
+    Precedence in lay_skeleton's slot resolution: an active
     SlotMovementOverride still wins first (explicit live-state swap always
     takes priority), then a matching WeekParityRotation row for the current
     date's parity, then MesoRotation(meso_number), then te.movement_id
@@ -132,6 +132,8 @@ class WeekParityRotation(SQLModel, table=True):
     targets, not just different movement identities). When left None, the
     TierExercise's own rep_low/rep_high apply unchanged.
     """
+    __table_args__ = (UniqueConstraint("tier_exercise_id", "week_parity"),)
+
     id: Optional[int] = Field(default=None, primary_key=True)
     tier_exercise_id: int = Field(foreign_key="tierexercise.id", index=True)
     week_parity: str  # "A" or "B" -- validated by callers, not a DB constraint

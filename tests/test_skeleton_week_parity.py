@@ -9,12 +9,12 @@ from datetime import date
 
 from sqlmodel import SQLModel, Session as DBSession, create_engine
 
-from ironlog.generation.skeleton import lay_skeleton, week_parity
+from ironlog.generation.skeleton import _effective_movement_id, lay_skeleton, week_parity
 from ironlog.models.enums import OverrideType
 from ironlog.models.library import Movement
 from ironlog.models.program import (
-    Program, ProgramDay, SlotMovementOverride, Tier, TierExercise, TierKind,
-    WeekParityRotation,
+    MesoRotation, Program, ProgramDay, SlotMovementOverride, Tier, TierExercise,
+    TierKind, WeekParityRotation,
 )
 from ironlog.models.session import Note
 import ironlog.models  # register tables
@@ -43,6 +43,7 @@ def _seed(db):
         "anchor_override": Movement(name="Week Anchor Override [PB]", base_name="Week Anchor Override"),
         "slot_base": Movement(name="Week Slot Base [PB]", base_name="Week Slot Base"),
         "slot_even": Movement(name="Week Slot Even [PB]", base_name="Week Slot Even"),
+        "slot_meso": Movement(name="Week Slot Meso [PB]", base_name="Week Slot Meso"),
         "slot_odd": Movement(name="Week Slot Odd [PB]", base_name="Week Slot Odd"),
     }
     for movement in movements.values():
@@ -73,13 +74,22 @@ def _only_slot(sk):
     return sk.adaptive_slots[0]
 
 
-def test_week_parity_helper_maps_even_iso_week_to_a_and_odd_to_b():
-    even_monday = date(2026, 1, 5)  # ISO week 2, verified below.
-    odd_monday = date(2026, 1, 12)  # ISO week 3, verified below.
-    assert even_monday.isocalendar()[1] == 2
-    assert odd_monday.isocalendar()[1] == 3
-    assert week_parity(even_monday) == "A"
-    assert week_parity(odd_monday) == "B"
+def test_week_parity_helper_alternates_by_epoch_weeks():
+    epoch_monday = date(2026, 1, 5)
+    next_epoch_week = date(2026, 1, 12)
+
+    assert week_parity(epoch_monday) != week_parity(next_epoch_week)
+    assert week_parity(epoch_monday) == "A"
+    assert week_parity(next_epoch_week) == "B"
+
+
+def test_week_parity_helper_alternates_across_iso_53_week_boundary():
+    iso_week_53 = date(2026, 12, 28)
+    iso_week_1 = date(2027, 1, 4)
+
+    assert iso_week_53.isocalendar()[1] == 53
+    assert iso_week_1.isocalendar()[1] == 1
+    assert week_parity(iso_week_53) != week_parity(iso_week_1)
 
 
 def test_no_week_parity_rows_preserves_base_movement_and_reps():
@@ -132,6 +142,77 @@ def test_week_parity_rotation_resolves_a_and_b_movements_and_reps():
     assert slot_b.program_movement_id == ctx["movements"]["slot_odd"].id
     assert slot_b.rep_low == 12
     assert slot_b.rep_high == 15
+
+
+def test_week_parity_rotation_missing_current_parity_falls_back_to_base_movement():
+    db = DBSession(_engine())
+    ctx = _seed(db)
+
+    db.add(WeekParityRotation(
+        tier_exercise_id=ctx["slot_te"].id,
+        week_parity="A",
+        movement_id=ctx["movements"]["slot_even"].id,
+        rep_low=6,
+        rep_high=8,
+    ))
+    db.commit()
+
+    sk = lay_skeleton("D Week Parity", db, as_of=date(2026, 1, 12))
+    slot = _only_slot(sk)
+
+    assert slot.program_movement_id == ctx["movements"]["slot_base"].id
+    assert slot.rep_low == ctx["slot_te"].rep_low
+    assert slot.rep_high == ctx["slot_te"].rep_high
+
+
+def test_week_parity_rotation_precedes_meso_and_missing_parity_uses_meso():
+    db = DBSession(_engine())
+    ctx = _seed(db)
+
+    db.add(MesoRotation(
+        tier_exercise_id=ctx["slot_te"].id,
+        meso_number=2,
+        movement_id=ctx["movements"]["slot_meso"].id,
+    ))
+    db.add(WeekParityRotation(
+        tier_exercise_id=ctx["slot_te"].id,
+        week_parity="A",
+        movement_id=ctx["movements"]["slot_even"].id,
+        rep_low=6,
+        rep_high=8,
+    ))
+    db.commit()
+
+    sk_a = lay_skeleton("D Week Parity", db, meso_number=2, as_of=date(2026, 1, 5))
+    slot_a = _only_slot(sk_a)
+    assert slot_a.program_movement_id == ctx["movements"]["slot_even"].id
+    assert slot_a.rep_low == 6
+    assert slot_a.rep_high == 8
+
+    sk_b = lay_skeleton("D Week Parity", db, meso_number=2, as_of=date(2026, 1, 12))
+    slot_b = _only_slot(sk_b)
+    assert slot_b.program_movement_id == ctx["movements"]["slot_meso"].id
+    assert slot_b.rep_low == ctx["slot_te"].rep_low
+    assert slot_b.rep_high == ctx["slot_te"].rep_high
+
+
+def test_effective_movement_id_compatibility_ignores_week_parity_rotation():
+    db = DBSession(_engine())
+    ctx = _seed(db)
+
+    db.add(WeekParityRotation(
+        tier_exercise_id=ctx["slot_te"].id,
+        week_parity="A",
+        movement_id=ctx["movements"]["slot_even"].id,
+    ))
+    db.add(WeekParityRotation(
+        tier_exercise_id=ctx["slot_te"].id,
+        week_parity="B",
+        movement_id=ctx["movements"]["slot_odd"].id,
+    ))
+    db.commit()
+
+    assert _effective_movement_id(db, ctx["slot_te"], meso_number=1) == ctx["movements"]["slot_base"].id
 
 
 def test_week_parity_rotation_with_no_rep_override_preserves_tier_exercise_reps():

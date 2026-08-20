@@ -100,9 +100,16 @@ class _ResolvedSlot:
 
 
 def week_parity(as_of: date) -> str:
-    """"A" for even ISO week numbers, "B" for odd. No stored anchor --
-    purely a function of the calendar date."""
-    return "A" if as_of.isocalendar()[1] % 2 == 0 else "B"
+    """"A" or "B" from a fixed Monday-anchored week count.
+
+    This intentionally does not use raw ISO week-number parity: ISO years with
+    week 53 would otherwise produce the same letter for the final week of one
+    ISO year and the first week of the next.
+    """
+    # Arbitrary fixed Monday anchor; it only needs to be a Monday so week
+    # boundaries land cleanly and the alternation is stable forever.
+    epoch = date(2026, 1, 5)
+    return "A" if ((as_of - epoch).days // 7) % 2 == 0 else "B"
 
 
 def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
@@ -260,10 +267,20 @@ def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date) 
 def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:
     """Resolve the movement id for a TierExercise slot.
 
-    Compatibility wrapper for imports outside skeleton.py. Uses today's
-    ISO-week parity for WeekParityRotation and returns only the movement id.
+    Compatibility wrapper for imports outside skeleton.py. This intentionally
+    preserves the pre-WeekParityRotation behavior used by notes/resolver.py:
+    active SlotMovementOverride > MesoRotation(meso_number) > te.movement_id.
     """
-    return _resolve_slot(db, te, meso_number, date.today()).movement_id
+    ov = db.exec(select(SlotMovementOverride).where(
+        SlotMovementOverride.tier_exercise_id == te.id,
+        SlotMovementOverride.override_type == OverrideType.MOVEMENT,
+        SlotMovementOverride.active == True)).first()  # noqa: E712
+    if ov is not None:
+        return ov.override_movement_id
+    mr = db.exec(select(MesoRotation).where(
+        MesoRotation.tier_exercise_id == te.id,
+        MesoRotation.meso_number == meso_number)).first()
+    return mr.movement_id if mr is not None else te.movement_id
 
 
 def _slot_kind(te: TierExercise, tier: Tier) -> str:
