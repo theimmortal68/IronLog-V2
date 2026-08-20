@@ -9,6 +9,7 @@ proposer can use it as the starting point for exercise selection.
 NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
+from datetime import date
 from typing import List, Optional
 
 from sqlmodel import Session, select
@@ -16,6 +17,7 @@ from sqlmodel import Session, select
 from ironlog.models.enums import OverrideType
 from ironlog.models.program import (
     MesoRotation, ProgramDay, SlotMovementOverride, Tier, TierExercise, TierKind,
+    WeekParityRotation,
 )
 
 
@@ -90,8 +92,29 @@ class Skeleton:
     adaptive_slots: List[SlotSpec] = field(default_factory=list)
 
 
+@dataclass
+class _ResolvedSlot:
+    movement_id: int
+    rep_low: Optional[int] = None
+    rep_high: Optional[int] = None
+
+
+def week_parity(as_of: date) -> str:
+    """"A" or "B" from a fixed Monday-anchored week count.
+
+    This intentionally does not use raw ISO week-number parity: ISO years with
+    week 53 would otherwise produce the same letter for the final week of one
+    ISO year and the first week of the next.
+    """
+    # Arbitrary fixed Monday anchor; it only needs to be a Monday so week
+    # boundaries land cleanly and the alternation is stable forever.
+    epoch = date(2026, 1, 5)
+    return "A" if ((as_of - epoch).days // 7) % 2 == 0 else "B"
+
+
 def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
-                 program_id: Optional[int] = None) -> Skeleton:
+                 program_id: Optional[int] = None,
+                 as_of: Optional[date] = None) -> Skeleton:
     """Read the program and return a Skeleton for the given day_role and meso.
 
     program_id (Fork 3 scoping): when given, the ProgramDay is filtered to that
@@ -99,19 +122,24 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
     active_program_id) if set; otherwise to the single matching ProgramDay by
     day_role alone (back-compat for existing single-program callers/tests).
 
+    as_of:
+        Calendar date used for WeekParityRotation resolution. When None,
+        defaults once per call to date.today().
+
     anchor_movement_ids:
         Movement ids for TierExercises with tier_role=="anchor" outside
         GIANT_SET tiers.
-        Resolved via _effective_movement_id: an active SlotMovementOverride
-        takes precedence, then the matching MesoRotation row for meso_number,
-        then te.movement_id.
+        Resolved via _resolve_slot: an active SlotMovementOverride takes
+        precedence, then the matching WeekParityRotation row for as_of's
+        parity, then the matching MesoRotation row for meso_number, then
+        te.movement_id.
 
     adaptive_slots:
         SlotSpec for every non-anchor TierExercise, plus anchor exercises
         inside GIANT_SET tiers, with
-        program_movement_id resolved via the same _effective_movement_id
-        precedence (SlotMovementOverride > MesoRotation(meso_number) >
-        te.movement_id).
+        program_movement_id resolved via the same _resolve_slot precedence
+        (SlotMovementOverride > WeekParityRotation(as_of) >
+        MesoRotation(meso_number) > te.movement_id).
         kind = "knee" if knee_modality set,
                "giant" if tier is GIANT_SET and tier_role is not anchor,
                "accessory" otherwise.
@@ -119,6 +147,8 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         slots and anchor-role slots inside GIANT_SET tiers still assemble into
         the shared tier group.
     """
+    effective_as_of = as_of if as_of is not None else date.today()
+
     if program_id is None:
         from ironlog.models.library import EngineState
         es = db.get(EngineState, 1)
@@ -150,11 +180,13 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         exercises = sorted(exercises, key=lambda te: _effective_exercise_order(db, te))
 
         for te in exercises:
+            resolved = _resolve_slot(db, te, meso_number, effective_as_of)
+            rep_low = resolved.rep_low if resolved.rep_low is not None else te.rep_low
+            rep_high = resolved.rep_high if resolved.rep_high is not None else te.rep_high
             if te.tier_role == "anchor" and tier.tier_kind != TierKind.GIANT_SET:
-                movement_id = _effective_movement_id(db, te, meso_number)
-                anchor_movement_ids.append(movement_id)
+                anchor_movement_ids.append(resolved.movement_id)
                 anchor_meta.append(AnchorSpec(
-                    rep_low=te.rep_low, rep_high=te.rep_high,
+                    rep_low=rep_low, rep_high=rep_high,
                     rpe_cap=te.rpe_cap, rest_seconds=tier.rest_seconds,
                     tier_label=tier.tier_label, shoe=tier.shoe,
                     tier_exercise_id=te.id, tier_order=tier.tier_order,
@@ -166,10 +198,10 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     pattern=te.pattern,
                     tier_role=te.tier_role,
                     knee_modality=te.knee_modality,
-                    program_movement_id=_effective_movement_id(db, te, meso_number),
+                    program_movement_id=resolved.movement_id,
                     is_giant_tier=tier.tier_kind == TierKind.GIANT_SET,
                     group_key=tier.tier_label,
-                    rep_low=te.rep_low, rep_high=te.rep_high, rpe_cap=te.rpe_cap,
+                    rep_low=rep_low, rep_high=rep_high, rpe_cap=te.rpe_cap,
                     rest_seconds=tier.rest_seconds, shoe=tier.shoe,
                     tier_exercise_id=te.id, tier_order=tier.tier_order,
                 ))
@@ -192,10 +224,11 @@ def _effective_exercise_order(db: Session, te: TierExercise) -> float:
     return float(te.exercise_order)
 
 
-def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:
-    """Resolve the movement id for a TierExercise slot.
+def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date) -> _ResolvedSlot:
+    """Resolve the movement id and optional rep overrides for a TierExercise slot.
 
-    Precedence: active SlotMovementOverride > MesoRotation(meso_number) > te.movement_id.
+    Precedence: active SlotMovementOverride > WeekParityRotation(as_of) >
+    MesoRotation(meso_number) > te.movement_id.
     Base program (te.movement_id) is never mutated by this resolution.
 
     Filters to override_type == MOVEMENT: SlotMovementOverride is now a general
@@ -204,6 +237,39 @@ def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> i
     active LOAD/REPS row on the same tier_exercise_id must not be mistaken for
     a movement swap (its override_movement_id is a harmless placeholder, not
     the intended slot movement).
+    """
+    ov = db.exec(select(SlotMovementOverride).where(
+        SlotMovementOverride.tier_exercise_id == te.id,
+        SlotMovementOverride.override_type == OverrideType.MOVEMENT,
+        SlotMovementOverride.active == True)).first()  # noqa: E712
+    if ov is not None:
+        return _ResolvedSlot(movement_id=ov.override_movement_id)
+
+    wpr = db.exec(select(WeekParityRotation).where(
+        WeekParityRotation.tier_exercise_id == te.id,
+        WeekParityRotation.week_parity == week_parity(as_of))).first()
+    if wpr is not None:
+        return _ResolvedSlot(
+            movement_id=wpr.movement_id,
+            rep_low=wpr.rep_low,
+            rep_high=wpr.rep_high,
+        )
+
+    mr = db.exec(select(MesoRotation).where(
+        MesoRotation.tier_exercise_id == te.id,
+        MesoRotation.meso_number == meso_number)).first()
+    if mr is not None:
+        return _ResolvedSlot(movement_id=mr.movement_id)
+
+    return _ResolvedSlot(movement_id=te.movement_id)
+
+
+def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:
+    """Resolve the movement id for a TierExercise slot.
+
+    Compatibility wrapper for imports outside skeleton.py. This intentionally
+    preserves the pre-WeekParityRotation behavior used by notes/resolver.py:
+    active SlotMovementOverride > MesoRotation(meso_number) > te.movement_id.
     """
     ov = db.exec(select(SlotMovementOverride).where(
         SlotMovementOverride.tier_exercise_id == te.id,
