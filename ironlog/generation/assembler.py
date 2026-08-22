@@ -30,7 +30,7 @@ from ..models.library import (
     BandPair, EngineState, Equipment, HtProgressionState, Movement,
     MovementState,
 )
-from ..models.program import DayFinisher, ProgramDay, Tier, TierExercise
+from ..models.program import DayFinisher, FinisherLog, ProgramDay, Tier, TierExercise
 from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet, SetLog
 from ..models.session import Session as WorkoutSession
 from .context import GenerationContext
@@ -147,12 +147,33 @@ def build_finisher_payload(
         )
         current_rope = state.current_rope if state is not None else None
 
+    # "Last logged value" prefill comes straight from the most recent
+    # FinisherLog row for this movement, not from MovementState.current_load.
+    # MovementState-based reuse was the source of a real bug: an unvalidated
+    # movement_id could silently overwrite a LADDER movement's real working
+    # load (MovementState is keyed by (movement_id, day_id=day_role), the
+    # SAME namespace run_analysis.py uses for real progression state), and
+    # separately, legacy day_id=None MovementState rows for
+    # FINISHER_DURATION_THEN_ROPE movements (jump_rope) were being shadowed
+    # by a sparse day-scoped row created for the "last logged weight" write.
+    # FinisherLog is a brand-new table with no legacy rows, so this sidesteps
+    # both problems entirely.
+    last_log = db.exec(
+        select(FinisherLog)
+        .where(FinisherLog.movement_id == finisher.movement_id)
+        .order_by(FinisherLog.performed_at.desc())
+    ).first()
+
     return {
         "exercise_name": movement.name if movement is not None else "",
         "duration_minutes": finisher.duration_minutes,
         "params": dict(finisher.params or {}),
         "current_duration_seconds": current_duration_seconds,
         "current_rope": current_rope,
+        "last_logged_weight_lb": last_log.actual_weight_lb if last_log is not None else None,
+        "last_logged_resistance_level": (
+            last_log.actual_resistance_level if last_log is not None else None
+        ),
     }
 
 

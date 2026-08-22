@@ -11,7 +11,9 @@ from sqlmodel.pool import StaticPool
 
 import ironlog.api.app as api
 import ironlog.models  # noqa: F401 — ensure all tables registered
+from ironlog.generation.assembler import build_finisher_payload
 from ironlog.models.library import Movement, MovementState
+from ironlog.models.program import FinisherLog, ProgramDay
 
 
 @pytest.fixture
@@ -69,11 +71,15 @@ def test_generate_d1_includes_kb_swing_finisher(client_engine):
         "duration_minutes": 6,
         "params": {
             "weight_lb": 30,
+            "work_seconds_per_minute": 40,
+            "rest_seconds_per_minute": 20,
             "target_reps_per_minute": 15,
             "equipment": ["kettlebell_30"],
         },
         "current_duration_seconds": None,
         "current_rope": None,
+        "last_logged_weight_lb": None,
+        "last_logged_resistance_level": None,
     }
 
 
@@ -129,3 +135,125 @@ def test_approved_session_detail_includes_finisher(client_engine):
 
     assert detail.json()["finisher"]["exercise_name"] == "kb_swing"
     assert detail.json()["warmup"]["movement_flow_seconds"] == 90
+
+
+def test_finisher_log_round_trip_updates_payload_via_finisher_log_not_movement_state(client_engine):
+    client, engine = client_engine
+    body = _generate(client, "D1 Upper Push")
+    approved = client.post(f"/sessions/{body['candidate_id']}/approve")
+    assert approved.status_code == 200, approved.text
+    session_id = approved.json()["session_id"]
+
+    with DbSession(engine) as s:
+        movement = s.exec(select(Movement).where(Movement.name == "kb_swing")).one()
+        program_day = s.exec(
+            select(ProgramDay).where(ProgramDay.day_role == "D1 Upper Push")
+        ).one()
+        assert build_finisher_payload(s, program_day.id)["last_logged_weight_lb"] is None
+        # kb_swing already has a seed-time legacy day_id=None MovementState
+        # row (program_seed._seed_finishers). It must NOT be disturbed by a
+        # finisher log write -- the redesigned write path no longer touches
+        # MovementState at all, so this is a no-op by construction; asserted
+        # below.
+        legacy_state = s.exec(
+            select(MovementState).where(MovementState.movement_id == movement.id)
+        ).one()
+        legacy_state.current_load = 777.0
+        s.add(legacy_state)
+        s.commit()
+        movement_id = movement.id
+        program_day_id = program_day.id
+
+    resp = client.post(
+        f"/sessions/{session_id}/finisher/log",
+        json={
+            "movement_id": movement_id,
+            "actual_weight_lb": 40.0,
+            "notes": "felt crisp",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {
+        "id": resp.json()["id"],
+        "movement_id": movement_id,
+        "actual_weight_lb": 40.0,
+        "actual_resistance_level": None,
+    }
+
+    with DbSession(engine) as s:
+        log = s.get(FinisherLog, resp.json()["id"])
+        assert log.session_id == session_id
+        assert log.movement_id == movement_id
+        assert log.actual_weight_lb == 40.0
+        assert log.actual_resistance_level is None
+        assert log.notes == "felt crisp"
+
+        # The legacy day_id=None row is untouched -- no new MovementState row
+        # was created for this write at all.
+        states = s.exec(
+            select(MovementState).where(MovementState.movement_id == movement_id)
+        ).all()
+        assert len(states) == 1
+        assert states[0].day_id is None
+        assert states[0].current_load == 777.0
+
+        payload = build_finisher_payload(s, program_day_id)
+        assert payload["last_logged_weight_lb"] == 40.0
+        assert payload["last_logged_resistance_level"] is None
+
+
+def test_finisher_log_resistance_only_prefills_resistance_not_weight(client_engine):
+    client, engine = client_engine
+    body = _generate(client, "D2 Lower A")
+    approved = client.post(f"/sessions/{body['candidate_id']}/approve")
+    assert approved.status_code == 200, approved.text
+    session_id = approved.json()["session_id"]
+
+    with DbSession(engine) as s:
+        movement = s.exec(select(Movement).where(Movement.name == "sled_push")).one()
+        program_day = s.exec(
+            select(ProgramDay).where(ProgramDay.day_role == "D2 Lower A")
+        ).one()
+        movement_id = movement.id
+        program_day_id = program_day.id
+
+    resp = client.post(
+        f"/sessions/{session_id}/finisher/log",
+        json={"movement_id": movement_id, "actual_resistance_level": 9},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["actual_weight_lb"] is None
+    assert resp.json()["actual_resistance_level"] == 9
+
+    with DbSession(engine) as s:
+        payload = build_finisher_payload(s, program_day_id)
+        assert payload["last_logged_resistance_level"] == 9
+        assert payload["last_logged_weight_lb"] is None
+
+
+def test_finisher_log_rejects_movement_id_mismatched_with_days_finisher(client_engine):
+    client, engine = client_engine
+    body = _generate(client, "D1 Upper Push")
+    approved = client.post(f"/sessions/{body['candidate_id']}/approve")
+    assert approved.status_code == 200, approved.text
+    session_id = approved.json()["session_id"]
+
+    with DbSession(engine) as s:
+        # A real LADDER movement trained the same day -- NOT this day's
+        # finisher (which is kb_swing). Sending its movement_id must be
+        # rejected, not silently accepted.
+        other_movement = s.exec(
+            select(Movement).where(Movement.name != "kb_swing")
+        ).first()
+        other_movement_id = other_movement.id
+
+    resp = client.post(
+        f"/sessions/{session_id}/finisher/log",
+        json={"movement_id": other_movement_id, "actual_weight_lb": 999.0},
+    )
+    assert resp.status_code == 400, resp.text
+
+    with DbSession(engine) as s:
+        assert s.exec(
+            select(FinisherLog).where(FinisherLog.movement_id == other_movement_id)
+        ).first() is None

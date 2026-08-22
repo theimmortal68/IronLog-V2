@@ -63,7 +63,7 @@ from .schemas_weakpoints import (
     MuscleGroupSummaryOut, WeakMovementOut, WeakPointAssessmentOut,
 )
 from ..models.library import CardioLog, EngineState, DailyReadiness, GoalSettings, WithingsCredentials
-from ..models.program import MissedDayRecord, ProgramDay
+from ..models.program import DayFinisher, FinisherLog, MissedDayRecord, ProgramDay
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.assembler import build_finisher_payload, build_warmup_payload
@@ -415,6 +415,74 @@ def approve_session(candidate_id: str, db: Session = Depends(get_session)):
 # ---------------------------------------------------------------------------
 
 _TAP_REQUIRED_ROLES = {SetRole.WORKING, SetRole.TOP, SetRole.BACKOFF}
+
+
+class FinisherLogRequest(BaseModel):
+    movement_id: int
+    actual_weight_lb: Optional[float] = None
+    actual_resistance_level: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class FinisherLogResponse(BaseModel):
+    id: int
+    movement_id: int
+    actual_weight_lb: Optional[float]
+    actual_resistance_level: Optional[int]
+
+
+@app.post("/sessions/{session_id}/finisher/log", response_model=FinisherLogResponse)
+def log_finisher(session_id: int, req: FinisherLogRequest, db: Session = Depends(get_session)):
+    """Log what was actually performed on this session's finisher.
+
+    Writes a FinisherLog row (full history) only -- build_finisher_payload
+    reads the most recent FinisherLog row directly for "last logged" prefill,
+    so there is nothing else to write here.
+
+    req.movement_id is validated against the session's ACTUAL finisher
+    (resolved via the same signature['program_day_id'] -> DayFinisher path
+    build_finisher_payload uses), not trusted as-is. SQLite foreign keys are
+    not enforced in this project, so without this check a client could pass
+    a wrong-but-valid movement_id (e.g. a LADDER movement trained the same
+    day) and, in the old MovementState-writing implementation, silently
+    clobber that movement's real working load. Validating here also removes
+    any need to touch MovementState at all.
+    """
+    from ..models.session import Session as WorkoutSession
+
+    ws = db.get(WorkoutSession, session_id)
+    if ws is None:
+        raise HTTPException(404, "session not found")
+
+    program_day_id = (ws.signature or {}).get("program_day_id")
+    finisher = (
+        db.exec(
+            select(DayFinisher).where(DayFinisher.program_day_id == program_day_id)
+        ).first()
+        if program_day_id is not None
+        else None
+    )
+    if finisher is None or finisher.movement_id != req.movement_id:
+        raise HTTPException(
+            400, "movement_id does not match this session's configured finisher"
+        )
+
+    log = FinisherLog(
+        session_id=session_id,
+        movement_id=req.movement_id,
+        actual_weight_lb=req.actual_weight_lb,
+        actual_resistance_level=req.actual_resistance_level,
+        notes=req.notes,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return FinisherLogResponse(
+        id=log.id,
+        movement_id=log.movement_id,
+        actual_weight_lb=log.actual_weight_lb,
+        actual_resistance_level=log.actual_resistance_level,
+    )
 
 
 @app.post("/sessions/{session_id}/submit", response_model=SubmitResponse)

@@ -441,6 +441,8 @@ def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
             "name": "kb_swing",
             "params": {
                 "weight_lb": 30,
+                "work_seconds_per_minute": 40,
+                "rest_seconds_per_minute": 20,
                 "target_reps_per_minute": 15,
                 "equipment": ["kettlebell_30"],
             },
@@ -449,7 +451,8 @@ def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
             "name": "sled_push",
             "params": {
                 "resistance_level": 8,
-                "work_seconds_per_minute": 30,
+                "work_seconds_per_minute": 20,
+                "rest_seconds_per_minute": 30,
                 "equipment": ["dreadmill"],
             },
         },
@@ -459,6 +462,7 @@ def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
                 "weight_lb": 100,
                 "utility_seat_height_inches": 52,
                 "target_reps_per_minute": 4,
+                "scheme": "emom",
                 "equipment": ["sandbag_100", "utility_seat", "spotter_arms"],
             },
         },
@@ -475,8 +479,17 @@ def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
             "name": "jump_rope",
             "params": {
                 "rope_type": "crossrope_quarter_lb",
+                "work_seconds": 20,
+                "rest_seconds": 10,
+                "rounds_per_block": 8,
+                "blocks": 2,
+                "inter_block_rest_seconds": 75,
+                # legacy field, superseded by work_seconds/rest_seconds below for
+                # the new "scheme": "tabata" clients -- kept for any code path
+                # still reading it (live_seed_ramp_and_finishers.py)
                 "work_seconds_per_minute": 30,
                 "target_reps_per_minute": 40,
+                "scheme": "tabata",
                 "equipment": ["crossrope_quarter_lb"],
             },
             "duration_ladder": [35, 40, 45, 50],
