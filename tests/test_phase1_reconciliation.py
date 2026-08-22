@@ -157,11 +157,10 @@ TIER_REST_MAP = {
     # ("D5 Lower B", "T1b") removed 2026-08-12 (STAB maintenance-block
     # redesign, Task 4) -- D5's Hip Thrust T1b tier no longer exists (2nd
     # of 3 Hip Thrust removals across this redesign).
-    ("D5 Lower B", "T2 GS"): 90,
-    ("D5 Lower B", "T3 GS"): 60,
-    # ("D5 Lower B", "T4") added 2026-08-12, new straight tier (Ab Trainer
-    # Russian Twist); tier_label "T4" not "T4 GS" (not a GIANT_SET).
-    ("D5 Lower B", "T4"): 90,
+    # ("D5 Lower B", "T2 GS")/("T3 GS")/("T4") replaced 2026-08-22 (athlete
+    # directive) -- restructured into GS1/GS2, T4 folded into GS1.
+    ("D5 Lower B", "GS1"): 60,
+    ("D5 Lower B", "GS2"): 90,
     # ("D6 Weak Points", "T1") removed 2026-08-12 (STAB maintenance-block
     # redesign, Task 5) -- D6's standalone T1 tier (Dips) no longer exists;
     # Dips folds back into GS1 (3rd and final Hip Thrust removal + T1

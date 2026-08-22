@@ -144,19 +144,24 @@ def test_d5_knee_modality_giant_tiers_stay_grouped(gen_db_calibrated):
     # has a Nordic slot at all, replaced by Lying Leg Curl [GHR + Ares]
     # (fresh slot d5_t2i). D2's Nordic slot now carries the program's sole
     # weekly Nordic exposure (rotating A/B via WeekParityRotation).
-    t2 = _giant_group_by_label(res.session, "T2 GS")
-    assert _names_for_group(t2, gen_db) == [
-        "Matrix Machine Bulgarian Split Squat",
+    # 2026-08-22 (athlete directive): full T2 GS/T3 GS/T4 restructure into
+    # two 4-member giant sets GS1/GS2 -- T4 (Ab Trainer Russian Twist)
+    # folds into GS1. All members keep their prior slot_id/config, just
+    # relocated (see program_seed.py's _seed_d5 for the full history).
+    gs1 = _giant_group_by_label(res.session, "GS1")
+    assert _names_for_group(gs1, gen_db) == [
         "Lying Leg Curl [GHR + Ares]",
-        "Better Fly Kickback [FT]",
-    ]
-
-    t3 = _giant_group_by_label(res.session, "T3 GS")
-    assert _names_for_group(t3, gen_db) == [
-        "Reverse Nordic Curl [GHR]",
-        "Hybrid Board Calf Raise [D5]",
+        "Ab Trainer Russian Twist",
         "Hybrid Board Tib Raise [D5]",
         "Better Fly Hip Adduction [FT]",
+    ]
+
+    gs2 = _giant_group_by_label(res.session, "GS2")
+    assert _names_for_group(gs2, gen_db) == [
+        "Matrix Machine Bulgarian Split Squat",
+        "Reverse Nordic Curl [GHR]",
+        "Hybrid Board Calf Raise [D5]",
+        "Better Fly Kickback [FT]",
     ]
 
 
@@ -228,11 +233,16 @@ def test_d2_t2_giant_set_has_three_members_no_trailing_t4(gen_db_calibrated):
     ]
 
 
-def test_d5_trailing_anchor_tier_sorts_last_by_true_tier_order(gen_db_calibrated):
-    """D5 Lower B twin of the D2 trailing-anchor-tier reproduction above.
+def test_d5_giant_sets_have_no_trailing_anchor_tier(gen_db_calibrated):
+    """D5 Lower B twin of the D2 trailing-anchor-tier reproduction above,
+    updated 2026-08-22.
 
-    D5's T4 (Ab Trainer Russian Twist) mirrors D2's T4 shape exactly --
-    same bug, same fix, different movement and program day.
+    D5 used to have a trailing T4 anchor tier (Ab Trainer Russian Twist)
+    that reproduced the real tier_order sort bug this test file guards
+    against (same class as D2's twin case above). As of 2026-08-22
+    (athlete directive), D5's T4 was folded into GS1 as a 3rd-slot member
+    and no longer exists as its own tier -- this test now asserts that
+    merged shape instead (mirrors D2's equivalent update).
     """
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
@@ -243,9 +253,8 @@ def test_d5_trailing_anchor_tier_sorts_last_by_true_tier_order(gen_db_calibrated
     layout = [(g.label, g.group_type.value) for g in groups]
     assert layout == [
         ("T1", "STRAIGHT"),
-        ("T2 GS", "GIANT_SET"),
-        ("T3 GS", "GIANT_SET"),
-        ("T4", "STRAIGHT"),
-    ], f"D5's trailing anchor tier (T4) must sort LAST by true tier_order, got {layout}"
-    t4 = groups[-1]
-    assert _names_for_group(t4, gen_db) == ["Ab Trainer Russian Twist"]
+        ("GS1", "GIANT_SET"),
+        ("GS2", "GIANT_SET"),
+    ], f"D5 must have no standalone T4 tier after the T4->GS1 merge, got {layout}"
+    gs1 = groups[1]
+    assert "Ab Trainer Russian Twist" in _names_for_group(gs1, gen_db)

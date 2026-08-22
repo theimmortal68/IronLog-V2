@@ -52,15 +52,15 @@ def _shoes_by_label(gen_db, day_role):
 
 
 def test_d5_shoe_swap_metcon_to_adipower(gen_db):
-    """D5 Lower B: T1 carries 'Metcon 9'; T2 GS (the mid-session swap target)
-    / T4 carry 'Adipower II'. T3 GS carries 'Metcon 9' (2026-08-14, athlete
-    directive -- Tib Raise needs ankle dorsiflexion range Adipower restricts).
-    T1b (Hip Thrust) dropped 2026-08-12."""
+    """D5 Lower B: T1 carries 'Metcon 9'. 2026-08-22 (athlete directive):
+    T2 GS/T3 GS/T4 restructured into GS1 (Metcon 9 -- Tib Raise needs the
+    ankle dorsiflexion range Adipower restricts, same 2026-08-14 rationale)
+    / GS2 (Adipower II -- BSS needs the heel). T1b (Hip Thrust) dropped
+    2026-08-12; T4 (Ab Trainer Russian Twist) folded into GS1."""
     by_label = _shoes_by_label(gen_db, "D5 Lower B")
     assert by_label["T1"] == {"Metcon 9"}
-    assert by_label["T2 GS"] == {"Adipower II"}
-    assert by_label["T3 GS"] == {"Metcon 9"}
-    assert by_label["T4"] == {"Adipower II"}
+    assert by_label["GS1"] == {"Metcon 9"}
+    assert by_label["GS2"] == {"Adipower II"}
 
 
 def test_d1_all_tiers_metcon9_no_swap(gen_db):

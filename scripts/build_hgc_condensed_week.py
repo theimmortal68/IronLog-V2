@@ -91,7 +91,14 @@ MINI_SESSIONS = [
     # (see test_hgc_condensed_week.py).
     (date(2026, 7, 27), "D2 Lower A", ["Belt Squat [GHR + FT]", "ATG Split Squat", "Hybrid Board Tib Raise [D2]"]),
     (date(2026, 7, 27), "D6 Weak Points", ["Face Pull [FT]"]),
-    (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [DB]", "Better Fly Kickback [FT]", "Reverse Nordic Curl [GHR]"]),
+    # 2026-08-22: "Reverse Nordic Curl [GHR]" -> "Better Fly Hip Adduction
+    # [FT]" -- the D5 restructure (T2 GS/T3 GS/T4 -> GS1/GS2) put Reverse
+    # Nordic Curl and Better Fly Kickback in the SAME group (GS2), which
+    # would have broken this entry's "3-way straight-sets-only" premise
+    # (no two of these three movements may share a source ExerciseGroup).
+    # Better Fly Hip Adduction is a GS1 member, distinct from Kickstand
+    # RDL's T1 and Better Fly Kickback's GS2.
+    (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [DB]", "Better Fly Kickback [FT]", "Better Fly Hip Adduction [FT]"]),
     # 2026-08-20: repointed from "Nordic Curl Max [Ares]" -- that slot
     # (d2_t2e) now rotates A/B via WeekParityRotation (Apex angle / Ares
     # flat+band), so which movement `lay_skeleton(day_role, db)` resolves

@@ -943,127 +943,80 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # explicit instruction; flagged for Task 7 (final verification) to note
     # as a cleanup candidate, not something to remove here.
 
-    # T2 GS — Nordic Max Bulgarian Split Squat / Nordic Curl Max [Ares] /
-    # Better Fly Kickback. 2026-08-12: full T2 GS turnover -- Bulgarian
-    # Split Squat [DB] (old d5_t2a), Light Reverse Hyper [REV_HYPER] (old
+    # 2026-08-22 (athlete directive): full T2 GS/T3 GS/T4 restructure into
+    # two 4-member giant sets, GS1 and GS2 -- T4 (Ab Trainer Russian Twist)
+    # is ELIMINATED as its own tier, folded into GS1 instead (mirrors D6's
+    # Dips T1->GS1 fold-in precedent exactly). All member slot_ids carry
+    # over unchanged from their prior tiers (movement-intrinsic identity,
+    # this session's established tier-swap convention -- no movement here
+    # is changing identity, only tier placement). Below is a historical
+    # index of what used to live in the T2 GS / T3 GS / T4 tiers this
+    # replaces, kept for the never-reassign-slot_id audit trail:
+    #
+    # Old T2 GS (2026-08-11 through 2026-08-20 history): Bulgarian Split
+    # Squat [DB] (old d5_t2a) / Light Reverse Hyper [REV_HYPER] (old
     # d5_t2b, carried a meso-2 rotation to Reverse Hyper - Single Leg --
-    # DROPPED, not carried to any new slot; see test_program_seed_rotation_
-    # guard.py's rewrite for the program-wide fallout, no real adaptive-role
-    # meso rotation is left anywhere in the program after this), and Nordic
-    # Curl [GHR] (old d5_t2c, the eccentric-assisted variant) all drop out
-    # of D5 entirely -- old slot_ids d5_t2a/b/c VACATED, not reused (never-
-    # reassign-slot_id). Fresh slots d5_t2d/e/f. Shoe swap stays here (was
-    # moved from T3 in 2026-07-17, BSS-family movements need the Adipower
-    # II heel before the working set, still true for Nordic Max BSS).
+    # dropped) / Nordic Curl [GHR] (old d5_t2c) all dropped 2026-08-12,
+    # replaced by Nordic Max Bulgarian Split Squat (d5_t2d, itself replaced
+    # 2026-08-14 by Matrix Machine Bulgarian Split Squat at fresh slot
+    # d5_t2h -- Nordic Max rig conflict with Nordic Curl Max), Nordic Curl
+    # Max [Ares] (d5_t2e, itself replaced 2026-08-20 by Lying Leg Curl
+    # [GHR + Ares] at fresh slot d5_t2i -- D5 dropped its Nordic slot
+    # entirely, D2 carries the program's sole weekly Nordic exposure now),
+    # and Better Fly Kickback (d5_t2f, unchanged since 2026-08-12).
     #
-    # Nordic Curl Max [Ares] is the SAME Movement row D2's `nordic_curl_max_
-    # d2` already references (day-scoped MovementState/assist track,
-    # confirmed by that Movement's own seed.py comment: "Shares identity
-    # with D5's Task 4 slot"). This TierExercise carries
-    # knee_modality=NORDIC (task-prompt correction) -- Task 2's D2 slot
-    # already carries the same tag; the tag lives per-slot on TierExercise,
-    # not on Movement, so it does NOT carry forward automatically and must
-    # be applied independently here, matching D2's precedent (its own
-    # d5_t2c predecessor, "Assisted Nordic (eccentric)", already carried
-    # knee_modality=NORDIC too -- established program convention, not new).
+    # Old T3 GS: Poliquin Step-up (old d5_t3a, KOT) and Cable Tib Raise
+    # (old d5_t3c, TIB) dropped 2026-08-12, not in the FINAL doc's D5 T3 GS;
+    # Hyper Pro Calf Raise (old d5_t3d) also dropped, replaced by the
+    # Hybrid Board equipment variant. Reverse Nordic Curl [GHR] (d5_t3b)
+    # unchanged since inception. Hybrid Board Calf Raise [D5] (d5_t3e) and
+    # Better Fly Hip Adduction (d5_t3g) new 2026-08-12. Hybrid Board Tib
+    # Raise [D5] (d5_t3f) new 2026-08-12 plan-owner addendum, preserving
+    # the program's 2x/week TIB-modality invariant.
     #
-    # 2026-08-14: Nordic Max Bulgarian Split Squat (old d5_t2d) replaced by
-    # Matrix Machine Bulgarian Split Squat (athlete directive) -- both it
-    # and Nordic Curl Max [Ares] need the Nordic Max rig, which can't serve
-    # two exercises in the same giant set at once (same equipment-conflict
-    # class as D4's Apex/Stryker Pad fix). Genuinely new movement filling a
-    # vacated spot -> fresh slot_id "d5_t2h" (never-reassign-slot_id);
-    # d5_t2d is vacated, not reused. Nordic Max Bulgarian Split Squat stays
-    # ACTIVE in the library, unwired everywhere now -- not deleted.
-    # 2026-08-20 (athlete directive): d5_t2e (Nordic Curl Max [Ares]) swapped
-    # for Lying Leg Curl [GHR + Ares] -- genuinely different Movement row
-    # (not the old, long-unwired "Lying Leg Curl [GHR]" from D2's pre-
-    # 2026-08-11 wiring -- that was GHR-only/plate-loaded; this is a
-    # different equipment combo, GHR bench + Ares cable), so per this
-    # session's never-reassign-slot_id precedent this gets a fresh slot_id
-    # "d5_t2i"; d5_t2e is VACATED, not reused. D5 no longer has a Nordic
-    # Curl slot at all -- D2's d2_t2e now carries the program's sole
-    # weekly Nordic exposure, rotating A/B (Apex angle / Ares flat+band)
-    # via WeekParityRotation. No knee_modality (hamstring curl, not part
-    # of the knee taxonomy) -- Nordic Curl Max [Ares]'s NORDIC tag does
-    # not carry forward (movement-intrinsic, not slot-intrinsic in this
-    # case since it's a genuine movement swap, not a reconfiguration).
-    # Needs-calibration: zero prior history on this equipment combo.
-    t2 = _add_tier(db, pd.id, "T2 GS", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
-    _add_te(db, t2.id, "d5_t2h", "Matrix Machine Bulgarian Split Squat", lib, 1, "free",
-            pattern="lunge", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d5_t2i", "Lying Leg Curl [GHR + Ares]", lib, 2, "free",
+    # Old T4 (straight, tier_role="anchor"): Ab Trainer Russian Twist
+    # (d5_t4a), D5's mandatory rotational-pattern core slot since
+    # 2026-08-12. Now folds into GS1 as tier_role="free" (GIANT_SET-member
+    # convention, not "anchor" -- mirrors every other tier-fold-in this
+    # session, e.g. D6's Dips, D2's T4->T2GS merge).
+    #
+    # New GS1 (Metcon 9, flat shoe): Lying Leg Curl [GHR + Ares] (d5_t2i),
+    # Ab Trainer Russian Twist (d5_t4a), Hybrid Board Tib Raise [D5]
+    # (d5_t3f), Better Fly Hip Adduction (d5_t3g). Flat shoe carries
+    # forward from the movements' own prior shoe assignments (Tib Raise
+    # specifically needs full ankle dorsiflexion, per the 2026-08-14 T3
+    # shoe fix -- Adipower's heel would restrict it).
+    gs1 = _add_tier(db, pd.id, "GS1", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
+    _add_te(db, gs1.id, "d5_t2i", "Lying Leg Curl [GHR + Ares]", lib, 1, "free",
             pattern="leg_curl", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d5_t2f", "Better Fly Kickback", lib, 3, "free",
-            pattern="glute", rep_low=10, rep_high=15,
-            scheme="DOUBLE_PROGRESSION")
-
-    # T3 GS — Reverse Nordic Curl [GHR] (unchanged, reused) / Hybrid Board
-    # Calf Raise [D5] (new) / Hybrid Board Tib Raise [D5] (new, 2026-08-12
-    # plan-owner addendum, see below) / Better Fly Hip Adduction (new).
-    # Poliquin Step-up (old d5_t3a, KOT) and Cable Tib Raise (old d5_t3c,
-    # TIB) drop out of D5 entirely -- NOT in the FINAL doc's D5 T3 GS
-    # composition; Hyper Pro Calf Raise (old d5_t3d) also drops out,
-    # replaced by the Hybrid Board equipment variant. d5_t3b (Reverse
-    # Nordic Curl [GHR]) keeps its existing stable slot_id, unchanged --
-    # retained movement, not a new one, so the never-reassign-slot_id rule
-    # doesn't apply there. Old slot_ids d5_t3a/c/d VACATED, not reused.
-    # Fresh slots d5_t3e/f/g.
-    #
-    # TIB-frequency resolution (plan-owner directive, resolving this task's
-    # own NEEDS_CONTEXT round-trip): the FINAL doc's D5 T3 GS originally had
-    # only 3 members with no TIB-modality slot, which would have dropped
-    # TIB-modality work program-wide to 1x/week (D2 only), breaking
-    # tests/test_program_seed.py::test_knee_frequencies_are_satisfiable's
-    # "tib must appear on >=2 days" invariant. Resolved: Cable Tib Raise is
-    # being replaced program-wide by a new "Hybrid Board Tib Raise"
-    # movement (new equipment, mirrors the existing Hybrid Board Calf Raise
-    # per-day-separate-row pattern) -- D5's T3 GS becomes 4 members, not 3,
-    # preserving the 2x/week TIB invariant with NO test-assertion
-    # relaxation needed. D2 gets the equivalent standalone fix on its own
-    # d2_t3b-successor slot (see _seed_d2 above) -- both are genuinely
-    # separate Movement rows, "[D2]"/"[D5]", NOT shared (same treatment as
-    # the Hybrid Board Calf Raise pair). Hybrid Board Tib Raise [D5] carries
-    # knee_modality=TIB on this TierExercise (per-slot, matches the Task 2
-    # convention for Nordic Curl Max / Matrix Machine Sissy Squat -- the OLD
-    # Cable Tibialis Raise movement baked knee_modality onto the Movement
-    # row itself, which is the superseded pattern, not repeated here).
-    #
-    # 2026-08-14 (athlete directive): T3 GS's shoe switched from Adipower II
-    # to Metcon 9 (flat) -- Hybrid Board Tib Raise [D5] needs full ankle
-    # dorsiflexion range that Adipower's elevated heel restricts. No
-    # documented rationale existed for T3 needing the heel in the first
-    # place (unlike T2's BSS-family movements, which do). Mirrors the
-    # identical D2 T3 GS fix above.
-    t3 = _add_tier(db, pd.id, "T3 GS", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
-    _add_te(db, t3.id, "d5_t3b", "Reverse Nordic (assisted)", lib, 1, "free",
-            knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d5_t3e", "Hybrid Board Calf Raise D5", lib, 2, "free",
-            pattern="calf", rep_low=10, rep_high=15,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d5_t3f", "Hybrid Board Tib Raise D5", lib, 3, "free",
+    _add_te(db, gs1.id, "d5_t4a", "Ab Trainer Russian Twist", lib, 2, "free",
+            pattern="core", rep_low=10, rep_high=15)
+    _add_te(db, gs1.id, "d5_t3f", "Hybrid Board Tib Raise D5", lib, 3, "free",
             knee_modality=KneeModality.TIB, rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d5_t3g", "Better Fly Hip Adduction", lib, 4, "free",
+    _add_te(db, gs1.id, "d5_t3g", "Better Fly Hip Adduction", lib, 4, "free",
             pattern="adduction", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 
-    # T4 straight (NEW tier, 2026-08-12) — Ab Trainer Russian Twist. D5's
-    # mandatory core slot (rotational pattern) -- FINAL doc's
-    # core_distribution table assigns D5 this rotational-pattern core
-    # movement, differing in mechanics from D4's Cable Woodchopper (Ab
-    # Trainer decline vs standing cable) and from D2's Ab Trainer Decline
-    # Sit-up (rotation vs spine flexion). Mirrors D2's T4 shape exactly
-    # (tier_role="anchor", scheme="REP_LADDER", same PROTOCOL/STRAIGHT-
-    # movement-driven-by-rep_ladder_at_cap shape). Tier orders renumber
-    # sequentially now that T1b is gone: T1=1, T2 GS=2, T3 GS=3, T4=4
-    # (matches D2's Task 2 renumbering precedent exactly).
-    t4 = _add_tier(db, pd.id, "T4", 4, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Adipower II")
-    _add_te(db, t4.id, "d5_t4a", "Ab Trainer Russian Twist", lib, 1, "anchor",
-            pattern="core", rep_low=10, rep_high=15)
+    # New GS2 (Adipower II, heeled shoe): Matrix Machine Bulgarian Split
+    # Squat (d5_t2h), Reverse Nordic Curl [GHR] (d5_t3b), Hybrid Board Calf
+    # Raise [D5] (d5_t3e), Better Fly Kickback (d5_t2f). Heeled shoe
+    # carries forward from BSS's prior shoe assignment (needs the heel for
+    # depth, per the 2026-08-11/14 history above).
+    gs2 = _add_tier(db, pd.id, "GS2", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
+    _add_te(db, gs2.id, "d5_t2h", "Matrix Machine Bulgarian Split Squat", lib, 1, "free",
+            pattern="lunge", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, gs2.id, "d5_t3b", "Reverse Nordic (assisted)", lib, 2, "free",
+            knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, gs2.id, "d5_t3e", "Hybrid Board Calf Raise D5", lib, 3, "free",
+            pattern="calf", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, gs2.id, "d5_t2f", "Better Fly Kickback", lib, 4, "free",
+            pattern="glute", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
 
 
 # ---------------------------------------------------------------------------

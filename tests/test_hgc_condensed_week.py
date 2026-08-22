@@ -153,6 +153,12 @@ def test_hgc_condensed_week_incomplete_clusters_are_straight_sets(gen_db_calibra
     tier removed), Reverse Nordic Curl [GHR] unchanged. None of these three
     movements share a source ExerciseGroup (T1 straight / removed T1b /
     T3 GS member), so this remains a 3-way straight-sets-only proof.
+
+    2026-08-22: "Reverse Nordic Curl [GHR]" -> "Better Fly Hip Adduction
+    [FT]" -- D5's T2 GS/T3 GS/T4 restructure into GS1/GS2 put Reverse
+    Nordic Curl and Better Fly Kickback in the SAME group (GS2), which
+    would have broken the "none of these three share a group" premise.
+    Better Fly Hip Adduction (GS1) restores it.
     """
     apply(gen_db_calibrated)
 
@@ -170,7 +176,7 @@ def test_hgc_condensed_week_incomplete_clusters_are_straight_sets(gen_db_calibra
     assert [_group_movement_names(gen_db_calibrated, group) for group in groups] == [
         ["Kickstand RDL [DB]"],
         ["Better Fly Kickback [FT]"],
-        ["Reverse Nordic Curl [GHR]"],
+        ["Better Fly Hip Adduction [FT]"],
     ]
 
 
