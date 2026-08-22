@@ -13,18 +13,22 @@ from ironlog.models.program import DayFinisher, ProgramDay
 EXPECTED_FINISHERS = {
     1: ("kb_swing", {
         "weight_lb": 30,
+        "work_seconds_per_minute": 40,
+        "rest_seconds_per_minute": 20,
         "target_reps_per_minute": 15,
         "equipment": ["kettlebell_30"],
     }),
     2: ("sled_push", {
         "resistance_level": 8,
-        "work_seconds_per_minute": 30,
+        "work_seconds_per_minute": 20,
+        "rest_seconds_per_minute": 30,
         "equipment": ["dreadmill"],
     }),
     4: ("sandbag_load_to_utility_seat", {
         "weight_lb": 100,
         "utility_seat_height_inches": 52,
         "target_reps_per_minute": 4,
+        "scheme": "emom",
         "equipment": ["sandbag_100", "utility_seat", "spotter_arms"],
     }),
     5: ("heavy_farmer_carry", {
@@ -35,8 +39,14 @@ EXPECTED_FINISHERS = {
     }),
     6: ("jump_rope", {
         "rope_type": "crossrope_quarter_lb",
+        "work_seconds": 20,
+        "rest_seconds": 10,
+        "rounds_per_block": 8,
+        "blocks": 2,
+        "inter_block_rest_seconds": 75,
         "work_seconds_per_minute": 30,
         "target_reps_per_minute": 40,
+        "scheme": "tabata",
         "equipment": ["crossrope_quarter_lb"],
     }),
 }

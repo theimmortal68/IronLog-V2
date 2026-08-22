@@ -13,7 +13,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 
-from sqlalchemy import Column, JSON, REAL, UniqueConstraint, text
+from sqlalchemy import Column, JSON, REAL, Text, UniqueConstraint, text
 from sqlmodel import Field, SQLModel
 
 from .enums import KneeModality, OverrideType  # noqa: F401 — used in TierExercise/SlotMovementOverride column types
@@ -65,6 +65,26 @@ class DayFinisher(SQLModel, table=True):
     movement_id: int = Field(foreign_key="movement.id")
     duration_minutes: int
     params: dict = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+class FinisherLog(SQLModel, table=True):
+    """One row per finisher actually performed -- the finisher's answer to
+    SetLog. Captures what was actually used (weight/resistance), since
+    DayFinisher.params is a static, seed-time-only config with no per-session
+    adjustability. Exactly one of actual_weight_lb / actual_resistance_level
+    is expected to be set per finisher type (weight-based movements like
+    kb_swing/heavy_farmer_carry/sandbag_load_to_utility_seat vs. resistance-
+    based ones like sled_push); jump_rope logs neither (it already has its
+    own rope_ladder/duration_ladder progression via MovementState, unrelated
+    to this table).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: int = Field(foreign_key="session.id", index=True)
+    movement_id: int = Field(foreign_key="movement.id", index=True)
+    actual_weight_lb: Optional[float] = Field(default=None, sa_column=Column(REAL))
+    actual_resistance_level: Optional[int] = None
+    notes: Optional[str] = Field(default=None, sa_column=Column(Text))
+    performed_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Tier(SQLModel, table=True):

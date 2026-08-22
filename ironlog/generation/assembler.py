@@ -153,6 +153,7 @@ def build_finisher_payload(
         "params": dict(finisher.params or {}),
         "current_duration_seconds": current_duration_seconds,
         "current_rope": current_rope,
+        "last_logged_weight_lb": state.current_load if state is not None else None,
     }
 
 

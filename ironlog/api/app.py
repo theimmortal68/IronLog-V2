@@ -62,8 +62,8 @@ from .schemas_missed_days import MissedDayRecordOut
 from .schemas_weakpoints import (
     MuscleGroupSummaryOut, WeakMovementOut, WeakPointAssessmentOut,
 )
-from ..models.library import CardioLog, EngineState, DailyReadiness, GoalSettings, WithingsCredentials
-from ..models.program import MissedDayRecord, ProgramDay
+from ..models.library import CardioLog, EngineState, DailyReadiness, GoalSettings, MovementState, WithingsCredentials
+from ..models.program import FinisherLog, MissedDayRecord, ProgramDay
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.assembler import build_finisher_payload, build_warmup_payload
@@ -415,6 +415,66 @@ def approve_session(candidate_id: str, db: Session = Depends(get_session)):
 # ---------------------------------------------------------------------------
 
 _TAP_REQUIRED_ROLES = {SetRole.WORKING, SetRole.TOP, SetRole.BACKOFF}
+
+
+class FinisherLogRequest(BaseModel):
+    movement_id: int
+    actual_weight_lb: Optional[float] = None
+    actual_resistance_level: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class FinisherLogResponse(BaseModel):
+    id: int
+    movement_id: int
+    actual_weight_lb: Optional[float]
+    actual_resistance_level: Optional[int]
+
+
+@app.post("/sessions/{session_id}/finisher/log", response_model=FinisherLogResponse)
+def log_finisher(session_id: int, req: FinisherLogRequest, db: Session = Depends(get_session)):
+    """Log what was actually performed on this session's finisher.
+
+    Writes a FinisherLog row (full history) AND updates the movement's
+    MovementState.current_load (day-scoped via the session's day_role) to the
+    just-logged weight, so the NEXT session's build_finisher_payload can
+    prefill the athlete's last-used value.
+    """
+    from ..models.session import Session as WorkoutSession
+
+    ws = db.get(WorkoutSession, session_id)
+    if ws is None:
+        raise HTTPException(404, "session not found")
+
+    log = FinisherLog(
+        session_id=session_id,
+        movement_id=req.movement_id,
+        actual_weight_lb=req.actual_weight_lb,
+        actual_resistance_level=req.actual_resistance_level,
+        notes=req.notes,
+    )
+    db.add(log)
+
+    if req.actual_weight_lb is not None:
+        state = db.exec(
+            select(MovementState).where(
+                MovementState.movement_id == req.movement_id,
+                MovementState.day_id == ws.day_role,
+            )
+        ).first()
+        if state is None:
+            state = MovementState(movement_id=req.movement_id, day_id=ws.day_role)
+        state.current_load = req.actual_weight_lb
+        db.add(state)
+
+    db.commit()
+    db.refresh(log)
+    return FinisherLogResponse(
+        id=log.id,
+        movement_id=log.movement_id,
+        actual_weight_lb=log.actual_weight_lb,
+        actual_resistance_level=log.actual_resistance_level,
+    )
 
 
 @app.post("/sessions/{session_id}/submit", response_model=SubmitResponse)
