@@ -62,8 +62,8 @@ from .schemas_missed_days import MissedDayRecordOut
 from .schemas_weakpoints import (
     MuscleGroupSummaryOut, WeakMovementOut, WeakPointAssessmentOut,
 )
-from ..models.library import CardioLog, EngineState, DailyReadiness, GoalSettings, MovementState, WithingsCredentials
-from ..models.program import FinisherLog, MissedDayRecord, ProgramDay
+from ..models.library import CardioLog, EngineState, DailyReadiness, GoalSettings, WithingsCredentials
+from ..models.program import DayFinisher, FinisherLog, MissedDayRecord, ProgramDay
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
 from ..generation.assembler import build_finisher_payload, build_warmup_payload
@@ -435,16 +435,37 @@ class FinisherLogResponse(BaseModel):
 def log_finisher(session_id: int, req: FinisherLogRequest, db: Session = Depends(get_session)):
     """Log what was actually performed on this session's finisher.
 
-    Writes a FinisherLog row (full history) AND updates the movement's
-    MovementState.current_load (day-scoped via the session's day_role) to the
-    just-logged weight, so the NEXT session's build_finisher_payload can
-    prefill the athlete's last-used value.
+    Writes a FinisherLog row (full history) only -- build_finisher_payload
+    reads the most recent FinisherLog row directly for "last logged" prefill,
+    so there is nothing else to write here.
+
+    req.movement_id is validated against the session's ACTUAL finisher
+    (resolved via the same signature['program_day_id'] -> DayFinisher path
+    build_finisher_payload uses), not trusted as-is. SQLite foreign keys are
+    not enforced in this project, so without this check a client could pass
+    a wrong-but-valid movement_id (e.g. a LADDER movement trained the same
+    day) and, in the old MovementState-writing implementation, silently
+    clobber that movement's real working load. Validating here also removes
+    any need to touch MovementState at all.
     """
     from ..models.session import Session as WorkoutSession
 
     ws = db.get(WorkoutSession, session_id)
     if ws is None:
         raise HTTPException(404, "session not found")
+
+    program_day_id = (ws.signature or {}).get("program_day_id")
+    finisher = (
+        db.exec(
+            select(DayFinisher).where(DayFinisher.program_day_id == program_day_id)
+        ).first()
+        if program_day_id is not None
+        else None
+    )
+    if finisher is None or finisher.movement_id != req.movement_id:
+        raise HTTPException(
+            400, "movement_id does not match this session's configured finisher"
+        )
 
     log = FinisherLog(
         session_id=session_id,
@@ -454,19 +475,6 @@ def log_finisher(session_id: int, req: FinisherLogRequest, db: Session = Depends
         notes=req.notes,
     )
     db.add(log)
-
-    if req.actual_weight_lb is not None:
-        state = db.exec(
-            select(MovementState).where(
-                MovementState.movement_id == req.movement_id,
-                MovementState.day_id == ws.day_role,
-            )
-        ).first()
-        if state is None:
-            state = MovementState(movement_id=req.movement_id, day_id=ws.day_role)
-        state.current_load = req.actual_weight_lb
-        db.add(state)
-
     db.commit()
     db.refresh(log)
     return FinisherLogResponse(

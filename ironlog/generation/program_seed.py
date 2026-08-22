@@ -484,6 +484,9 @@ def _seed_finishers(db: Session, days_by_index: Dict[int, ProgramDay]) -> None:
                 "rounds_per_block": 8,
                 "blocks": 2,
                 "inter_block_rest_seconds": 75,
+                # legacy field, superseded by work_seconds/rest_seconds below for
+                # the new "scheme": "tabata" clients -- kept for any code path
+                # still reading it (live_seed_ramp_and_finishers.py)
                 "work_seconds_per_minute": 30,
                 "target_reps_per_minute": 40,
                 "scheme": "tabata",

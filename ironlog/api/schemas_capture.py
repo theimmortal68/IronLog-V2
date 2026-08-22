@@ -110,6 +110,8 @@ class FinisherOut(BaseModel):
     params: Dict[str, Any]
     current_duration_seconds: Optional[int] = None
     current_rope: Optional[str] = None
+    last_logged_weight_lb: Optional[float] = None
+    last_logged_resistance_level: Optional[int] = None
 
 
 class SessionDetailResponse(BaseModel):
