@@ -106,6 +106,7 @@ class WarmupOut(BaseModel):
 
 class FinisherOut(BaseModel):
     exercise_name: str
+    movement_id: int
     duration_minutes: int
     params: Dict[str, Any]
     current_duration_seconds: Optional[int] = None

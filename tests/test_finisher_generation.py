@@ -66,7 +66,9 @@ def test_generate_d1_includes_kb_swing_finisher(client_engine):
         "rope": "standard",
         "style": "light_bounce",
     }
-    assert body["preview"]["finisher"] == {
+    finisher = dict(body["preview"]["finisher"])
+    assert isinstance(finisher.pop("movement_id"), int)
+    assert finisher == {
         "exercise_name": "kb_swing",
         "duration_minutes": 6,
         "params": {

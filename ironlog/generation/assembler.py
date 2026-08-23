@@ -166,6 +166,7 @@ def build_finisher_payload(
 
     return {
         "exercise_name": movement.name if movement is not None else "",
+        "movement_id": finisher.movement_id,
         "duration_minutes": finisher.duration_minutes,
         "params": dict(finisher.params or {}),
         "current_duration_seconds": current_duration_seconds,
