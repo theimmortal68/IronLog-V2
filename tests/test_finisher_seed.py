@@ -24,12 +24,11 @@ EXPECTED_FINISHERS = {
         "rest_seconds_per_minute": 30,
         "equipment": ["dreadmill"],
     }),
-    4: ("sandbag_load_to_utility_seat", {
-        "weight_lb": 100,
-        "utility_seat_height_inches": 52,
-        "target_reps_per_minute": 4,
+    4: ("slam_ball", {
+        "weight_lb": 30,
+        "target_reps_per_minute": 8,
         "scheme": "emom",
-        "equipment": ["sandbag_100", "utility_seat", "spotter_arms"],
+        "equipment": ["slam_ball_30"],
     }),
     5: ("heavy_farmer_carry", {
         "weight_lb": 55,
