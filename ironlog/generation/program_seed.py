@@ -1112,8 +1112,16 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # slot_id "d6_g2g" (never-reassign-slot_id); d6_g2d is vacated, not
     # reused. Better Fly Cable Bicep Curl [FT] stays ACTIVE in the library,
     # unwired -- not deleted.
+    #
+    # 2026-08-23 (athlete directive): reverted back to Better Fly Cable
+    # Bicep Curl [FT] -- d6_g2g (D-Handle) VACATED in turn, not reused
+    # (never-reassign-slot_id applies to reverts too, even back to a
+    # movement that previously occupied an earlier vacated slot -- d6_g2d
+    # stays vacated, this is a genuinely fresh identity-change event, not
+    # an undo of a live-only deviation). Fresh slot_id "d6_g2h". D-Handle
+    # Cable Bicep Curl stays ACTIVE in the library, unwired -- not deleted.
     gs2 = _add_tier(db, pd.id, "GS2", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, gs2.id, "d6_g2g", "D-Handle Cable Bicep Curl", lib, 1, "free",
+    _add_te(db, gs2.id, "d6_g2h", "Better Fly Cable Bicep Curl", lib, 1, "free",
             pattern="bicep_curl", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs2.id, "d6_g2e", "Stryker Pad CSR Cables", lib, 2, "free",

@@ -156,7 +156,10 @@ EXPECTED_NEEDS_CAL = {
     "D6 Weak Points": {
         "Wide-Grip Pull-up [TOWER + TUBES]",
         "Swiss Bar CG Press [SB]",
-        "D-Handle Cable Bicep Curl [FT]",
+        # 2026-08-23: D-Handle Cable Bicep Curl [FT] (d6_g2g, real Wk1
+        # baseline never seeded here anyway) reverted back to Better Fly
+        # Cable Bicep Curl [FT] at fresh slot d6_g2h -- needs-cal.
+        "Better Fly Cable Bicep Curl [FT]",
         "Stryker Pad CSR Cables [FT]",
         "Better Fly Rear Delt Extension [FT]",
         "Better Fly OH Tricep Extension [FT]",

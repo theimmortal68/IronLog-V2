@@ -221,8 +221,11 @@ days:
     # cable_bicep_curl_d6 replaced by d_handle_cable_bicep_curl_d6 -- the
     # Better Fly cuff doesn't work well for curls, athlete switched to
     # D-handles mid-session.
+    # 2026-08-23 (athlete directive): reverted back to
+    # better_fly_cable_bicep_curl_d6 -- fresh slot "d6_g2h"
+    # (never-reassign-slot_id, d6_g2g/D-Handle VACATED in turn).
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: d_handle_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
+      {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
       {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
       {m: dips, reps: [8,12], rule: assistance_reduction}]}
     # GS3: Face Pull retained (rep range corrected 15-20 -> 10-15 per the

@@ -117,8 +117,10 @@ CHANGED_REP_TARGETS = {
     "d6_g1f": (4, 6),
     # 2026-08-16: d6_g2d (Better Fly Cable Bicep Curl) vacated -- replaced by
     # fresh d6_g2g (D-Handle Cable Bicep Curl, athlete directive), same rep
-    # target (10-15).
-    "d6_g2g": (10, 15),
+    # target (10-15). 2026-08-23: reverted -- d6_g2g VACATED in turn,
+    # replaced by fresh d6_g2h (Better Fly Cable Bicep Curl again), same
+    # rep target.
+    "d6_g2h": (10, 15),
     "d6_g2e": (8, 12),
     "d6_g2f": (10, 15),
     "d6_g3a": (10, 15),
