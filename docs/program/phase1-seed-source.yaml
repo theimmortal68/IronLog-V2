@@ -167,7 +167,7 @@ days:
     # what used to live in T2 GS/T3 GS/T4.
     GS1: {group_key: "GS1", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
       {m: lying_leg_curl_ghr_ares_d5, reps: [10,15], rule: rpe_8_standard},
-      {m: ab_trainer_russian_twist_d5, reps: [10,15], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]},
+      {m: ab_trainer_russian_twist_d5, reps: [10,15], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45]},  # 2026-08-22: capped at 45deg (was 0-85, matching the rest of the Ab Trainer family) -- rotational+loaded movement, athlete directive to switch to weight-based progression past this angle rather than push toward 85. See ironlog/seed.py's Movement comment.
       {m: hybrid_board_tib_raise_d5, reps: [10,15], rule: rpe_8_standard},  # knee_modality=TIB on the TierExercise -- preserves the program's 2x/week TIB invariant
       {m: better_fly_hip_adduction_d5, reps: [10,15], rule: rpe_8_standard, unilateral: true}]}
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Adipower II", ex: [   # <-- SHOE SWAP

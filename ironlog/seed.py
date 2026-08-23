@@ -362,10 +362,22 @@ MOVEMENTS = [
     # (rotation vs spine flexion). Same incline-angle progression as the
     # rest of the Ab Trainer family (see Ab Trainer Decline Sit-up's
     # comment) -- needs-calibration start, zero prior history.
+    #
+    # 2026-08-22 (athlete directive): angle ladder CAPPED at 45deg, unlike
+    # the rest of the Ab Trainer family's full 0-85 range. This is a
+    # rotational, loaded (weighted ball) movement -- rotation under load
+    # compounds spinal shear stress faster than pure flexion (Decline
+    # Sit-up/Hanging Leg Raise) as decline angle increases, so pushing all
+    # the way to 85deg here is a real injury-risk tradeoff, not just a
+    # difficulty one. Once 45deg is reached, progression is meant to
+    # continue via added ball weight instead of further angle -- see
+    # ironlog/engine/advance.py's _incline_reduction for the terminal-rung
+    # handoff to weight-based progression (mirrors _assistance_reduction's
+    # existing handoff-to-RPE_8_STANDARD pattern).
     dict(name="Ab Trainer Russian Twist", base_name="Ab Trainer Russian Twist",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=["AB_TRAINER"],
          progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
-         assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+         assist_ladder=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45],
          assist_unit=AssistUnit.DEGREES,
          primary_muscle="ABS", secondary_muscles=[]),
     dict(name="Pull-up [TOWER + TUBES]", base_name="Pull-up", region=Region.UPPER,
