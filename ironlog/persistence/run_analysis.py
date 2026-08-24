@@ -44,7 +44,7 @@ from ..models.library import (
 )
 from ..models.program import ProgramDay, Tier, TierExercise
 from ..models.session import (
-    ExerciseGroup, PlannedExercise, PlannedSet, Session as WorkoutSession, SetLog,
+    PlannedSet, Session as WorkoutSession, SetLog,
 )
 from ..engine.readiness import (
     DailyReadinessInput,
@@ -333,26 +333,13 @@ def _clean_performed_assist_values(mid: int, set_logs: List[SetLog], planned_set
 
 def _confirmation_window(db: DBSession, mid: int, set_logs: List[SetLog],
                           planned_sets: dict) -> int:
-    """T1 (incl. "T1b") -> 1; everything else, including an unresolvable
-    label, -> 2 (the accessory default is the safe side)."""
-    for sl in set_logs:
-        if sl.movement_id != mid or sl.planned_set_id is None:
-            continue
-        ps = planned_sets.get(sl.planned_set_id)
-        if ps is None:
-            continue
-        pex = db.exec(
-            select(PlannedExercise).where(PlannedExercise.id == ps.planned_exercise_id)
-        ).first()
-        if pex is None:
-            continue
-        grp = db.exec(
-            select(ExerciseGroup).where(ExerciseGroup.id == pex.group_id)
-        ).first()
-        if grp is None or grp.label is None:
-            continue
-        return 1 if grp.label.startswith("T1") else 2
-    return 2
+    """Always 1: the program is single-session double progression
+    program-wide (athlete directive) — hit all working sets to the top of
+    the prescribed rep range cleanly once, and the next session's
+    prescription advances. There is no group-label-based (T1 vs. accessory)
+    distinction anymore; every movement uses the same one-session
+    confirmation window."""
+    return 1
 
 
 def run_analysis(

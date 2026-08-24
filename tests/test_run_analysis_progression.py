@@ -1,6 +1,9 @@
 """Tests for the progression engine wired into run_analysis (Task 6).
 
-Covers: single-session T1 advance, two-session accessory confirmation,
+Covers: single-session T1 advance, single-session accessory advance
+(single-session double progression program-wide -- there is no longer a
+2-session confirmation window for non-T1 movements, see
+_confirmation_window in ironlog/persistence/run_analysis.py),
 stall-signal emission + clear-on-advance, the unilateral both-sides-AND
 gate, and the fallback invariant (a raising engine step leaves that
 movement's earned-state fields untouched and does not abort the analysis).
@@ -157,10 +160,16 @@ def test_non_advancing_session_at_heavier_load_gets_floor_only_no_earned_credit(
 
 
 # ---------------------------------------------------------------------------
-# (b) accessory (T2 GS, confirmation_window=2) needs two clean sessions
+# (b) accessory (T2 GS, non-T1 label) advances after ONE clean session --
+# single-session double progression program-wide (athlete directive):
+# _confirmation_window() no longer distinguishes T1 vs. non-T1 groups, it
+# always returns 1. This test previously asserted the OLD 2-session
+# confirmation window (a non-T1 movement needed two clean sessions before
+# advancing); that behavior is gone, so the test is re-pointed to prove the
+# new single-session behavior instead of just swapping an expected value.
 # ---------------------------------------------------------------------------
 
-def test_accessory_needs_two_clean_sessions_to_advance():
+def test_accessory_advances_after_one_clean_session():
     engine = _make_engine()
     with Session(engine) as db:
         _seed_common(db)
@@ -170,22 +179,73 @@ def test_accessory_needs_two_clean_sessions_to_advance():
         db.commit()
 
         # actual_load=50.0 matches the seeded current_load above -- a clean, on-script
-        # performance (this test is about the 2-session confirmation window, not L's
-        # load ratchet; the shared helper's 135.0 default would otherwise read as an
+        # performance (the shared helper's 135.0 default would otherwise read as an
         # incidental off-script-heavier performance and stage an unrelated floor).
         _seed_session(db, 1, 1, label="T2 GS", session_date=date(2026, 1, 7), actual_load=50.0)
         run_analysis(1, db, WEEK_KEYER)
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
-        assert st.current_increment_tier == 0, "one clean session must not be enough for an accessory"
-        assert st.consecutive_advance_count == 1
+        # Re-pointed (K2 + single-session-window): a clean non-T1/RPE_8_STANDARD
+        # session now advances immediately by EARNING a load step
+        # (increment_ladder[0]=2.5); the step-size tier is untouched. It no
+        # longer needs a second clean session.
+        assert st.pending_load_delta == 2.5, (
+            "one clean session on a non-T1 accessory must now be enough to advance "
+            "(single-session double progression program-wide, no more 2-session window)"
+        )
+        assert st.current_increment_tier == 0
 
-        _seed_session(db, 2, 1, label="T2 GS", day_role="Upper A", session_date=date(2026, 1, 14),
-                      actual_load=50.0)
-        run_analysis(2, db, WEEK_KEYER)
+
+def test_non_t1_assistance_reduction_advances_after_one_clean_session():
+    """Non-T1-labeled ASSISTANCE_REDUCTION (assist ladder) movement also
+    advances after exactly ONE clean session -- proves the single-session
+    window applies to the assist-ladder rule family too, not just
+    RPE_8_STANDARD."""
+    engine = _make_engine()
+    with Session(engine) as db:
+        _seed_common(db)
+        _seed_movement(db, 1, progression_rule=ProgressionRule.ASSISTANCE_REDUCTION.value,
+                       assist_ladder=[3, 2, 1, 0])
+        db.add(MovementState(movement_id=1, calibration_status=CalibrationStatus.MEASURED,
+                              assist_level=3))
+        db.commit()
+
+        _seed_session(db, 1, 1, label="T2 GS", session_date=date(2026, 1, 7))
+        run_analysis(1, db, WEEK_KEYER)
+
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
-        # Re-pointed (K2): the second clean session clears the streak and advances by
-        # EARNING a load step (increment_ladder[0]=2.5); the step-size tier is untouched.
-        assert st.pending_load_delta == 2.5, "second clean session should clear the streak and earn the load step"
+        assert st.assist_level == 2, (
+            "one clean session on a non-T1 ASSISTANCE_REDUCTION movement must step "
+            "the assist ladder immediately (3 -> 2), not require a second session"
+        )
+        assert st.consecutive_advance_count == 0
+
+
+def test_t1_confirmation_window_still_one_after_change():
+    """T1-labeled movement's behavior is unchanged by this fix -- it was
+    already window=1 before, and remains window=1 now. Proven two ways:
+    (1) directly against the now-constant _confirmation_window() function,
+    and (2) end-to-end via run_analysis, so a future refactor of
+    _confirmation_window can't silently break T1 behavior while
+    'simplifying' it."""
+    from ironlog.persistence.run_analysis import _confirmation_window
+
+    engine = _make_engine()
+    with Session(engine) as db:
+        # _confirmation_window is now a pure constant -- returns 1 regardless
+        # of its arguments (no more group-label lookup).
+        assert _confirmation_window(db, 1, [], {}) == 1
+
+        _seed_common(db)
+        _seed_movement(db, 1, progression_rule=ProgressionRule.RPE_8_STANDARD.value)
+        db.add(MovementState(movement_id=1, calibration_status=CalibrationStatus.MEASURED,
+                              current_load=135.0))
+        db.commit()
+        _seed_session(db, 1, 1, label="T1")
+
+        run_analysis(1, db, WEEK_KEYER)
+
+        st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
+        assert st.pending_load_delta == 2.5, "T1 must still advance after exactly one clean session"
         assert st.current_increment_tier == 0
 
 
