@@ -14,7 +14,7 @@ days:
     T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
       {m: bench_press, reps: [4,6], rule: rpe_8_standard, load: 155}]}  # 2026-08-10: maintenance block, T1 rep range 6-8 -> 4-6, real Wk1 locked 155x3x6 RPE8 (Belle Mere BMF Camber Bar 21" grip)
     T1b: {group_key: "T1b", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      {m: pendlay_row_narrow, reps: [4,6], rule: hold_load_strain_constraint, load: 170}]}  # 2026-08-10: held at 170 while strain heals (maps to FIXED_LOAD), rep range 6-8 -> 4-6
+      {m: pendlay_row_narrow, reps: [4,6], rule: hold_load_strain_constraint, load: 185}]}  # 2026-08-10: held at 170 while strain heals (maps to FIXED_LOAD), rep range 6-8 -> 4-6; 2026-08-25: raised fixed hold to 185 (live DB MovementState.id=3 updated directly), still a manual hold not auto-progression
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       # 2026-08-10: full T2 GS turnover -- Lying Tricep Extension / Incline DB
       # Press / Face-Up Incline Knee Raise all drop out of D1 entirely,
