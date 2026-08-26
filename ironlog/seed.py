@@ -740,7 +740,7 @@ MOVEMENTS = [
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="FT", tags=["FT", "BETTER_FLY"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10,  # 2026-08-25: dropped the 5lb coarse rung (athlete directive -- 5lb is too aggressive on this isolation lift), live Movement.id=123 updated directly
          primary_muscle="SIDE_DELT", secondary_muscles=["FRONT_DELT"]),
     dict(name="Cross-Body Cable Lateral Raise [FT]",
          base_name="Cross-Body Cable Lateral Raise",
