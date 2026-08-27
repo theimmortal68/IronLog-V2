@@ -59,7 +59,7 @@ days:
     # shoe-sensitive than the TIB pattern), Tib Raise stays in T3_GIANT with
     # the flat shoe it needs.
     T1_STRAIGHT: {group_key: "T1", rest: 150, shoe: "Adipower II", anchor: true, ex: [
-      {m: belt_squat, reps: [4,6], rule: rep_ladder, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
+      {m: belt_squat, reps: [4,6], rule: rpe_8_standard, load: 260, rep_target: 8, rep_ladder: [8,10,12,15], ceiling: true, meso: {2: back_squat}}]}
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Adipower II", ex: [
       {m: matrix_machine_sissy_squat, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration (bodyweight first, add DBs once easy). knee_modality=SISSY on the TierExercise (program_seed.py) -- closes the program's previously-unfilled SISSY weekly target.
       # 2026-08-20 (athlete directive): d2_t2e now rotates A/B automatically

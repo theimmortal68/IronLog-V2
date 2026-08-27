@@ -46,6 +46,7 @@ def test_named_movements_map_to_expected_rules(gen_db):
     by_name = {m.name: m for m in gen_db.exec(select(Movement)).all()}
     expected = {
         "Bench Press [PB]":            ProgressionRule.RPE_8_STANDARD.value,
+        "Belt Squat [GHR + FT]":       ProgressionRule.RPE_8_STANDARD.value,
         # 2026-07-26: D1's Pull-up gained a real assist_ladder (3 stacked
         # 20lb bands) -- switched from tracking-only PULL_UP_ROLLING_MAX to
         # ASSISTANCE_REDUCTION (drop a band at 3x12). D4/D6 moved to a
