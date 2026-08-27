@@ -227,9 +227,8 @@ def test_single_session_clean_advance_earns_step_not_tier():
 # L: load ratchet — never prescribe below a logged actual performance
 # ---------------------------------------------------------------------------
 # Concrete case: Belt Squat seeded 260, athlete logs 265x12 at RPE 8 (off-script
-# heavier). Belt Squat's rule is REP_LADDER, not RPE_8_STANDARD, so advance()
-# earns no scalar earned_load_step here -- the floor must apply independent of
-# whether a clean rule-driven advance fired.
+# heavier). Belt Squat now uses RPE_8_STANDARD, so a clean off-script heavier
+# session stacks the performed floor (+5) with the earned load step (+10).
 
 from ironlog.engine.advance import performed_floor_delta
 
@@ -306,34 +305,42 @@ def test_load_ratchet_floors_to_performed_when_off_script_heavier(gen_db):
     run_analysis(9201, gen_db, WEEK_KEYER)
 
     st1 = _belt_squat_state(gen_db)
-    assert st1.active_rule == ProgressionRule.REP_LADDER.value
-    assert st1.pending_load_delta == 5.0, (
-        "floor must stage +5 (265-260) even though REP_LADDER earns no scalar "
-        "earned_load_step of its own"
+    assert st1.active_rule == ProgressionRule.RPE_8_STANDARD.value
+    assert st1.pending_load_delta == 15.0, (
+        "clean RPE-8 Belt Squat must stack the +5 performed floor with the "
+        "+10 earned load step"
     )
     assert st1.current_load == 260, "run_analysis must NOT write current_load directly"
 
-    # Regenerate D2 and confirm Belt Squat is prescribed 265, not 260.
+    # Regenerate D2 and confirm Belt Squat is prescribed from the staged delta.
     sk = lay_skeleton(D2, gen_db)
     stub = StubProposer(program_selections(sk))
     outcome = generate_session(D2, gen_db, stub, WEEK_KEYER)
     bs = gen_db.exec(select(Movement).where(Movement.name == BELT_SQUAT)).one()
     prescribed = outcome.assembled.prospective_current_loads[bs.id]
-    assert prescribed == 265, "next Belt Squat prescription must not regress below 265"
+    assert prescribed == 275, "next Belt Squat prescription must include floor + earned step"
 
     commit_session(outcome.assembled, gen_db, approval_mode="auto", prompt={},
                    selections_dict={}, clamps=[], repairs=[], fallback_used=False)
     st2 = _belt_squat_state(gen_db)
-    assert st2.current_load == 265
+    assert st2.current_load == 275
     assert st2.pending_load_delta is None, "marker cleared after commit (apply-once)"
 
 
 def test_load_ratchet_does_not_lower_prescription_when_performed_lighter(gen_db):
+    """A CLEAN session (reps=8 hits target_reps_high=8) performed lighter than
+    the seeded load (250 < 260) must not floor/lower anything -- but it still
+    earns its own RPE_8_STANDARD load step independent of the floor mechanism.
+    performed_floor_delta(260, [250]) == 0.0, so pending_load_delta is entirely
+    the earned step (+10, tier 0), not a floor contribution."""
     seed_movement_baselines(gen_db)
     _log_belt_squat(gen_db, session_id=9202, load=250.0, reps=8)
     run_analysis(9202, gen_db, WEEK_KEYER)
     st = _belt_squat_state(gen_db)
-    assert st.pending_load_delta is None, "performing lighter than seeded must not floor/lower anything"
+    assert st.pending_load_delta == 10.0, (
+        "a clean lighter-than-seeded session must not floor, but still earns "
+        "its own load step"
+    )
 
 
 def test_load_ratchet_excludes_ht_composite_movements(gen_db):
