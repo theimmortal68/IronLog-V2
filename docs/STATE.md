@@ -43,5 +43,7 @@ D4 live-session feedback: two movements advanced in 5lb steps instead of the int
 
 ## Session notes
 - Pre-existing uncommitted state in this repo (not this session's): modified `.specs/routing-plan.md`, `.superpowers/sdd/task-2-report.md`, `.superpowers/sdd/task-7-report.md`, `docs/build-plan.md`, `docs/program/phase1-warmup-finisher-source.yaml`, `ironlog/generation/live_seed_ramp_and_finishers.py`, plus 118 untracked files (specs, `.db.bak-*` snapshots, `finisher_dump_tmp.py`). Left untouched — not this session's to commit or clean up.
-- 5 commits unpushed to `origin/main` as of session end (`d48488f` back through `f362be3`), including this session's fix — see Pushed status in the closing report below.
+- `docs/STATE.md` itself was untracked prior to this session despite being the designated handoff file — now committed (`37f0dce`).
+- All commits through this session (`37f0dce` back through `f362be3`, 6 total) pushed to `origin/main` this session.
+- Stray worktree found, pre-existing (not this session's): `/home/jstout/projects/IronLog-V2-wt-incline-handoff` on unmerged branch `feature/incline-reduction-terminal-handoff`, working tree clean. Not swept this session (not mine, out of task scope) — candidate for the "On Session Start" worktree sweep next session if that branch is actually abandoned.
 - Usage snapshot: not captured — `/usage` is a slash command, not available as a tool in this session context.
