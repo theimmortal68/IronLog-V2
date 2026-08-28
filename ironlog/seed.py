@@ -853,7 +853,7 @@ MOVEMENTS = [
     dict(name="PureTorque Pro Rotation", base_name="PureTorque Pro Rotation",
          region=Region.CORE, status=Status.ACTIVE, load_code=None, tags=[],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, unilateral=True,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
          primary_muscle="ABS", secondary_muscles=[]),
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1094,7 +1094,7 @@ MOVEMENTS = [
     dict(name="Better Fly Rear Delt Extension [FT]", base_name="Better Fly Rear Delt Extension",
          region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10,
          primary_muscle="REAR_DELT", secondary_muscles=["SIDE_DELT"]),
     # Overhead tricep extension, Better Fly cuff at the high pulley (FINAL
     # doc's `vertical_press_exposure: true` -- OH endurance/stability role).
