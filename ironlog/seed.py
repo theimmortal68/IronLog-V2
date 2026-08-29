@@ -267,10 +267,12 @@ MOVEMENTS = [
     # from that movement's own numbers as a reasonable starting point
     # (needs-calibration regardless, zero prior history on this exact
     # equipment combo).
+    # 2026-08-29: increment_ladder narrowed to a flat 2.5lb step (athlete
+    # directive) -- was [5, 2.5].
     dict(name="Lying Leg Curl [GHR + Ares]", base_name="Lying Leg Curl",
          region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["GHR", "FT"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10,
          primary_muscle="HAMSTRINGS", secondary_muscles=[]),
     # 2026-08-12: new D5 T1 movement (maintenance block, STAB redesign,
     # Task 4). Unilateral DB RDL, B-stance (front foot flat, back foot on
@@ -354,20 +356,24 @@ MOVEMENTS = [
     # Squat (the OLD Cable Tibialis Raise movement being retired here baked
     # knee_modality onto the Movement row itself -- that's the superseded
     # pattern). Needs-calibration start, zero prior history.
+    # 2026-08-29: increment_ladder narrowed to a flat 1.25lb step (athlete
+    # directive, micro-plate granularity on this apparatus) -- was [5, 2.5].
     dict(name="Hybrid Board Tib Raise [D5]", base_name="Hybrid Board Tib Raise",
          region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         increment_ladder=[1.25], min_step=1.25, load_floor=0,
          primary_muscle="TIBIALIS", secondary_muscles=[]),
     # 2026-08-12: new D5 T3 GS movement (Task 4). Better Fly cuff + Ares
     # cable, unilateral, rotates with (future, not-yet-wired) hip abduction
     # weekly per the FINAL doc's rotation_partner note -- out of this task's
     # scope, no abduction movement created. Needs-calibration start, zero
     # prior history.
+    # 2026-08-29: increment_ladder narrowed to a flat 2.5lb step (athlete
+    # directive) -- was [5, 2.5].
     dict(name="Better Fly Hip Adduction [FT]", base_name="Better Fly Hip Adduction",
          region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, unilateral=True,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
          primary_muscle="ADDUCTORS", secondary_muscles=["GLUTES"]),
     # 2026-08-12: new D5 T4 tier movement (Task 4). D5's mandatory core
     # slot (rotational pattern) -- Ab Trainer decline setup (Config B),
@@ -570,10 +576,12 @@ MOVEMENTS = [
     # [D5]" row. Cable Tibialis Raise itself stays ACTIVE in the library,
     # now fully unwired program-wide (D5 also drops it, see program_seed.py
     # _seed_d5) -- not deleted, per the never-delete-orphans convention.
+    # 2026-08-29: increment_ladder narrowed to a flat 1.25lb step (athlete
+    # directive, same apparatus as D5's Hybrid Board Tib Raise) -- was [5, 2.5].
     dict(name="Hybrid Board Tib Raise [D2]", base_name="Hybrid Board Tib Raise",
          region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         increment_ladder=[1.25], min_step=1.25, load_floor=0,
          primary_muscle="TIBIALIS", secondary_muscles=[]),
 
     # ─────────────────────────────────────────────────────────────────────────
