@@ -202,8 +202,11 @@ MOVEMENTS = [
          # reps 8-12, add load once 12 reps is cleared, applies to both D2 and D5.
          # assist_ladder kept for historical reference; unused once progression_mode
          # is LADDER (RPE_8_STANDARD/DOUBLE_PROGRESSION never reads it).
+         # 2026-08-29: increment_ladder was never set on this row (bug -- earned
+         # load steps silently no-op with an empty ladder, see engine/advance.py
+         # _earned_step). Athlete directive: 2.5lb increments.
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         assist_ladder=[20, 15, 10, 5, 0],
+         assist_ladder=[20, 15, 10, 5, 0], increment_ladder=[2.5],
          knee_modality=KneeModality.KOT, min_step=2.5, load_floor=0, primary_muscle="QUADS", secondary_muscles=[]),
     # 2026-08-11: new D2 T2 GS movement (maintenance block, STAB redesign,
     # Task 2). Ares cable weighted assist (60lb, LOCKED), NOT monster bands --
@@ -319,10 +322,14 @@ MOVEMENTS = [
     # tags=["MATRIX"], LADDER/DOUBLE_PROGRESSION) but still unilateral, same
     # muscle targeting as the movement it replaces. Fresh slot on D5's T2 GS
     # (never-reassign-slot_id) -- needs-calibration, zero prior history.
+    # 2026-08-29: athlete directive -- switched to a straight fixed-8-rep
+    # scheme (was DOUBLE_PROGRESSION 8-12), increment_ladder narrowed to a
+    # flat 2.5lb step (was [5, 2.5]). See program_seed.py's _add_te call for
+    # the matching TierExercise.rep_low/rep_high/scheme update.
     dict(name="Matrix Machine Bulgarian Split Squat", base_name="Matrix Machine Bulgarian Split Squat",
          region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["MATRIX"],
-         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0, unilateral=True,
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.STRAIGHT,
+         increment_ladder=[2.5], min_step=2.5, load_floor=0, unilateral=True,
          primary_muscle="QUADS", secondary_muscles=["GLUTES", "HAMSTRINGS"]),
     # 2026-08-12: new D5 T2 GS movement (Task 4). Better Fly cuff, cable at
     # LOW pulley (distinct attach point from Better Fly Lat Pulldown's high
@@ -339,10 +346,12 @@ MOVEMENTS = [
     # FINAL doc's ambiguous identical "independent_track" phrasing alone.
     # Same LADDER/DOUBLE_PROGRESSION shape as the D2 sibling. Needs-
     # calibration start, zero prior history.
+    # 2026-08-29: increment_ladder narrowed to a flat 5lb step (athlete
+    # directive) -- was [5, 2.5].
     dict(name="Hybrid Board Calf Raise [D5]", base_name="Hybrid Board Calf Raise",
          region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         increment_ladder=[5], min_step=5, load_floor=0,
          primary_muscle="CALVES", secondary_muscles=[]),
     # 2026-08-12: new D5 T3 GS movement (Task 4, plan-owner addendum after
     # the TIB-frequency NEEDS_CONTEXT round-trip). Cable Tib Raise is being
@@ -561,10 +570,12 @@ MOVEMENTS = [
     # Task 2). Hybrid Board equipment note only -- same LADDER/DOUBLE_PROGRESSION
     # shape as Calf Raise [GHR]/Hyper Pro Calf Raise; no knee_modality (calf
     # work, not part of the docs/06 §4 knee taxonomy).
+    # 2026-08-29: increment_ladder narrowed to a flat 5lb step (athlete
+    # directive, same apparatus as D5's Hybrid Board Calf Raise) -- was [5, 2.5].
     dict(name="Hybrid Board Calf Raise [D2]", base_name="Hybrid Board Calf Raise",
          region=Region.LOWER, status=Status.ACTIVE, load_code=None, tags=["HYBRID_BOARD"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=0,
+         increment_ladder=[5], min_step=5, load_floor=0,
          primary_muscle="CALVES", secondary_muscles=[]),
     # 2026-08-12: D2 follow-up correction (plan-owner directive, delivered
     # mid-Task-4/D5, small standalone fix bundled into this branch -- see

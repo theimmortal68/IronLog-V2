@@ -88,7 +88,8 @@ CHANGED_REP_TARGETS = {
     # replaced by fresh d5_t2h (Matrix Machine Bulgarian Split Squat, Nordic
     # Max rig conflict with Nordic Curl Max in the same giant set), same
     # rep target (8-12).
-    "d5_t2h": (8, 12),
+    # 2026-08-29: athlete directive -- straight fixed-8-rep (was 8-12).
+    "d5_t2h": (8, 8),
     # 2026-08-20: d5_t2e (Nordic Curl Max [Ares]) VACATED -- D5 no longer
     # has any Nordic slot; replaced by fresh d5_t2i (Lying Leg Curl [GHR +
     # Ares]).

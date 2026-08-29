@@ -1011,9 +1011,11 @@ def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # carries forward from BSS's prior shoe assignment (needs the heel for
     # depth, per the 2026-08-11/14 history above).
     gs2 = _add_tier(db, pd.id, "GS2", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Adipower II")
+    # 2026-08-29: athlete directive -- straight fixed-8-rep scheme (was
+    # DOUBLE_PROGRESSION 8-12); see seed.py's matching Movement.scheme update.
     _add_te(db, gs2.id, "d5_t2h", "Matrix Machine Bulgarian Split Squat", lib, 1, "free",
-            pattern="lunge", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
+            pattern="lunge", rep_low=8, rep_high=8,
+            scheme="STRAIGHT")
     _add_te(db, gs2.id, "d5_t3b", "Reverse Nordic (assisted)", lib, 2, "free",
             knee_modality=KneeModality.KOT, rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")

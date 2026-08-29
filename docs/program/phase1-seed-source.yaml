@@ -171,7 +171,7 @@ days:
       {m: hybrid_board_tib_raise_d5, reps: [10,15], rule: rpe_8_standard},  # knee_modality=TIB on the TierExercise -- preserves the program's 2x/week TIB invariant
       {m: better_fly_hip_adduction_d5, reps: [10,15], rule: rpe_8_standard, unilateral: true}]}
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Adipower II", ex: [   # <-- SHOE SWAP
-      {m: matrix_machine_bss_d5, reps: [8,12], rule: rpe_8_standard, unilateral: true},
+      {m: matrix_machine_bss_d5, reps: [8,8], rule: rpe_8_standard, unilateral: true},  # 2026-08-29: athlete directive -- straight fixed-8-rep (was 8-12 double-progression)
       {m: reverse_nordic_assisted, reps: [8,12], rule: rpe_8_standard, load: 0},
       {m: hybrid_board_calf_raise_d5, reps: [10,15], rule: rpe_8_standard},
       {m: better_fly_kickback_d5, reps: [10,15], rule: rpe_8_standard, unilateral: true}]}
