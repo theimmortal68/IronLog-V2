@@ -149,7 +149,7 @@ days:
     # "tib must appear on >=2 days" invariant -- this 4th T3 GS member
     # preserves it without relaxing that test.
     T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
-      {m: kickstand_rdl_d5, reps: [4,6], rule: rpe_8_standard, unilateral: true}]}  # 2026-08-12: new, needs-calibration (zero prior history)
+      {m: kickstand_rdl_d5, reps: [4,6], rule: rpe_8_standard}]}  # 2026-08-12: new, needs-calibration (zero prior history). 2026-08-29: athlete directive -- actually a barbell movement, not DB/unilateral; repointed to "Kickstand RDL [PB]" (see program_seed.py)
     # 2026-08-20 (athlete directive): nordic_curl_max_d5 (d5_t2e) VACATED --
     # D5 no longer has any Nordic Curl slot at all. Replaced by
     # lying_leg_curl_ghr_ares_d5 (fresh slot "d5_t2i", cable lying leg curl,

@@ -79,7 +79,9 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Reverse Nordic (assisted)":                    "Reverse Nordic Curl [GHR]",
     "Hyper Pro Calf Raise":                         "Calf Raise [GHR]",
     # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 turnover.
-    "Kickstand RDL":                                "Kickstand RDL [DB]",
+    # 2026-08-29: athlete directive -- actually trained with a barbell,
+    # repointed to the new "Kickstand RDL [PB]" row (see seed.py comment).
+    "Kickstand RDL":                                "Kickstand RDL [PB]",
     "Nordic Max Bulgarian Split Squat":              "Nordic Max Bulgarian Split Squat",
     "Matrix Machine Bulgarian Split Squat":          "Matrix Machine Bulgarian Split Squat",
     "Better Fly Kickback":                          "Better Fly Kickback [FT]",
@@ -170,6 +172,10 @@ RAMP_ELIGIBLE_MOVEMENT_NAMES = {
     # it in for the old Standing OHP [PB] anchor; found live (no warmup
     # ramp sets were generating for it, unlike D1's Bench Press).
     "Seated BTN OHP [PB]",
+    # 2026-08-29: D5's T1 anchor, repointed from the DB variant to a barbell
+    # (athlete directive). Same recurring omission class as Seated BTN OHP
+    # above -- flagging it here at the same time as the anchor swap itself.
+    "Kickstand RDL [PB]",
 }
 
 WARMUP_CONFIGS: Dict[int, dict] = {
@@ -899,7 +905,7 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
 # ---------------------------------------------------------------------------
 
 def _seed_d5(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
-    # T1 — Kickstand RDL [DB] (anchor). 2026-08-12 (maintenance block, STAB
+    # T1 — Kickstand RDL [PB] (anchor). 2026-08-12 (maintenance block, STAB
     # redesign, Task 4): replaces RDL [PB] -- unilateral DB RDL, B-stance
     # (front foot flat, back foot on ball for balance), rep range 6-8 -> 4-6
     # (FINAL doc, matches every other T1 primary this redesign). Fresh

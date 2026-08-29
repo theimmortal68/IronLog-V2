@@ -119,7 +119,9 @@ EXPECTED_NEEDS_CAL = {
     # with Nordic Curl Max in the same giant set). New movement, zero prior
     # history, needs-calibration.
     "D5 Lower B": {
-        "Kickstand RDL [DB]", "Matrix Machine Bulgarian Split Squat",
+        # 2026-08-29: repointed from the DB variant to a barbell (athlete
+        # directive) -- new movement row, still needs-cal, zero prior history.
+        "Kickstand RDL [PB]", "Matrix Machine Bulgarian Split Squat",
         # 2026-08-20: Nordic Curl Max [Ares] VACATED from D5 (no Nordic slot
         # left there at all) -- replaced by Lying Leg Curl [GHR + Ares].
         "Lying Leg Curl [GHR + Ares]", "Better Fly Kickback [FT]",

@@ -24,6 +24,9 @@ RAMP_ELIGIBLE_NAMES = {
     # 2026-08-13: D4's T1 anchor since the STAB redesign (Task 3, 2026-08-11) --
     # plate-loaded barbell press, missed when it replaced Standing OHP [PB].
     "Seated BTN OHP [PB]",
+    # 2026-08-29: D5's T1 anchor, repointed from the DB variant to a barbell
+    # (athlete directive) -- same recurring omission class as Seated BTN OHP.
+    "Kickstand RDL [PB]",
 }
 
 

@@ -97,7 +97,10 @@ def test_total_count_103(seeded):
     # D5 no longer has a Nordic slot at all): 144 -> 146.
     # 2026-08-29: +1 "Seated Leg Extension [GHR + FT]" (D6's GS3, new fresh
     # slot d6_g3f, athlete directive): 146 -> 147.
-    assert len(_all(seeded)) == 147
+    # 2026-08-29: +1 "Kickstand RDL [PB]" (D5's T1 anchor repointed from the
+    # DB variant to a barbell, athlete directive; old DB row stays ACTIVE,
+    # unwired): 147 -> 148.
+    assert len(_all(seeded)) == 148
 
 
 def test_status_counts(seeded):
@@ -134,7 +137,9 @@ def test_status_counts(seeded):
     # Ares]: 137 -> 139.
     # 2026-08-29: +1 ACTIVE Seated Leg Extension [GHR + FT] (D6 GS3, fresh
     # slot d6_g3f, athlete directive): 139 -> 140.
-    assert c[Status.ACTIVE] == 140
+    # 2026-08-29: +1 ACTIVE Kickstand RDL [PB] (D5 T1 anchor repointed from
+    # the DB variant to a barbell, athlete directive): 140 -> 141.
+    assert c[Status.ACTIVE] == 141
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

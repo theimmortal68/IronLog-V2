@@ -174,7 +174,7 @@ def test_hgc_condensed_week_incomplete_clusters_are_straight_sets(gen_db_calibra
     assert [group.rounds for group in groups] == [1, 1, 1]
     assert not any(group.group_type == GroupType.GIANT_SET for group in groups)
     assert [_group_movement_names(gen_db_calibrated, group) for group in groups] == [
-        ["Kickstand RDL [DB]"],
+        ["Kickstand RDL [PB]"],
         ["Better Fly Kickback [FT]"],
         ["Better Fly Hip Adduction [FT]"],
     ]

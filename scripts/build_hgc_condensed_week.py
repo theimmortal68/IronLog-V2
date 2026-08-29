@@ -98,7 +98,11 @@ MINI_SESSIONS = [
     # (no two of these three movements may share a source ExerciseGroup).
     # Better Fly Hip Adduction is a GS1 member, distinct from Kickstand
     # RDL's T1 and Better Fly Kickback's GS2.
-    (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [DB]", "Better Fly Kickback [FT]", "Better Fly Hip Adduction [FT]"]),
+    # 2026-08-29: repointed from "Kickstand RDL [DB]" -- D5's T1 anchor is
+    # now wired to the barbell variant (athlete directive), and this script
+    # matches by name against a freshly-generated D5 source session, which
+    # resolves to current wiring, not the historical DB-era name.
+    (date(2026, 7, 28), "D5 Lower B", ["Kickstand RDL [PB]", "Better Fly Kickback [FT]", "Better Fly Hip Adduction [FT]"]),
     # 2026-08-20: repointed from "Nordic Curl Max [Ares]" -- that slot
     # (d2_t2e) now rotates A/B via WeekParityRotation (Apex angle / Ares
     # flat+band), so which movement `lay_skeleton(day_role, db)` resolves

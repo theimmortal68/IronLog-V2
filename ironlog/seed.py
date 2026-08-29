@@ -283,6 +283,20 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
          primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES", "SPINAL_ERECTORS"]),
+    # 2026-08-29: athlete directive -- D5's T1 anchor is actually trained with
+    # a barbell, not the MX100 DBs the original STAB redesign spec called for
+    # (spinal-load-reduction rationale, docs/program/source/2026-08-10-...).
+    # New movement row (bilateral barbell, unilateral=False) rather than
+    # mutating "Kickstand RDL [DB]" in place -- matches this file's own
+    # precedent for anchor swaps (e.g. RDL [PB] -> Kickstand RDL [DB] itself
+    # left the old row ACTIVE and unwired rather than retiring it). load_floor
+    # 45 matches Back Squat [PB]/RDL [PB] (empty barbell weight). Ladder is
+    # [10, 5] (not the usual [10, 5, 2.5]) per athlete directive.
+    dict(name="Kickstand RDL [PB]", base_name="Kickstand RDL",
+         region=Region.LOWER, status=Status.ACTIVE, load_code="PB", tags=["PB"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[10, 5], min_step=2.5, load_floor=45,
+         primary_muscle="HAMSTRINGS", secondary_muscles=["GLUTES", "SPINAL_ERECTORS"]),
     # 2026-08-12: new D5 T2 GS movement (Task 4). Nordic Max attachment +
     # MX100 DBs, unilateral. Needs-calibration start, zero prior history.
     # 2026-08-14: dropped from D5's T2 GS -- shares the Nordic Max rig with

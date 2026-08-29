@@ -129,7 +129,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "reverse_nordic_assisted":           "Reverse Nordic Curl [GHR]",
     "cable_tib_raise_d5":                "Cable Tibialis Raise",
     "hyper_pro_calf_raise":              "Calf Raise [GHR]",
-    "kickstand_rdl_d5":                  "Kickstand RDL [DB]",
+    "kickstand_rdl_d5":                  "Kickstand RDL [PB]",
     "nordic_max_bss_d5":                 "Nordic Max Bulgarian Split Squat",
     "matrix_machine_bss_d5":             "Matrix Machine Bulgarian Split Squat",
     "lying_leg_curl_ghr_ares_d5":         "Lying Leg Curl [GHR + Ares]",
