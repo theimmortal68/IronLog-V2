@@ -164,6 +164,9 @@ EXPECTED_NEEDS_CAL = {
         "Better Fly Rear Delt Extension [FT]",
         "Better Fly OH Tricep Extension [FT]",
         "AbMat Ab Bench Pad Cable Crunch [FT]",
+        # 2026-08-29: new GS3 slot d6_g3f, Seated Leg Extension [GHR + FT],
+        # zero prior history, needs-calibration.
+        "Seated Leg Extension [GHR + FT]",
     },
 }
 

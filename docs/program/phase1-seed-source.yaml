@@ -234,4 +234,5 @@ days:
     GS3: {group_key: "GS3", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
       {m: face_pull, reps: [10,15], rule: rpe_8_standard, load: 30},
       {m: better_fly_oh_tricep_ext_d6, reps: [8,12], rule: rpe_8_standard},
-      {m: abmat_ab_bench_pad_cable_crunch_d6, reps: [10,15], rule: rpe_8_standard}]}
+      {m: abmat_ab_bench_pad_cable_crunch_d6, reps: [10,15], rule: rpe_8_standard},
+      {m: seated_leg_extension_d6, reps: [10,15], rule: rpe_8_standard}]}

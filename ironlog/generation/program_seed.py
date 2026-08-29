@@ -149,6 +149,7 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "Better Fly Rear Delt Extension":               "Better Fly Rear Delt Extension [FT]",
     "Better Fly OH Tricep Extension":               "Better Fly OH Tricep Extension [FT]",
     "AbMat Ab Bench Pad Cable Crunch":              "AbMat Ab Bench Pad Cable Crunch [FT]",
+    "Seated Leg Extension":                         "Seated Leg Extension [GHR + FT]",
     # ── Meso-2 rotation variants ─────────────────────────────────────────────
     "Back Squat":                                   "Back Squat [PB]",
     "Pendlay Row":                                  "Pendlay Row - Medium [OB]",
@@ -1153,4 +1154,7 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs3.id, "d6_g3e", "AbMat Ab Bench Pad Cable Crunch", lib, 3, "free",
             pattern="core", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
+    _add_te(db, gs3.id, "d6_g3f", "Seated Leg Extension", lib, 4, "free",
+            pattern="leg_extension", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")

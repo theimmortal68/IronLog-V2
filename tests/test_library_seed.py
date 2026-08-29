@@ -95,7 +95,9 @@ def test_total_count_103(seeded):
     # week, angle-adjustable unassisted Nordic) and "Lying Leg Curl [GHR +
     # Ares]" (D5's new T2 GS movement, replaces Nordic Curl Max [Ares] --
     # D5 no longer has a Nordic slot at all): 144 -> 146.
-    assert len(_all(seeded)) == 146
+    # 2026-08-29: +1 "Seated Leg Extension [GHR + FT]" (D6's GS3, new fresh
+    # slot d6_g3f, athlete directive): 146 -> 147.
+    assert len(_all(seeded)) == 147
 
 
 def test_status_counts(seeded):
@@ -130,7 +132,9 @@ def test_status_counts(seeded):
     # Better Fly Cable Bicep Curl, athlete directive): 136 -> 137.
     # 2026-08-20: +2 ACTIVE Nordic Curl Max [Apex] and Lying Leg Curl [GHR +
     # Ares]: 137 -> 139.
-    assert c[Status.ACTIVE] == 139
+    # 2026-08-29: +1 ACTIVE Seated Leg Extension [GHR + FT] (D6 GS3, fresh
+    # slot d6_g3f, athlete directive): 139 -> 140.
+    assert c[Status.ACTIVE] == 140
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

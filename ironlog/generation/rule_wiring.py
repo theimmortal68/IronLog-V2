@@ -170,6 +170,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "better_fly_rear_delt_ext_d6":       "Better Fly Rear Delt Extension [FT]",
     "better_fly_oh_tricep_ext_d6":       "Better Fly OH Tricep Extension [FT]",
     "abmat_ab_bench_pad_cable_crunch_d6": "AbMat Ab Bench Pad Cable Crunch [FT]",
+    "seated_leg_extension_d6":           "Seated Leg Extension [GHR + FT]",
     "t_bar_row_wide_kleva":              "T-Bar Row - Wide [OB + KLEVA + LM]",
 }
 
