@@ -47,3 +47,116 @@ D4 live-session feedback: two movements advanced in 5lb steps instead of the int
 - All commits through this session (`37f0dce` back through `f362be3`, 6 total) pushed to `origin/main` this session.
 - Stray worktree found, pre-existing (not this session's): `/home/jstout/projects/IronLog-V2-wt-incline-handoff` on unmerged branch `feature/incline-reduction-terminal-handoff`, working tree clean. Not swept this session (not mine, out of task scope) — candidate for the "On Session Start" worktree sweep next session if that branch is actually abandoned.
 - Usage snapshot: not captured — `/usage` is a slash command, not available as a tool in this session context.
+
+---
+
+# State — 2026-08-29 (evening)
+
+## Current task
+Started as a routine D6/D5 exercise-config session (add Seated Leg Extension to D6 GS3;
+fix Kickstand RDL equipment/ladder/warmup; several increment-ladder corrections; BSS
+scheme change). Escalated mid-session into a production incident: this session's own
+`rm -f ironlog.db && python -m ironlog.seed` calls (run repeatedly to verify code changes)
+deleted the athlete's live session history in place, mid-workout, because this checkout's
+`ironlog.db` is NFS-mounted onto the same disk `ironlogv2.service` reads from — there is no
+separate local test copy. See the new CLAUDE.md gotcha (both this repo's and project-ops's)
+for the full explanation and the correct way to test/deploy going forward.
+
+## Decisions made and why
+- **Seated Leg Extension [GHR + FT] added to D6 GS3**, slot `d6_g3f`. Commit `bbd54b0`.
+- **Kickstand RDL corrected from a unilateral-DB movement to a bilateral-barbell movement**
+  (new row `Kickstand RDL [PB]`, old `[DB]` row left ACTIVE/unwired per this repo's own
+  never-retire convention) — athlete directive, they actually train it with a barbell.
+  Ladder set to `[10, 5]` (athlete's literal spec, narrower than other T1 primaries'
+  `[10,5,2.5]`). This surfaced and fixed a real pre-existing bug: the DB-era movement was
+  never added to `RAMP_ELIGIBLE_MOVEMENT_NAMES`, so it never generated warmup/ramp sets
+  regardless of tier wiring (same failure class as the earlier Seated BTN OHP incident).
+  Commit `22a3f1a`.
+- **Increment ladders corrected for Lying Leg Curl (2.5), Hybrid Board Tib Raise D2+D5
+  (1.25), Better Fly Hip Adduction (2.5)** — athlete directive, narrowed from `[5,2.5]` to
+  flat single-rung values matching real equipment granularity. Commit `f841388`.
+- **Matrix Machine Bulgarian Split Squat**: DOUBLE_PROGRESSION 8-12 → STRAIGHT fixed-8-rep,
+  ladder `[5,2.5]` → `[2.5]`. **Reverse Nordic Curl [GHR] was missing `increment_ladder`
+  entirely** (real bug — `engine/advance.py::_earned_step()` returns `None` on an empty
+  ladder, so this movement could never earn a load increase on any clean advance, ever,
+  regardless of performance) — fixed to `[2.5]`. **Hybrid Board Calf Raise D2+D5**: `[5,2.5]`
+  → flat `[5]`. Better Fly Kickback already matched the athlete's spec (`[5,2.5]`), no change.
+  Commit `4a29f4d`.
+- **None of the above 4 commits are deployed to production.** They're committed on
+  `session/2026-08-29-d6-gs3-seated-leg-extension`, pushed, but the live DB still runs the
+  pre-session movement/program config (confirmed via `/generate` still returning
+  `Kickstand RDL [DB]`, calf raise target still 190 not the new ladder's implied value,
+  etc.). Given how the evening went, deploying was deliberately deferred rather than rushed
+  — see Next step.
+- **Production incident, full timeline:** this session ran `rm -f ironlog.db && python -m
+  ironlog.seed` (and one full `seed_phase1_program` snippet) against
+  `~/projects/IronLog-V2/ironlog.db` repeatedly across ~1hr while verifying code changes,
+  not realizing that path is the NFS-mounted live DB (`192.168.1.7:/mnt/appdata/projects` ->
+  `/home/jstout/projects`, confirmed via `findmnt`). The athlete was mid-D5-session on their
+  phone at the time. Their Farmer's Carry finisher submission hit a 500
+  (`sqlite3.OperationalError: attempt to write a readonly database`) during this window —
+  almost certainly a race between the athlete's live INSERT and this session's `rm`+reseed
+  cycle. By the time this was investigated, the live DB had no `session`/`setlog` tables at
+  all (down to bare library-only state from the most recent bare `python -m ironlog.seed`).
+  **Recovery:** found the nightly `backup-appdata` timer's rsync snapshot (3-day retention,
+  `/mnt/storage/backups/appdata/2026-08-29/projects/IronLog-V2/ironlog.db`, actual file
+  timestamp Aug 28 7:10pm — the most recent backup that exists anywhere), got explicit
+  athlete go-ahead, stopped `ironlogv2.service`, moved the broken file aside, copied the
+  backup into place, restarted the service — restored 44 sessions / 891 setlogs. **This
+  permanently lost anything logged between Aug 28 7:10pm and the incident** (nothing else
+  recoverable exists). The athlete's in-progress D5 session itself (everything they'd
+  performed tonight before the finisher) was initially still safe in the phone app's local
+  cache, but was lost separately when the athlete accidentally navigated away in the app
+  before it could resubmit. **That session was manually reconstructed** via the real
+  `/generate` -> `/approve` -> `/sessions/{id}/submit` -> `/sessions/{id}/finisher/log` API
+  flow (not raw SQL) using the athlete's screenshots + verbal corrections as the source of
+  truth: session id 56, 39 SetLog rows across 8 exercises (Kickstand RDL, Lying Leg Curl,
+  Ab Trainer Russian Twist, Hybrid Board Tib Raise [15/13/13 reps, not uniform], Better Fly
+  Hip Adduction, Matrix Machine BSS, Reverse Nordic Curl, Hybrid Board Calf Raise, all
+  ON_TARGET) plus a Heavy Farmer Carry finisher log (75lb). Verified byte-for-byte against
+  the athlete's account after submission. Server confirmed `active`, DB confirmed intact,
+  post-recovery.
+- **CLAUDE.md updated in both this repo and project-ops** with a new gotcha documenting the
+  NFS-mount hazard and the correct test/deploy pattern (copy-to-scratch for testing,
+  `deploy/migrations/NNN_*.sql` for shipping), so this can't recur silently.
+
+## Open questions
+- None of this session's 4 code-fix commits are live. Deploying them requires either a
+  `deploy/migrations/NNN_*.sql` (data-only changes: increment ladders, ramp_eligible flags,
+  the new movement rows) or is otherwise straightforward — but given tonight's incident, do
+  this deliberately in a fresh, calm session, not rushed at the end of this one.
+- Whether the athlete wants the pre-existing `ironlog.db.bak-*` sprawl (80+ files, untracked,
+  not this session's) cleaned up at some point — noted, not actioned, not this session's task.
+
+## Next step
+1. **Deploy this session's 4 commits to production** via a new `deploy/migrations/` file
+   (or files) — Seated Leg Extension, Kickstand RDL barbell fix + ramp_eligible, the three
+   increment-ladder corrections, and the BSS scheme/ladder change all need the equivalent of
+   `043_flat_2_5_increment_ladders.sql`'s pattern: INSERT the new movement rows, UPDATE the
+   `ramp_eligible`/`increment_ladder`/`scheme` columns on existing rows, and update
+   `tierexercise` rows (program_seed's `PROGRAM_TO_LIBRARY` remap + rep_low/rep_high changes)
+   directly against the live DB. Test the migration against a **copied** `ironlog.db` first
+   (see the new CLAUDE.md gotcha) — do not reseed the live file to "verify" it.
+2. Confirm with the athlete that tonight's reconstructed D5 session (id 56) reads correctly
+   in the app now that they've had a chance to look at it post-recovery.
+3. Merge `session/2026-08-29-d6-gs3-seated-leg-extension` to `main` once deploy is confirmed
+   working (or independently — the branch itself is safe to merge any time, deploy is a
+   separate live-DB step).
+
+## Session notes
+- Pre-existing uncommitted state in this repo (still not this session's, unchanged from the
+  2026-08-28 entry above): `.specs/routing-plan.md`, `.superpowers/sdd/task-2-report.md`,
+  `.superpowers/sdd/task-7-report.md`, `docs/build-plan.md`,
+  `docs/program/phase1-warmup-finisher-source.yaml`,
+  `ironlog/generation/live_seed_ramp_and_finishers.py`, plus untracked specs/backups/
+  `finisher_dump_tmp.py`. Left untouched.
+- One artifact from tonight's incident response was created and then deleted before session
+  end: `ironlog.db.broken-20260829-preincident` (the pre-restore broken file, moved aside as
+  a safety copy before overwriting with the backup) — zero recovery value (bare library only,
+  no history), deleted after the restore was confirmed good.
+- Stray worktree, pre-existing, still not swept: `/home/jstout/projects/IronLog-V2-wt-incline-handoff`
+  on branch `feature/incline-reduction-terminal-handoff`.
+- This session's 4 commits pushed to `origin/session/2026-08-29-d6-gs3-seated-leg-extension`
+  (not `main` — session branch per this repo's standing convention).
+- Usage snapshot: not captured — `/usage` is a slash command, not available as a tool in
+  this session context (consistent with the 2026-08-28 entry's same note).

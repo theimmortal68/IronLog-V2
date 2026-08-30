@@ -89,6 +89,21 @@ the API is a **shared contract**, not a private interface.
   Keep it that way; new deterministic logic goes here with tests.
 - **Do NOT add `from __future__ import annotations`** to any file with `Relationship(...)`.
   It stringifies the types and SQLAlchemy can't resolve them (this already bit us once).
+- **`ironlog.db` in this checkout is the SAME FILE as the live production DB** whenever this
+  repo is opened via the NFS mount from a workstation (`/home/jstout/projects` ->
+  `192.168.1.7:/mnt/appdata/projects`, confirmed via `findmnt`). There is no separate local
+  test copy by default. **NEVER run `rm -f ironlog.db && python -m ironlog.seed`** (or any
+  reseed) against this path to "verify a change" — it deletes and replaces the athlete's
+  live session history in place, while `ironlogv2.service` may be actively serving requests
+  against it. This happened for real on 2026-08-29 mid-workout (500 error, `attempt to write
+  a readonly database`, then a full session-history wipe down to bare library tables) and
+  required restoring from the nightly `backup-appdata` snapshot plus manually replaying the
+  lost session through the live API. **To test seed/program changes safely: copy the file to
+  a scratch path first** (`cp ironlog.db /tmp/test.db`, point a throwaway `create_engine()`
+  at that instead), or run the test suite's own fixtures (they use in-memory/isolated DBs,
+  not this file). **To ship an already-verified data/config change to production: write a
+  `deploy/migrations/NNN_*.sql` file and run it directly against the live DB** (see
+  `043_flat_2_5_increment_ladders.sql` for the pattern) — do not reseed to deploy.
 - Lists on models (`increment_ladder`, `equipment_tags`) are JSON columns.
 - Enums are `str, Enum` in `models/enums.py`. Add new vocabulary there, not as bare strings.
 - When you change *behavior*, update the relevant spec in `docs/` in the same change —
