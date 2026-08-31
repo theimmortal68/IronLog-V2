@@ -302,3 +302,62 @@ was safe as data, specced the two items that turned out to need real engine chan
   narrative "(472 passing)" mention further down (describing the historical 2026-07-06
   go-live moment specifically) untouched, matching this file's own stated convention for
   historical mentions vs. the "current state" table that's meant to stay live.
+
+---
+
+# State — 2026-08-31 (later same day)
+
+## Current task
+Deployed the still-unmerged `session/2026-08-29-d6-gs3-seated-leg-extension` branch's
+Seated Leg Extension change (commit `bbd54b0`, code-only until now) to the live DB, at the
+athlete's explicit request while mid-D6-workout.
+
+## Decisions made and why
+- **Discovered migrations 044/045/046 were data-applied live but not recorded in
+  `schema_migrations`** (the "shipped live" claim in the prior 2026-08-31 entry is
+  data-accurate but bookkeeping-wrong — the runner was bypassed when they were originally
+  run). Confirmed by direct query, not by trusting the prior entry or memory. This was a live
+  landmine: next `ironlogv2.service` restart's `ExecStartPre` would have re-run all three
+  non-idempotent files, duplicating D6's T1 tier and OHP slot and re-shifting GS1/2/3
+  tier_order a second time.
+- **First fix attempt (numbered file `047_backfill_...sql` run through normal `apply_pending`)
+  corrupted a scratch test copy** — confirmed the exact failure above. `python -m
+  ironlog.migrate stamp <versions>` (a command that already existed, doc'd as "for the prod
+  backfill") is the correct tool; deleted the 047 file, re-tested clean on a fresh scratch
+  copy, then ran the same stamp against live before applying 048/049.
+- **048/049 add the movement + tierexercise wiring** matching `bbd54b0`'s code, using live
+  tier id 18 for D6 GS3 (re-confirmed against the DB directly since 044 already shifted D6's
+  tier_order once — did not trust seed-code tier numbering).
+- **Athlete was mid-D6-session (session id 57, generated 22:33) when this was applied and
+  explicitly chose to proceed anyway** after being warned about the 2026-08-29 corruption
+  precedent. Confirmed session 57's GS3 was already materialized to 3 exercises at generation
+  time — the new slot will not retroactively appear in today's workout, only from the next D6
+  session onward. Told the athlete this directly.
+
+## Verified
+- Live DB backed up first: `~/ironlog_backup_pre_047_048_049_20260831-184922.db`.
+- Scratch-copy dry run clean and idempotent (`nothing to apply` on second run) before
+  touching live.
+- Live D6 tier_order unchanged (T1=1, GS1=2, GS2=3, GS3=4), GS3 now 4 exercises, no
+  duplicates. Full suite (744 tests) green after. `ironlogv2.service` confirmed serving
+  (`GET /docs` → 200) after the write, not restarted.
+- Session 57's already-generated GS3 confirmed unchanged (still 3 exercises) — expected.
+
+## Open questions
+- Same carried-forward items as the prior entry (specs 58/59 route-plan decision, Dips
+  band-ladder misclassification, unswept `[5, 2.5]` ladder sweep).
+- **The unmerged session branch is now 7 sessions deep** (`session/2026-08-29-d6-gs3-seated-leg-extension`,
+  commits through `2e1cadb`) — still flagged, still not resolved. This session again chose not
+  to restructure branch topology mid-task.
+
+## Next step
+1. Athlete: check tonight's D6 GS3 in the app after this session completes (won't show the
+   new exercise until the *next* D6 session — today's is already locked).
+2. A future session should merge `session/2026-08-29-d6-gs3-seated-leg-extension` to `main`
+   or explicitly commit to keeping it as a long-lived branch — same standing item as before.
+
+## Session notes
+- Migration numbering: `047` was allocated then deleted (bookkeeping-only fix, applied via
+  `stamp` not a file) — next new migration should start at `050`, not reuse `047`.
+- Pre-existing uncommitted state in this repo, unchanged, not this session's — same list as
+  every entry back to 2026-08-28.
