@@ -245,3 +245,86 @@ Notes:
 - **Opus review**: route both through unconditionally — spec 49 touches the HT write-boundary invariant (Option-C) directly; spec 50 touches an even more invariant-adjacent concern (decoupling a MovementState field from the day-scoping pattern that exists specifically to prevent a known bug class, spec 12's day-blind last-write-wins). Neither is review-exempt under any circumstance.
 - Real production data this fix needs to handle correctly: D2 and D5 are both at 180+Red as of tonight (synced by hand during the investigation) — the backfill script's "more advanced of the two" comparison will hit a tie on first real use, exercising that code path immediately, not just in a test fixture.
 - Standing user instruction as of this batch: once a design is approved, run `/spec` → `/verify-plan` → `/route-plan` back-to-back without stopping in between, except at an actual HUMAN GATE.
+
+## 2026-08-26 batch: Belt Squat dead REP_LADDER rule fix
+
+Athlete-reported live during today's D2 (Lower A) session: Belt Squat's prescribed
+load stayed at 325 this week instead of the expected 335 (+10 until first failure,
+then +5). Root-caused by Tier A before speccing (see spec 57): `Movement.rep_ladder`
+is `None` for every movement in the codebase (never populated anywhere), and Belt
+Squat's `progression_rule` is wired to `REP_LADDER` — a rule that only ever mutates
+`current_rep_target`, never `current_load`. With no `rep_ladder` to seed from, it's
+been permanently stuck (`consecutive_advance_count=0`, `current_rep_target=None`).
+Fix: rewire Belt Squat to `RPE_8_STANDARD`, matching its sibling primary anchors
+(Bench Press, Standing OHP, RDL), which already correctly ratchets `current_load` by
+`increment_ladder[current_increment_tier]` on a clean session. Dispatch withheld —
+hold for explicit go-ahead once the athlete's workout is done (standing instruction
+this batch).
+
+Also found while auditing other days for the same defect class (not part of this
+dispatch — see spec 57's "edge cases"/exclusions and the conversation record): Reverse
+Hyper (D2), Light Reverse Hyper (D5), Ab Wheel Rollout (D1 + D6) are also permanently
+stuck on dead `REP_LADDER`/`BODY_POSITION` rules (Dragon Flag, D4, on `BODY_POSITION`)
+because `rep_ladder`/`position_ladder` are unpopulated for them too — but unlike Belt
+Squat these are genuinely bodyweight/rep-based or position-based movements, not
+misclassified scalar-load lifts, so the fix is populating real progression-ladder
+values that require athlete-supplied data (actual rep targets or position names) that
+doesn't exist anywhere in this codebase. NOT specced or dispatched this batch — flagged
+for a future spec once that data is available. Do not invent placeholder values.
+
+- `.specs/57-belt-squat-dead-rep-ladder-rule-fix.md` → codex, worktree wt-57, depends
+  on: none. Bounded work across 3 files (YAML config edit, a new idempotent one-off
+  live-DB fix script mirroring `nordic_curl_ladder_fix.py`, and a test-file addition) —
+  codex per "Choosing a provider for generation."
+
+Delegation ratio: 1/1 (100%)
+Merge order: wt-57 standalone.
+
+Notes:
+- **NOT YET DISPATCHED** — user directive: spec now, implement only once told the
+  workout is finished. Do not create the worktree or call `consensus_delegate` until
+  that go-ahead arrives.
+- Opus review: route through — this touches the progression engine's rule wiring for
+  a movement the athlete is training on today, plus a live-DB one-off script (the same
+  class of change that produced this session's worst near-miss per the Review Gate's
+  own calibration case). Non-trivial, invariant-adjacent (progression_rule dispatch).
+- No HUMAN GATE by the letter of the Forbidden list (no schema/auth/API-surface/dep
+  change) — but the live-DB one-off script does mutate production `MovementState` data
+  directly, same class of action as prior live-DB single-movement fixes in this repo's
+  history (Nordic Curl, Reverse Nordic ladder backfills) which were all done without a
+  gate. Follow that precedent: no gate required, but confirm the script's effect via
+  direct query before calling this batch deployed (per this spec's own Verification
+  section).
+- Deploy: no schema change — Class 1 restart (service restart only) once merged, plus
+  running the one-off live-DB script once against production.
+
+## 2026-07-27: HGC condensed week single-finisher-per-day fix
+
+Athlete-reported live bug (mid-condensed-week, day 1): each of today's 3 same-date HGC mini-sessions (D1/D2/D6 slices) independently attached its own source day's `DayFinisher` via `program_day_id` in `signature`, so the athlete was shown 3 different finishers on one real training day (kb_swing/sled_push/D6's) and only performed one. Fix: gate finisher attachment on a new `signature["show_finisher"]` flag, `True` only for the last mini-session (by `MINI_SESSIONS` list order) per calendar date; default `True` when the key is absent so ordinary non-HGC `/generate` sessions are completely unaffected.
+
+- `.specs/53-hgc-single-finisher-per-day.md` → codex, worktree wt-53, depends on: none. Touches `ironlog/api/app.py` (`get_today_session`/`get_session_detail`, identical duplicated finisher-gating logic in both) + `scripts/build_hgc_condensed_week.py` (`signature` construction). No schema change, no Forbidden-list hit.
+
+Delegation ratio: 1/1 (100%)
+Merge order: wt-53 standalone.
+
+Notes:
+- No HUMAN GATE — pure application logic, no schema/auth/API-surface-shape change (adds a signature key, doesn't remove/rename anything).
+- Opus review routed: touches request-handling logic on both session-serving endpoints; the "default True when absent" edge case is exactly the kind of silent-regression risk (breaking the entire live/non-HGC flow's finisher display) this session's Review Gate exists to catch before merge, not after.
+- Post-merge, Tier A backfills `signature["show_finisher"]` directly onto the 11 already-created live HGC sessions (ids 28-38) per the spec's expected-values table — data-only, not part of the code dispatch.
+
+## 2026-08-31: Alternating-pair tiers + timed TierExercise support (both deferred from the athlete's outside-review batch)
+
+Two engine gaps surfaced while applying `044_review_program_updates.sql`: (1) `TierKind.PAIR` has zero behavioral effect in `assembler.py`/`skeleton.py` today, so the athlete's requested Pendlay↔Bench alternating pairing couldn't be shipped as a data edit; (2) `TierExercise` has no duration field outside the finisher-only path, blocking a timed suitcase-carry accessory. Both specs are genuinely independent in *intent* (session structure vs. prescription vocabulary) but **overlap in file surface** — both touch `ironlog/generation/skeleton.py`, `ironlog/generation/assembler.py`, and `ironlog/models/program.py` (`TierExercise`/`Tier`). Per CLAUDE.md's decomposition guidance, overlapping surfaces get sequential worktrees with a defined merge order, not parallel dispatch into the same files.
+
+- `.specs/58-alternating-pair-tiers.md` → codex, worktree wt-58, depends on: none (goes first — smaller, more isolated change: one new `Tier` field, one new `ExerciseGroup` type, no new library data). Touches `ironlog/generation/assembler.py`, `ironlog/generation/skeleton.py`, `ironlog/models/program.py`, a new `deploy/migrations/NNN_alternating_pair_tiers.sql`, `tests/test_assembler_alternating_pair.py`, `docs/06_generation_algorithm_spec.md`.
+- `.specs/59-timed-tier-exercise-suitcase-carry.md` → codex, worktree wt-59, depends on: wt-58 merged first (rebase onto post-58 `skeleton.py`/`assembler.py`/`program.py` before starting, since both land real changes in the same functions — `SlotSpec` construction and the `assemble()` branch structure). Touches the same three core files plus `ironlog/engine/` (progression math), `ironlog/models/session.py` (`PlannedSet`/`SetLog` duration fields), two new migrations (schema then content), `tests/test_timed_tier_exercise.py`, `docs/03_progression_model_spec.md`, `docs/04_exercise_library_schema.md`.
+
+Delegation ratio: 2/2 (100%)
+Merge order: wt-58 → (rebase wt-59 onto post-58 tip, re-review if the rebase changes anything non-trivial per CLAUDE.md's rebase-staleness rule) → wt-59.
+
+Notes:
+- `opencode` is retired per project memory (2026-07-09, zombie-process + scope-violation incident) — routed both to `codex` instead of the provider this skill's default prompt suggests for bounded work; `docs/workers-and-providers.md` is the live source of truth if that's since changed.
+- **[HUMAN GATE] applies to both at merge time.** Neither touches the literal Forbidden-list items (no dependency upgrade, no auth/crypto/secrets, no CI/CD, no target-SDK change), but spec 59 does add new reference-data rows (Equipment, Movement) with real load numbers the spec explicitly says need athlete confirmation before hardcoding, not just review — treat that confirmation as a pause condition distinct from the routine Review Gate, per this session's own back-and-forth on new-equipment numbers.
+- Both specs flag a **client contract** question (`CLAUDE.md`'s "Client contract" section — `IronLog-V2-Client` consumes this API as a shared contract). Confirm during review whether either change is breaking (spec 58: set-ordering assumptions; spec 59: new duration fields need client-side rendering, not just safe-ignore) and surface it explicitly in the merge commit / completion report, not just in code comments.
+- Both specs' Review Gate routing: **review, not exempt** — both are deterministic-core generation logic (CLAUDE.md invariant 1) with non-trivial new branching, squarely outside the positively-defined review-exempt class.
+- Neither spec has been build/test-verified yet — this session only wrote the specs (`spec` skill scope: no worktrees, no dispatch). Run `/verify-plan` before `/route-plan`, per the spec skill's own closing instruction, especially given the file-overlap called out above.
