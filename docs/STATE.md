@@ -296,3 +296,9 @@ was safe as data, specced the two items that turned out to need real engine chan
   are read per-request, not cached, consistent with the 08-28 entry's same finding).
 - Usage snapshot: not captured — `/usage` is a slash command, not available as a tool in
   this session context (consistent with prior entries' same note).
+- **Instruction-file drift found and fixed**: `CLAUDE.md`'s "Current state" table still said
+  "472 passing" for the full test suite — actual, confirmed twice this session, is 744. Fixed
+  in place (`CLAUDE.md` line ~30) since it was a one-line, zero-risk correction. Left the
+  narrative "(472 passing)" mention further down (describing the historical 2026-07-06
+  go-live moment specifically) untouched, matching this file's own stated convention for
+  historical mentions vs. the "current state" table that's meant to stay live.

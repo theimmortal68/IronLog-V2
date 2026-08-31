@@ -27,7 +27,7 @@ depends on it, `docs/` is the source of truth.
 | Library seed | **done** — full movement library + D1-D6 program reconciled to authoritative YAML, calibrated baselines seeded, live on server |
 | Progression engine | **done + live** (2026-07-06 go-live) — `progression_rule` wired from YAML, advance→load bridge ratchets `current_load` on a clean top-of-range RPE-8 session |
 | In-gym logging round-trip (client↔server) | **done + live**, athlete has trained real sessions on it (Day 1-2 feedback already being triaged) |
-| Full test suite | **472 passing** (`.venv/bin/pytest -q` on myflix) |
+| Full test suite | **744 passing** (`.venv/bin/pytest -q`; re-verified 2026-08-31) |
 | **Current focus** | Real-athlete feedback triage + client polish — see `docs/build-plan.md` "Queued", not a from-scratch build task |
 
 ## Commands
