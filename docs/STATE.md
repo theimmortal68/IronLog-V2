@@ -361,3 +361,74 @@ athlete's explicit request while mid-D6-workout.
   `stamp` not a file) — next new migration should start at `050`, not reuse `047`.
 - Pre-existing uncommitted state in this repo, unchanged, not this session's — same list as
   every entry back to 2026-08-28.
+
+---
+
+# State — 2026-08-31 (later still)
+
+## Current task
+Fixed Dips [TOWER+TUBES]'s misclassified band model (open item carried since
+2026-08-24), per athlete directive after tonight's D6 workout completed.
+
+## Decisions made and why
+- **Audited every live band-based movement for direction correctness** (athlete
+  directive: "every exercise needs its own band calculations... depending on the
+  exercise"). Checked all movements with `assist_unit` set or `progression_mode=
+  ASSISTED`: Nordic Curl Max [Ares] (CABLE_LB, D2/D5), Wide-Grip Pull-up
+  [TOWER+TUBES] (TUBE_COUNT, D6), Ab Trainer Decline Sit-up/Hanging Leg Raise/
+  Russian Twist (DEGREES, D2/D4/D5, actually driven by INCLINE_REDUCTION not
+  ASSISTANCE_REDUCTION), Face-Up Incline Knee Raise, Nordic Curl Max [Apex] --
+  all correctly directioned. Only **Dips (movement 98)** was wrong. Several other
+  ASSISTED-flagged rows (Nordic Curl [GHR]/[Volume], Pull-up [TOWER+TUBES],
+  Pull-up Neutral Grip Paused [TOWER]) are unwired to any live day, not fixed
+  (not affecting real training, out of scope).
+- **Root cause of Dips**: real bands ADD resistance (bodyweight + band, harder as
+  band tension increases), but the 2026-08-16 model used ASSISTED/CABLE_LB
+  (assumes bands subtract difficulty). A "too easy" tap walked the number DOWN
+  under `ASSISTANCE_REDUCTION`'s higher-lb-is-easier convention -- backwards for
+  an added-resistance movement. Confirmed via live SetLog history: assist_level
+  drifted 50->40->30 across three consecutive clean ON_TARGET sessions.
+- **Fix reverts to the exact LADDER/DOUBLE_PROGRESSION/RPE_8_STANDARD shape this
+  movement already carried 2026-08-12 through 2026-08-16** -- not a new engine
+  capability, a 3rd flip back to a config it's run before. `increment_ladder=[5]`/
+  `min_step=5`/`load_floor=10` were already sitting on the row unused, reactivated
+  as-is.
+- **Regression-guard test move**: `test_d6_dips_resolves_seeded_assist_level` was
+  the sole live proof that `load_field_for_mode` routes ASSISTED movements through
+  `assist_level` (not `current_load`) -- flagged by `test_knee_raise_incline.py`'s
+  own docstring as "the surviving live-path proof for this class of bug." Since
+  Dips can no longer serve as that subject, moved to D2's Ab Trainer Decline
+  Sit-up (movement 127) -- real, live-wired, already carries a locked
+  `BASELINES["d2_t2f"]=("assist",15,None)` baseline. Rejected Nordic Curl Max
+  [Ares] as the replacement (advisor-flagged): it's WeekParityRotation A/B-gated
+  (parity-dependent) and has no `BASELINES` entry of its own.
+- **current_load seeded at 40** (real 2026-08-31 last-performed weight, single
+  purple Draper's Strength band, 3x12 all ON_TARGET) -- not the stale 08-23 value
+  (50) or the corrupted current live value (30), per `/advisor` guidance to use
+  the freshest real performance data, not a stale snapshot.
+
+## Verified
+- Full suite green (745 tests, net +1 from the guard-test split into two
+  functions). Scratch-copy migration dry run clean and idempotent before
+  touching live. Live DB backed up first
+  (`~/ironlog_backup_pre_051_20260831-*.db`). Applied live via migration 051,
+  service confirmed serving (200) after.
+- Code and yaml source (`ironlog/seed.py`, `baseline_seed.py`,
+  `program_seed.py`, `phase1-seed-source.yaml`) all updated in lockstep with the
+  live migration -- unlike migrations 044-050 earlier this session, this one
+  IS code-reconciled, not live-only.
+
+## Open questions
+- Same carried-forward items as the prior two entries (specs 58/59 route-plan
+  decision, the still-unmerged 8-session-deep session branch).
+
+## Next step
+- No athlete-facing action needed -- fix is live. Athlete should just log real
+  numbers on Dips going forward; the engine will now advance load correctly
+  (increase on clean sessions, not decrease).
+
+## Session notes
+- This is the 3rd distinct piece of work landed on this same long-open session
+  branch tonight (Seated Leg Extension GS3 add -> GS1 move -> Dips
+  reclassification) -- all three athlete-directed, all three live-deployed
+  same session. Branch still not merged to `main`.
