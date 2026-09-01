@@ -432,3 +432,83 @@ Fixed Dips [TOWER+TUBES]'s misclassified band model (open item carried since
   branch tonight (Seated Leg Extension GS3 add -> GS1 move -> Dips
   reclassification) -- all three athlete-directed, all three live-deployed
   same session. Branch still not merged to `main`.
+
+---
+
+# State — 2026-09-01
+
+## Current task
+Reconciled a fresh outside-review pass (athlete reviewed the regenerated
+program-export gist against everything discussed) into the live program.
+Two prior sessions' worth of committed-but-undeployed code also surfaced
+and got deployed in the same pass.
+
+## Decisions made and why
+- **Deployed two previously-committed, never-live commits**: `22a3f1a`
+  (Kickstand RDL -> barbell, new `[PB]` movement row) and the safe subset of
+  `4a29f4d` (Hybrid Board Calf Raise D2/D5 flat-ladder fix; Reverse Nordic's
+  fix was already live, a no-op). `4a29f4d`'s Matrix Machine Bulgarian Split
+  Squat scheme change (DOUBLE_PROGRESSION 8-12 -> STRAIGHT 8-8) was
+  deliberately withheld -- it conflicts with what the athlete just approved
+  by reviewing the gist (still shows the old 8-12 state, described as
+  "looks correct, leave as written"). **Open question for the athlete,
+  not resolved this session.**
+- **D2 Decline Sit-up / D4 Hanging Leg Raise**: `TierExercise.scheme`
+  NULL -> DOUBLE_PROGRESSION (display-only; real progression is
+  INCLINE_REDUCTION, unchanged). Explicit athlete directive this time,
+  reversing migration 045's deliberate NULL revert.
+- **D5 Russian Twist removed**, no replacement -- soreness prompted it;
+  abs already covered D4+D6. GS1 now 3 members (Leg Curl/Tib Raise/Reverse
+  Nordic), athlete explicitly doesn't want a slot filled just because it's
+  vacant.
+- **D6 Standing OHP tightened**: 3-5 reps @RPE 7.5 -> 3 reps @RPE 6-7
+  (rpe_cap=7, the ceiling of that zone). Movement-level coaching note added
+  (1-2s lockout cue) -- same precedent as migration 046's slam_ball note.
+- **D6 GS1's Seated Leg Extension replaced with new "Cable Serratus
+  Punch/Reach [FT]"** -- quads already covered D2+D5; review surfaced a real
+  shoulder-comfort gap (heavy pull/retraction volume, little direct
+  serratus/scapular-protraction work). New `Muscle.SERRATUS` enum member
+  added (8 chars, under the `primary_muscle` VARCHAR(15) column).
+- **Two items explicitly deferred, NOT built this session** (real engine
+  work, not data edits): Pendlay-first/Bench alternating-pair tiers
+  (`.specs/58-alternating-pair-tiers.md`, already matches today's
+  Pendlay-first/90s-rest requirement as written, no update needed) and
+  Dreadmill Suitcase Carry as a duration-based TierExercise
+  (`.specs/59-timed-tier-exercise-suitcase-carry.md` -- **needs an update**,
+  it currently targets repointing D5's Russian Twist slot; today's directive
+  moves the target to a new D2 slot instead, and the D5 Russian Twist
+  removal already happened independently via migration 055). **Neither
+  dispatched this session** -- flagged to the athlete rather than
+  auto-started, given the hour and the real scope (worktree+dispatch+review
+  for two sequential specs).
+- Regenerated and re-shared the program-export gist twice this session
+  (after the mechanical Seated-Leg-Extension/Dips work, then again after
+  this batch): https://gist.github.com/theimmortal68/b94e55e611c8a82714b388cb61c98db1
+  (latest).
+
+## Verified
+- Full suite green (745 tests) after every batch. Scratch-copy dry runs
+  clean and idempotent before each live apply. Live DB backed up before each
+  batch. Service confirmed serving (200) after each write.
+
+## Open questions
+- **BSS scheme conflict** (above) -- needs athlete's explicit call before
+  either deploying or permanently dropping `4a29f4d`'s change.
+- **Specs 58/59 dispatch timing** -- athlete's patch list is effectively
+  design approval; per standing practice this should auto-chain into
+  `/verify-plan`/`/route-plan` without re-asking, but wasn't started this
+  session (surfaced as a question instead, given scope+hour). Spec 59 needs
+  its D5->D2 target update before any dispatch.
+- Same carried-forward items as prior entries (unmerged 9-session-deep
+  session branch; whether/when to do the full `program_seed.py`/yaml
+  reconciliation against live-only migrations 044-057 -- this gap is now a
+  standing, named item, not just a per-entry footnote).
+
+## Next step
+1. Get athlete's call on the BSS scheme conflict.
+2. If specs 58/59 are wanted now: update spec 59's target (D5->D2), then
+   `/verify-plan` -> `/route-plan` for both, sequentially (58 merges before
+   59's worktree branches, per spec 59's own Dependencies section).
+3. Eventually: decide whether to do the full seed-code/yaml reconciliation
+   against migrations 044-057, or formally declare live-DB the sole source
+   of truth for this program.
