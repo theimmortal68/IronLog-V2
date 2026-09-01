@@ -194,6 +194,14 @@ from ironlog.models.session import (
 # purple band alone (rated 25-80lb), 12 reps @ RPE 8.5 -- seeded as
 # ("assist", 50, None), the rated midpoint (athlete's call), which lands
 # exactly on an existing assist_ladder rung.
+#
+# 2026-08-31 (athlete directive, 3rd flip -- misclassification fix): d6_g1e
+# reverts to ("load", 40, None) -- the 2026-08-16 ASSISTED/CABLE_LB model
+# had the direction backwards for a real added-resistance band, not
+# assistance (see ironlog/seed.py's Dips comment for the full reasoning).
+# 40 is the athlete's actual last-performed working weight (2026-08-31
+# session, single purple Draper's Strength band, 3x12 all ON_TARGET) -- a
+# real logged data point, not a spec-sheet estimate.
 # 2026-08-20 (athlete directive): d2_t2e now rotates A/B between two
 # movements via WeekParityRotation (Nordic Curl Max [Apex] / Nordic Curl
 # Max [Ares]) -- this BASELINES dict has NO entry for it, and structurally
@@ -212,7 +220,7 @@ BASELINES = {
     "d2_t3a": ("load", 25, None),
     "d2_t2f": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle (2026-08-19: slot_id d2_t2f is now seated in T3 GS -- relocated d2_t4a->T2 GS then same-day traded T2 GS->T3 GS with Hybrid Board Tib Raise [D2]; slot_id is movement-intrinsic and doesn't change with tier)
     "d5_t3b": ("load", 0, None),
-    "d6_g1e": ("assist", 50, None),  # Dips, real Wk1 last-set band (purple alone, rated midpoint)
+    "d6_g1e": ("load", 40, None),  # Dips, real 2026-08-31 last-performed load (added-resistance direction)
     "d6_g3a": ("load", 30, None),
 }
 

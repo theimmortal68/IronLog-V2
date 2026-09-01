@@ -1140,9 +1140,13 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # ironlog/seed.py's Dips comment) -- back to band-assisted, this time
     # as a plain CABLE_LB assist value, not the old discrete band-count
     # ladder from the 2026-07-26 experiment.
+    # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix):
+    # scheme REP_RATIO -> DOUBLE_PROGRESSION, matching the Movement-level
+    # ASSISTED->LADDER revert (see ironlog/seed.py's Dips comment) -- the
+    # real bands add resistance, they don't assist.
     _add_te(db, gs2.id, "d6_g1e", "Dips", lib, 3, "free",
             pattern="vertical_push", rep_low=8, rep_high=12,
-            scheme="REP_RATIO")
+            scheme="DOUBLE_PROGRESSION")
 
     # GS3 -- Face Pull RETAINED (unchanged slot_id d6_g3a, existing movement)
     # but rep range corrected 15-20 -> 10-15 per the FINAL doc's face_pull

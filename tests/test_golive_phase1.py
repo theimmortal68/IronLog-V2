@@ -193,8 +193,8 @@ def test_golive_all_days_generate_clean(gen_db):
             assert report[role]["loaded_slots"] > 0
 
 
-def test_d6_dips_resolves_seeded_assist_level(gen_db):
-    """D6 Dips is band-assisted again (2nd flip), real Wk1 baseline seeded.
+def test_d6_dips_resolves_seeded_load(gen_db):
+    """D6 Dips is added-resistance again (3rd flip), real Wk1 baseline seeded.
 
     2026-08-12 (STAB maintenance-block redesign, Task 5): reverted from the
     2026-07-26 bodyweight+band-assist experiment back to cable-loaded.
@@ -202,9 +202,15 @@ def test_d6_dips_resolves_seeded_assist_level(gen_db):
     2026-08-16 (athlete directive): converted BACK to band assist -- real
     stackable-band setup (green/purple/black, combined mid-session), modeled
     as a plain CABLE_LB assist value (see ironlog/seed.py's Dips comment).
-    baseline_seed.BASELINES["d6_g1e"] now seeds assist_level=50 (real Wk1
-    last-set data: purple band alone, rated 25-80lb, midpoint), and
-    generation must prescribe 50 on the assist scalar path.
+
+    2026-08-31 (athlete directive, 3rd flip -- misclassification fix): the
+    real bands ADD resistance to bodyweight dips, they don't assist -- the
+    2026-08-16 ASSISTED/CABLE_LB model had the progression direction
+    backwards. Reverted to LADDER/DOUBLE_PROGRESSION/RPE_8_STANDARD.
+    baseline_seed.BASELINES["d6_g1e"] now seeds current_load=40 (real
+    2026-08-31 last-performed load, single purple Draper's Strength band),
+    and generation must prescribe 40 on the load scalar path -- NOT
+    assist_level, which this movement no longer uses for progression.
     """
     from sqlmodel import select
 
@@ -230,8 +236,8 @@ def test_d6_dips_resolves_seeded_assist_level(gen_db):
             MovementState.day_id == "D6 Weak Points",
         )
     ).one()
-    assert state.assist_level == 50
-    assert state.current_load is None
+    assert state.current_load == 40
+    assert state.assist_level is None
 
     dips_exercises = [
         ex
@@ -243,7 +249,72 @@ def test_d6_dips_resolves_seeded_assist_level(gen_db):
     for ex in dips_exercises:
         assert ex.planned_sets, "Dips slot has no planned sets"
         for ps in ex.planned_sets:
-            assert ps.target_load == 50, (
-                f"Dips planned set target_load={ps.target_load!r}, expected 50 "
-                "(seeded assist_level from baseline_seed BASELINES['d6_g1e'])"
+            assert ps.target_load == 40, (
+                f"Dips planned set target_load={ps.target_load!r}, expected 40 "
+                "(seeded current_load from baseline_seed BASELINES['d6_g1e'])"
+            )
+
+
+def test_d2_ab_trainer_resolves_seeded_assist_level(gen_db):
+    """Regression guard: ASSISTED progression_mode must resolve through
+    MovementState.assist_level, not current_load, in real generated output.
+
+    This guard's subject used to be D6 Dips (2026-08-16 through 2026-08-31),
+    but Dips reverted to LADDER/added-resistance on 2026-08-31 (see
+    test_d6_dips_resolves_seeded_load above and ironlog/seed.py's Dips
+    comment) -- it can no longer prove this path. Moved to D2's Ab Trainer
+    Decline Sit-up (movement_id 127, slot d2_t2f), which is real, live-wired
+    (program_day_id=2), and already carries a real locked baseline
+    (BASELINES["d2_t2f"] = ("assist", 15, None)) -- unlike D2's other
+    ASSISTED candidate, Nordic Curl Max [Ares], which has no BASELINES entry
+    (its real baseline is applied live-DB-only, never added to this dict)
+    and is also WeekParityRotation A/B-gated, making it parity-dependent.
+    Ab Trainer Decline Sit-up avoids both traps: same movement every
+    generation, real numeric baseline, no rotation.
+
+    See tests/test_knee_raise_incline.py's docstring for the historical bug
+    this guards (load_field_for_mode routing to the wrong MovementState
+    field for ASSISTED movements)."""
+    from sqlmodel import select
+
+    from ironlog.api.app import _make_proposer, _week_keyer
+    from ironlog.generation.baseline_seed import seed_movement_baselines
+    from ironlog.generation.loop import generate_session
+    from ironlog.generation.skeleton import lay_skeleton
+    from ironlog.models.library import Movement, MovementState
+
+    seed_movement_baselines(gen_db)
+
+    sk = lay_skeleton("D2 Lower A", gen_db)
+    proposer = _make_proposer(sk)
+    outcome = generate_session("D2 Lower A", gen_db, proposer, _week_keyer)
+    assert outcome.assembled is not None, (
+        f"D2 Lower A: generation exhausted (rejections: {outcome.rejections})"
+    )
+
+    ab_trainer = gen_db.exec(
+        select(Movement).where(Movement.name == "Ab Trainer Decline Sit-up")
+    ).one()
+    state = gen_db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == ab_trainer.id,
+            MovementState.day_id == "D2 Lower A",
+        )
+    ).one()
+    assert state.assist_level == 15
+    assert state.current_load is None
+
+    ab_trainer_exercises = [
+        ex
+        for g in outcome.assembled.session.groups
+        for ex in g.exercises
+        if ex.movement_id == ab_trainer.id
+    ]
+    assert ab_trainer_exercises, "Ab Trainer Decline Sit-up did not appear in the generated D2 session"
+    for ex in ab_trainer_exercises:
+        assert ex.planned_sets, "Ab Trainer Decline Sit-up slot has no planned sets"
+        for ps in ex.planned_sets:
+            assert ps.target_load == 15, (
+                f"Ab Trainer Decline Sit-up planned set target_load={ps.target_load!r}, "
+                "expected 15 (seeded assist_level from baseline_seed BASELINES['d2_t2f'])"
             )

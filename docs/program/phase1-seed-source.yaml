@@ -224,10 +224,15 @@ days:
     # 2026-08-23 (athlete directive): reverted back to
     # better_fly_cable_bicep_curl_d6 -- fresh slot "d6_g2h"
     # (never-reassign-slot_id, d6_g2g/D-Handle VACATED in turn).
+    #
+    # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix): dips
+    # reverts to rpe_8_standard -- the real bands ADD resistance, they don't
+    # assist, so assistance_reduction had the progression direction backwards
+    # (see ironlog/seed.py's Dips comment for the full reasoning).
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
       {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
-      {m: dips, reps: [8,12], rule: assistance_reduction}]}
+      {m: dips, reps: [8,12], rule: rpe_8_standard}]}
     # GS3: Face Pull retained (rep range corrected 15-20 -> 10-15 per the
     # FINAL doc). cable_v_bar_pushdown and t_bar_row_wide_kleva drop out
     # entirely, replaced by two new needs-calibration movements.

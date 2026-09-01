@@ -136,9 +136,13 @@ def test_generate_d4_upper_pull_does_not_include_knee_raise(gen_db):
     The exact same seam -- ASSISTED progression_mode routing through
     load_field_for_mode to assist_level, not current_load, in real generated
     output -- is still exercised live by
-    tests/test_golive_phase1.py::test_d6_dips_resolves_seeded_assist_level
-    (Dips [TOWER + TUBES], D6, target_load == assist_level == 40). That is
-    now the surviving live-path proof for this class of bug.
+    tests/test_golive_phase1.py::test_d2_ab_trainer_resolves_seeded_assist_level
+    (Ab Trainer Decline Sit-up, D2, target_load == assist_level == 15). That
+    guard's subject was D6 Dips through 2026-08-31, moved when Dips reverted
+    to LADDER/added-resistance (real bands add resistance, they don't
+    assist -- see ironlog/seed.py's Dips comment) and could no longer prove
+    this path. Ab Trainer Decline Sit-up is now the surviving live-path proof
+    for this class of bug.
 
     What this test asserts instead: KNEE_RAISE no longer appears in a real
     generated D4 session at all -- a positive guard that the turnover

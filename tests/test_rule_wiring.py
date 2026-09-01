@@ -62,7 +62,10 @@ def test_named_movements_map_to_expected_rules(gen_db):
         # flip) -- real stackable-band setup, plain CABLE_LB assist value --
         # see ironlog/seed.py's Dips comment. Carries ASSISTANCE_REDUCTION
         # again.
-        "Dips [TOWER + TUBES]":        ProgressionRule.ASSISTANCE_REDUCTION.value,
+        # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix):
+        # the real bands add resistance, they don't assist -- reverts to
+        # RPE_8_STANDARD (see ironlog/seed.py's Dips comment).
+        "Dips [TOWER + TUBES]":        ProgressionRule.RPE_8_STANDARD.value,
         "Nordic Curl Max [Ares]":      ProgressionRule.ASSISTANCE_REDUCTION.value,
         # 2026-08-12 (STAB maintenance-block redesign, Task 5): D6's Hip
         # Thrust slot (d6_g1c) removed -- 3rd and final Hip Thrust removal
@@ -142,7 +145,10 @@ def test_derive_movement_rules_is_internally_consistent():
     # the real, wired ASSISTANCE_REDUCTION example.
     # 2026-08-16 (athlete directive): Dips converted BACK to band assist
     # (2nd flip) -- carries ASSISTANCE_REDUCTION again.
-    assert rules["Dips [TOWER + TUBES]"] == ProgressionRule.ASSISTANCE_REDUCTION
+    # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix): the
+    # real bands add resistance, they don't assist -- reverts to
+    # RPE_8_STANDARD.
+    assert rules["Dips [TOWER + TUBES]"] == ProgressionRule.RPE_8_STANDARD
     assert rules["Nordic Curl Max [Ares]"] == ProgressionRule.ASSISTANCE_REDUCTION
     assert rules["Wide-Grip Pull-up [TOWER]"] == ProgressionRule.PULL_UP_ROLLING_MAX
 

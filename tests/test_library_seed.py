@@ -232,8 +232,14 @@ def test_golive_library_additions(gen_db):
     # flip) -- real stackable-band setup (green/purple/black, combined
     # mid-session), modeled as a plain CABLE_LB assist value, not the old
     # discrete band-count ladder from the 2026-07-26 experiment.
-    assert dips.progression_mode == ProgressionMode.ASSISTED
-    assert dips.scheme == Scheme.REP_RATIO
+    #
+    # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix): the
+    # real bands add resistance, they don't assist -- ASSISTED/CABLE_LB had
+    # the progression direction backwards. Reverts to LADDER/
+    # DOUBLE_PROGRESSION (see ironlog/seed.py's Dips comment). assist_ladder/
+    # assist_unit stay on the row for historical reference, unused now.
+    assert dips.progression_mode == ProgressionMode.LADDER
+    assert dips.scheme == Scheme.DOUBLE_PROGRESSION
     assert dips.assist_ladder == [120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0]
     assert dips.assist_unit == AssistUnit.CABLE_LB
     assert "TOWER" in dips.equipment_tags and "TUBES" in dips.equipment_tags

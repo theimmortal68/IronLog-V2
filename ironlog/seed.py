@@ -1089,10 +1089,29 @@ MOVEMENTS = [
     # assist_ladder is a fresh 10lb-step range (0-120, matching a single
     # green band's rated max) -- needs-calibration, the athlete is actively
     # determining today's real assist amount live, no baseline seeded.
+    #
+    # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix): the
+    # 2026-08-16 ASSISTED/CABLE_LB model had the direction backwards. The
+    # athlete's real bands (Draper's Strength, stacked/swapped) ADD
+    # resistance to bodyweight dips -- they don't assist -- so a "too easy"
+    # tap was walking assist_level DOWN (per ASSISTANCE_REDUCTION's higher-
+    # lb-is-easier convention), which for an added-resistance movement is
+    # backwards: it should walk the working number UP. Confirmed against
+    # real SetLog history: actual_load logged as high as 150-160 through
+    # 2026-08-16, then again a legitimate 40-50 range after the athlete's
+    # equipment/logging convention changed -- the number was never
+    # nonsensical, only the progression DIRECTION was inverted. Reverts to
+    # the same LADDER/DOUBLE_PROGRESSION/RPE_8_STANDARD shape this movement
+    # already carried from 2026-08-12 to 2026-08-16 (see that revert's
+    # comment above) -- increment_ladder=[5]/min_step=5/load_floor=10 are
+    # already sitting on this row unused, reactivated as-is. assist_ladder/
+    # assist_unit kept for historical reference (same convention as the
+    # 2026-08-12 revert), unused once progression_mode is LADDER.
     dict(name="Dips [TOWER + TUBES]", base_name="Dips",
          region=Region.UPPER, status=Status.ACTIVE,
          load_code="TOWER", tags=["TOWER", "TUBES"],
-         progression_mode=ProgressionMode.ASSISTED, scheme=Scheme.REP_RATIO,
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5], min_step=5, load_floor=10,
          assist_ladder=[120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0],
          assist_unit=AssistUnit.CABLE_LB,
          primary_muscle="MID_LOWER_CHEST", secondary_muscles=["TRICEPS", "FRONT_DELT"]),
