@@ -551,6 +551,24 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[5, 2.5], min_step=2.5, load_floor=10,
          primary_muscle="QUADS", secondary_muscles=[]),
+    # 2026-09-01 (athlete directive, outside-review reconciliation): D6 GS1's
+    # Seated Leg Extension (above, wired 2026-08-29/31) drops out of D6's
+    # wiring -- reviewing the whole program together showed quads already
+    # get real direct work on D2 (Belt Squat, Sissy Squat, ATG Split Squat)
+    # and D5 (Reverse Nordic, Bulgarian Split Squat), so a D6 Weak Points
+    # slot on non-weak quads is a lower-value use of that slot than the
+    # shoulder-comfort gap the review surfaced: heavy rowing/vertical-pull/
+    # rear-delt/retraction volume with comparatively little direct serratus/
+    # scapular-protraction work. Same equipment class as Face Pull [FT]
+    # (single Ares cable, load_equipment_id=6), same isolation-movement
+    # LADDER/DOUBLE_PROGRESSION shape. Movement row only -- wiring is
+    # live-DB-only (see deploy/migrations/, and the note on program_seed.py's
+    # already-stale _seed_d6 from the 2026-08-31 GS1/GS3 session).
+    dict(name="Cable Serratus Punch/Reach [FT]", base_name="Cable Serratus Punch/Reach",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10,
+         primary_muscle="SERRATUS", secondary_muscles=["FRONT_DELT"]),
     dict(name="Reverse Lunge [DB]", base_name="Reverse Lunge", region=Region.LOWER,
          status=Status.ACTIVE, load_code="DB", tags=["DB"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,

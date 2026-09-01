@@ -142,6 +142,13 @@ class Muscle(str, Enum):
     SPINAL_ERECTORS = "SPINAL_ERECTORS"
     TIBIALIS = "TIBIALIS"
     ROTATOR_CUFF = "ROTATOR_CUFF"
+    # 2026-09-01 (athlete directive): serratus/scapular-protraction work,
+    # added for D6's Cable Serratus Punch/Reach (see ironlog/seed.py).
+    # 8 chars, well under movement.primary_muscle's VARCHAR(15) column
+    # (sized to the longest existing member, SPINAL_ERECTORS=15) --
+    # a longer name would break test_chain_matches_create_all's parity
+    # check against the live schema.
+    SERRATUS = "SERRATUS"
 
 
 # --- session / set-log layer ---

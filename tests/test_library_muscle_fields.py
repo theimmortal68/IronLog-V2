@@ -13,6 +13,6 @@ def test_muscle_enum_has_expected_members():
         "UPPER_CHEST", "MID_LOWER_CHEST", "LATS", "MID_BACK", "UPPER_TRAPS",
         "FRONT_DELT", "SIDE_DELT", "REAR_DELT", "BICEPS", "TRICEPS", "FOREARMS",
         "QUADS", "HAMSTRINGS", "GLUTES", "ADDUCTORS", "CALVES", "ABS",
-        "SPINAL_ERECTORS", "TIBIALIS", "ROTATOR_CUFF",
+        "SPINAL_ERECTORS", "TIBIALIS", "ROTATOR_CUFF", "SERRATUS",
     }
     assert {m.value for m in Muscle} == expected

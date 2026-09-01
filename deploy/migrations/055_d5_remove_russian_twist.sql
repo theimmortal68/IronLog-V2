@@ -1,0 +1,11 @@
+-- 055_d5_remove_russian_twist.sql — outside-review reconciliation (athlete
+-- directive, 2026-09-01): abs already get direct work on D4 (rotation +
+-- hanging leg raise) and D6 (cable crunch), immediately before D6's standing
+-- OHP -- soreness noticed while pressing prompted removing D5's Russian
+-- Twist rather than adding a replacement (D5 GS1 shortens to 3 members:
+-- Leg Curl, Tib Raise, Reverse Nordic -- athlete explicitly does not want a
+-- slot filled just because it became vacant). Movement 139 (Ab Trainer
+-- Russian Twist) stays ACTIVE, left unwired, per the never-delete-orphans
+-- convention -- only the TierExercise row is removed. Single DELETE,
+-- naturally idempotent (a second run's WHERE no longer matches).
+DELETE FROM tierexercise WHERE id = 65 AND movement_id = 139;

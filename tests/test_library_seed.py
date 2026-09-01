@@ -100,7 +100,10 @@ def test_total_count_103(seeded):
     # 2026-08-29: +1 "Kickstand RDL [PB]" (D5's T1 anchor repointed from the
     # DB variant to a barbell, athlete directive; old DB row stays ACTIVE,
     # unwired): 147 -> 148.
-    assert len(_all(seeded)) == 148
+    # 2026-09-01: +1 "Cable Serratus Punch/Reach [FT]" (D6's GS1, replaces
+    # Seated Leg Extension per outside-review reconciliation, athlete
+    # directive; old row stays ACTIVE, unwired): 148 -> 149.
+    assert len(_all(seeded)) == 149
 
 
 def test_status_counts(seeded):
@@ -139,7 +142,9 @@ def test_status_counts(seeded):
     # slot d6_g3f, athlete directive): 139 -> 140.
     # 2026-08-29: +1 ACTIVE Kickstand RDL [PB] (D5 T1 anchor repointed from
     # the DB variant to a barbell, athlete directive): 140 -> 141.
-    assert c[Status.ACTIVE] == 141
+    # 2026-09-01: +1 ACTIVE Cable Serratus Punch/Reach [FT] (D6 GS1, replaces
+    # Seated Leg Extension, athlete directive): 141 -> 142.
+    assert c[Status.ACTIVE] == 142
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 
