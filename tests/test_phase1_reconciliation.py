@@ -139,7 +139,9 @@ UNCHANGED_REP_TARGETS = {
 # (day_role, tier_label) -> rest_seconds. Per-day because rests are non-uniform
 # per label after the YAML reconciliation.
 TIER_REST_MAP = {
-    ("D1 Upper Push", "T1"): 120,
+    # 2026-09-01: T1 (Bench) rest 120 -> 90, paired with T1b (Pendlay Row) as
+    # a real alternating pair (migration 060, spec 58) -- both sides rest 90s.
+    ("D1 Upper Push", "T1"): 90,
     ("D1 Upper Push", "T2 GS"): 90,
     ("D1 Upper Push", "T3 GS"): 75,
     # ("D1 Upper Push", "T4 GS") removed 2026-08-10 (STAB maintenance-block

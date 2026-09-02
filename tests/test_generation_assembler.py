@@ -95,6 +95,11 @@ def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
     # removed entirely 2026-08-10 (STAB maintenance-block redesign, D1
     # reconciled to already-executed Wk1 reality -- Ab Wheel Rollout moved
     # into T3 GS, Seated Cable Row and Cross-Body Rear Delt Fly dropped).
+    # 2026-09-01: T1/T1b now form a real alternating pair (migration 060,
+    # spec 58) -- they merge into ONE group labeled "T1b/T1" (Pendlay-first,
+    # matching tier_order after the pairing migration) instead of two
+    # separate STRAIGHT groups. See test_assembler_alternating_pair.py for
+    # the label-format assertion (pair_key's lower-tier_order side first).
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
     sk = lay_skeleton("D1 Upper Push", gen_db)
@@ -102,11 +107,11 @@ def test_assembled_group_labels_match_tier_labels(gen_db_calibrated):
     res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
     groups = sorted(res.session.groups, key=lambda g: g.order_index)
     labels = [g.label for g in groups]
-    assert labels == ["T1", "T1b", "T2 GS", "T3 GS"], (
+    assert labels == ["T1b/T1", "T2 GS", "T3 GS"], (
         f"group labels must mirror the seeded Tier.tier_label order, got {labels}"
     )
-    assert groups[0].group_type.value == "STRAIGHT" and groups[0].label == "T1"
-    assert groups[2].group_type.value == "GIANT_SET" and groups[2].label == "T2 GS"
+    assert groups[0].group_type.value == "ALT_PAIR" and groups[0].label == "T1b/T1"
+    assert groups[1].group_type.value == "GIANT_SET" and groups[1].label == "T2 GS"
 
 
 def test_d1_t2_giant_set_stays_grouped(gen_db_calibrated):
@@ -174,6 +179,13 @@ def test_d1_group_order_is_unaffected_by_tier_order_fix(gen_db_calibrated):
     ordering as before: T1, T1b, T2 GS, T3 GS. This is the critical
     no-regression case: every day whose anchors are actually first in the
     program (D1, D4, D6 in production) must see zero behavior change.
+
+    2026-09-01: T1/T1b now form a real alternating pair (migration 060,
+    spec 58) -- merged into one ALT_PAIR group ("T1b/T1"), so the group
+    COUNT changes (4 -> 3), but the underlying tier_order (Pendlay=1,
+    Bench=2) still governs the merged group's position and label-side
+    ordering -- this is still a no-regression case for the tier_order fix
+    itself, just re-expressed for the new merged shape.
     """
     gen_db = gen_db_calibrated
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
@@ -183,8 +195,7 @@ def test_d1_group_order_is_unaffected_by_tier_order_fix(gen_db_calibrated):
     groups = sorted(res.session.groups, key=lambda g: g.order_index)
     layout = [(g.label, g.group_type.value) for g in groups]
     assert layout == [
-        ("T1", "STRAIGHT"),
-        ("T1b", "STRAIGHT"),
+        ("T1b/T1", "ALT_PAIR"),
         ("T2 GS", "GIANT_SET"),
         ("T3 GS", "GIANT_SET"),
     ], f"D1's group order must be unchanged by the tier_order fix, got {layout}"

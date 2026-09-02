@@ -10,6 +10,7 @@ NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
 from datetime import date
+import logging
 from typing import List, Optional
 
 from sqlmodel import Session, select
@@ -19,6 +20,8 @@ from ironlog.models.program import (
     MesoRotation, ProgramDay, SlotMovementOverride, Tier, TierExercise, TierKind,
     WeekParityRotation,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -36,6 +39,9 @@ class SlotSpec:
     group_key: str = ""             # tier_label of the source Tier; used by the
                                     # assembler to group giant slots into one
                                     # ExerciseGroup per tier (e.g. "T2 GS").
+    pair_key: str = ""              # Stable key shared by two linked non-giant
+                                    # tiers that should assemble as one
+                                    # alternating pair group.
     # Task 3 (assembler fidelity): the TierExercise's literal rep targets/RPE cap
     # and the source Tier's rest_seconds, carried alongside the slot so the
     # assembler can source PlannedSet numbers from the seeded program data
@@ -70,6 +76,9 @@ class AnchorSpec:
     # The source Tier's tier_label (e.g. "T1"); carried alongside rest_seconds so
     # the assembler can set ExerciseGroup.label (client tier-aware rest reads it).
     tier_label: Optional[str] = None
+    # Stable key shared by two linked non-giant tiers that should assemble as
+    # one alternating pair group.
+    pair_key: str = ""
     # The source Tier's shoe label (display-only; the client's shoe-swap cue).
     shoe: Optional[str] = None
     # Task 1 (note-apply REDESIGN): this anchor's TierExercise.id, so the assembler
@@ -178,6 +187,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
             .where(TierExercise.tier_id == tier.id)
         ).all()
         exercises = sorted(exercises, key=lambda te: _effective_exercise_order(db, te))
+        pair_key = _pair_key_for_tier(db, tier, exercises)
 
         for te in exercises:
             resolved = _resolve_slot(db, te, meso_number, effective_as_of)
@@ -188,7 +198,8 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                 anchor_meta.append(AnchorSpec(
                     rep_low=rep_low, rep_high=rep_high,
                     rpe_cap=te.rpe_cap, rest_seconds=tier.rest_seconds,
-                    tier_label=tier.tier_label, shoe=tier.shoe,
+                    tier_label=tier.tier_label, pair_key=pair_key,
+                    shoe=tier.shoe,
                     tier_exercise_id=te.id, tier_order=tier.tier_order,
                 ))
             else:
@@ -200,7 +211,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     knee_modality=te.knee_modality,
                     program_movement_id=resolved.movement_id,
                     is_giant_tier=tier.tier_kind == TierKind.GIANT_SET,
-                    group_key=tier.tier_label,
+                    group_key=tier.tier_label, pair_key=pair_key,
                     rep_low=rep_low, rep_high=rep_high, rpe_cap=te.rpe_cap,
                     rest_seconds=tier.rest_seconds, shoe=tier.shoe,
                     tier_exercise_id=te.id, tier_order=tier.tier_order,
@@ -262,6 +273,64 @@ def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date) 
         return _ResolvedSlot(movement_id=mr.movement_id)
 
     return _ResolvedSlot(movement_id=te.movement_id)
+
+
+def _pair_key_for_tier(db: Session, tier: Tier, exercises: List[TierExercise]) -> str:
+    if tier.paired_tier_id is None:
+        return ""
+
+    partner = db.get(Tier, tier.paired_tier_id)
+    if partner is None:
+        logger.warning(
+            "Tier %s (%s) paired_tier_id=%s is missing; assembling as straight",
+            tier.id, tier.tier_label, tier.paired_tier_id,
+        )
+        return ""
+
+    if partner.program_day_id != tier.program_day_id:
+        logger.warning(
+            "Tier %s (%s) paired_tier_id=%s points outside program_day_id=%s; "
+            "assembling as straight",
+            tier.id, tier.tier_label, partner.id, tier.program_day_id,
+        )
+        return ""
+
+    if tier.tier_kind == TierKind.GIANT_SET or partner.tier_kind == TierKind.GIANT_SET:
+        logger.warning(
+            "Tier %s (%s) pair points at a GIANT_SET tier; assembling as straight",
+            tier.id, tier.tier_label,
+        )
+        return ""
+
+    if tier.tier_kind != TierKind.PAIR and partner.tier_kind != TierKind.PAIR:
+        logger.warning(
+            "Tier %s (%s) has paired_tier_id=%s but neither side is PAIR; "
+            "assembling as straight",
+            tier.id, tier.tier_label, partner.id,
+        )
+        return ""
+
+    if len(exercises) != 1:
+        raise ValueError(
+            f"PAIR tier {tier.tier_label!r} (id={tier.id}) must have exactly "
+            f"one TierExercise; found {len(exercises)}"
+        )
+
+    if partner.paired_tier_id != tier.id:
+        logger.warning(
+            "Tier %s (%s) pair is not symmetric with tier %s (%s); the "
+            "partner side will resolve to an empty pair_key and degrade to "
+            "STRAIGHT, so no real pair forms here either",
+            tier.id, tier.tier_label, partner.id, partner.tier_label,
+        )
+
+    # Fable review (2026-09-01): min(id) alone collides if corrupted data
+    # ever has a THIRD tier one-sidedly pointing at one side of a real
+    # pair (A<->B symmetric, C->A one-sided) -- C would silently merge
+    # into A/B's group under a bare min-id key. Keying on both ids makes
+    # that data error produce its own (harmless, single-exercise, then
+    # STRAIGHT-degraded) key instead.
+    return f"pair:{min(tier.id, partner.id)}:{max(tier.id, partner.id)}"
 
 
 def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:

@@ -163,6 +163,16 @@ class SessionStatus(str, Enum):
 class GroupType(str, Enum):
     STRAIGHT = "STRAIGHT"        # T1 primary, one movement
     GIANT_SET = "GIANT_SET"      # 3 movements, 3 rounds
+    # 2026-09-01: name renamed from ALTERNATING ("ALTERNATING", 11 chars) to
+    # ALT_PAIR (8 chars, matching its own value) -- SQLAlchemy sizes this
+    # column's VARCHAR from the member NAME length, not the value length
+    # (confirmed empirically: test_chain_matches_create_all failed with
+    # create_all declaring VARCHAR(11) vs the migration's VARCHAR(9) when
+    # the member was named ALTERNATING). Keeping name==value, both <= the
+    # existing GIANT_SET-sized VARCHAR(9), avoids any column-width migration
+    # entirely -- same fix shape as the SERRATUS Muscle-enum addition
+    # earlier this session (deliberately kept under the sized column).
+    ALT_PAIR = "ALT_PAIR"        # two paired tiers, working sets alternate
 
 
 class SetRole(str, Enum):

@@ -549,7 +549,9 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # execution locked 155x3x6 @ RPE8). Equipment note (Belle Mere BMF
     # Camber Bar, 21" grip) is a physical-setup detail, not a schema field
     # -- same movement, load_code unchanged.
-    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
+    # 2026-09-01: linked with T1b as an alternating pair. Pendlay goes first
+    # in tier_order per athlete preference; both sides rest 90s between sets.
+    t1 = _add_tier(db, pd.id, "T1", 2, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, t1.id, "d1_t1", "Bench Press [PB]", lib, 1, "anchor",
             pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
             scheme="STRAIGHT")
@@ -560,7 +562,12 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # drops 6-8 -> 4-6 alongside every other T1/T1b primary. slot_id stays
     # "d1_t2a" -- the movement's original stable slot_id, unchanged by the
     # 2026-07-26 tier-label move (T2 GS -> its own T1b).
-    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=120, shoe="Metcon 9")
+    t1b = _add_tier(db, pd.id, "T1b", 1, TierKind.PAIR, rounds=1, rest_seconds=90, shoe="Metcon 9")
+    t1.paired_tier_id = t1b.id
+    t1b.paired_tier_id = t1.id
+    db.add(t1)
+    db.add(t1b)
+    db.flush()
     _add_te(db, t1b.id, "d1_t2a", "Pendlay Row Narrow", lib, 1, "anchor",
             pattern="horizontal_pull", rep_low=4, rep_high=6,
             scheme="DOUBLE_PROGRESSION")

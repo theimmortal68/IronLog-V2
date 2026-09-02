@@ -5,7 +5,7 @@ Any change here is a contract change that touches both repos.
 """
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SetLogIn(BaseModel):
@@ -74,6 +74,13 @@ class PlannedSetOut(BaseModel):
     band_config: Optional[List[int]] = None
 
 
+class PlannedSetOrderOut(BaseModel):
+    exercise_id: int
+    movement_id: int
+    planned_set_id: int
+    set_index: int
+
+
 class ExerciseOut(BaseModel):
     id: int
     movement_id: int
@@ -94,6 +101,7 @@ class GroupOut(BaseModel):
     rest_seconds: Optional[int] = None
     label: Optional[str] = None
     shoe: Optional[str] = None
+    planned_set_order: List[PlannedSetOrderOut] = Field(default_factory=list)
     exercises: List[ExerciseOut]
 
 

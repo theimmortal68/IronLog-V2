@@ -66,7 +66,11 @@ from ..models.library import CardioLog, EngineState, DailyReadiness, GoalSetting
 from ..models.program import DayFinisher, FinisherLog, MissedDayRecord, ProgramDay
 from ..persistence.ht_refine import refine_from_logged_ht
 from ..persistence.run_analysis import already_analyzed, run_analysis
-from ..generation.assembler import build_finisher_payload, build_warmup_payload
+from ..generation.assembler import (
+    build_finisher_payload,
+    build_warmup_payload,
+    planned_sets_in_group_order,
+)
 from ..generation.loop import commit_session, generate_session
 from ..generation.load_trust import compute_load_trust, load_field_for_mode
 from ..generation.skeleton import lay_skeleton
@@ -1004,27 +1008,57 @@ def _serialize_session(ws, db, finisher=None, warmup=None) -> SessionDetailRespo
     approve() re-derives everything from the stored candidate, not the preview.
     """
     from ..models.session import Session as WorkoutSession  # noqa
+    from ..models.enums import GroupType
     _set_counter = [0]
+    _set_ids = {}
 
     def _sid(ps):
         if ps.id is not None:
             return ps.id
+        key = id(ps)
+        if key in _set_ids:
+            return _set_ids[key]
         _set_counter[0] += 1
-        return _set_counter[0]
+        _set_ids[key] = _set_counter[0]
+        return _set_ids[key]
 
     groups_out = []
     groups = sorted(ws.groups, key=lambda g: g.order_index)
     for gi, g in enumerate(groups):
         ex_out = []
-        for ei, pe in enumerate(sorted(g.exercises, key=lambda e: e.order_index)):
+        ordered_exercises = sorted(g.exercises, key=lambda e: e.order_index)
+        exercise_ids = {
+            id(pe): (pe.id if pe.id is not None else ei)
+            for ei, pe in enumerate(ordered_exercises)
+        }
+        for ei, pe in enumerate(ordered_exercises):
             ex_out.append(_serialize_exercise(
                 pe, db, sid=_sid,
                 eid=(pe.id if pe.id is not None else ei),
             ))
+        # Fable review (2026-09-01): planned_sets_in_group_order returns
+        # nested per-exercise order for anything other than ALT_PAIR
+        # (deliberately, per spec 58's "keep GIANT_SET byte-for-byte
+        # unchanged" constraint -- see that function's docstring). Emitting
+        # this field for GIANT_SET groups would silently misrepresent their
+        # real round-robin training order (A1,A2,A3,B1,B2,B3,... instead of
+        # A1,B1,C1,A2,B2,C2,...) under a name that invites a client to trust
+        # it as THE play order. Scope the field to ALT_PAIR only until/unless
+        # GIANT_SET gets the same treatment as its own deliberate change.
+        planned_set_order = [
+            {
+                "exercise_id": exercise_ids[id(pe)],
+                "movement_id": pe.movement_id,
+                "planned_set_id": _sid(ps),
+                "set_index": ps.set_index,
+            }
+            for pe, ps in planned_sets_in_group_order(g)
+        ] if g.group_type == GroupType.ALT_PAIR else []
         groups_out.append(GroupOut(
             id=(g.id if g.id is not None else gi), order_index=g.order_index,
             group_type=g.group_type.value, rounds=g.rounds, rest_seconds=g.rest_seconds,
-            label=g.label, shoe=g.shoe, exercises=ex_out,
+            label=g.label, shoe=g.shoe, planned_set_order=planned_set_order,
+            exercises=ex_out,
         ))
     return SessionDetailResponse(
         id=(ws.id if ws.id is not None else 0), date=ws.date.isoformat(),

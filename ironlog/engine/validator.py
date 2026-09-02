@@ -130,11 +130,40 @@ class ValidationResult:
 
 def _check_primary_not_first(session: Session, ctx: ValidationContext) -> List[Violation]:
     """Strong form: all primary movements come before all non-primary movements
-    in the flat exercise sequence, AND primaries cannot appear inside GIANT_SET."""
+    in the flat exercise sequence, AND primaries cannot appear inside GIANT_SET.
+
+    ALTERNATING pair groups are treated as one primary block: a paired row may
+    intentionally precede its primary partner inside the same group.
+    """
     violations: List[Violation] = []
     non_primary_seen = False
     for group in sorted(session.groups, key=lambda g: g.order_index):
-        for ex in sorted(group.exercises, key=lambda e: e.order_index):
+        ordered_exercises = sorted(group.exercises, key=lambda e: e.order_index)
+        if group.group_type == GroupType.ALT_PAIR:
+            group_has_non_primary = False
+            for ex in ordered_exercises:
+                info = ctx.movements.get(ex.movement_id)
+                if info is None:
+                    continue
+                if info.is_primary:
+                    if non_primary_seen:
+                        violations.append(Violation(
+                            kind=ViolationKind.REJECT,
+                            rule=RuleCode.PRIMARY_NOT_FIRST,
+                            message=(
+                                "primary movement after non-primary movement "
+                                "(primaries must all come first)"
+                            ),
+                            group_index=group.order_index,
+                            movement_id=ex.movement_id,
+                        ))
+                else:
+                    group_has_non_primary = True
+            if group_has_non_primary:
+                non_primary_seen = True
+            continue
+
+        for ex in ordered_exercises:
             info = ctx.movements.get(ex.movement_id)
             if info is None:
                 continue

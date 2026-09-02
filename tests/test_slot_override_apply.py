@@ -42,18 +42,32 @@ def _assemble(gen_db):
     return assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
 
 
-def _t1_planned_set(res):
-    """The T1 anchor group's first working set (Bench Press [PB], STRAIGHT scheme)."""
-    t1_group = next(g for g in res.session.groups if g.label == "T1")
-    ex = t1_group.exercises[0]
+def _t1_planned_set(res, gen_db):
+    """Bench Press [PB]'s first working set (d1_t1 slot).
+
+    2026-09-01: T1/T1b now form a real alternating pair (migration 060,
+    spec 58) -- Bench and Pendlay Row share one ALT_PAIR group labeled
+    "T1b/T1", so a bare group.label == "T1" lookup no longer resolves
+    (there is no standalone "T1" group anymore) and exercises[0] would be
+    Pendlay Row (tier_order=1), not Bench (tier_order=2). Resolve by
+    tier_exercise_id against the known d1_t1 slot instead of by group
+    label or exercise position, so this helper doesn't silently start
+    returning the wrong movement's sets if the pair's internal ordering
+    ever changes.
+    """
+    d1_t1 = gen_db.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
+    pair_group = next(g for g in res.session.groups if g.label == "T1b/T1")
+    ex = next(e for e in pair_group.exercises if e.tier_exercise_id == d1_t1.id)
     return next(ps for ps in ex.planned_sets if ps.set_role == SetRole.WORKING)
 
 
-def _other_slot_loads(res):
+def _other_slot_loads(res, gen_db):
+    d1_t1 = gen_db.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
     return [
         ps.target_load
-        for g in res.session.groups if g.label != "T1"
-        for e in g.exercises for ps in e.planned_sets
+        for g in res.session.groups
+        for e in g.exercises if e.tier_exercise_id != d1_t1.id
+        for ps in e.planned_sets
     ]
 
 
@@ -115,7 +129,7 @@ def test_same_slot_same_type_apply_supersedes_prior_override(gen_db_calibrated):
     note = Note(text="bump bench")
     gen_db.add(note); gen_db.commit(); gen_db.refresh(note)
 
-    engine_load = _t1_planned_set(_assemble(gen_db)).target_load
+    engine_load = _t1_planned_set(_assemble(gen_db), gen_db).target_load
     assert engine_load is not None
 
     first = apply_override(note, te.id, "LOAD", gen_db, load_delta=10)
@@ -133,7 +147,7 @@ def test_same_slot_same_type_apply_supersedes_prior_override(gen_db_calibrated):
     assert first.active is False
 
     # The assembler prescribes the LATEST override (+15), not the superseded +10.
-    assert _t1_planned_set(_assemble(gen_db)).target_load == engine_load + 15
+    assert _t1_planned_set(_assemble(gen_db), gen_db).target_load == engine_load + 15
 
 
 def test_apply_reorder_override_persists_override_order(gen_db_calibrated):
@@ -200,8 +214,8 @@ def test_http_load_apply_then_generate_seam():
     # Baseline engine load for the d1_t1 slot (no override yet).
     with Session(eng) as s:
         baseline = _assemble(s)
-        engine_load = _t1_planned_set(baseline).target_load
-        baseline_others = _other_slot_loads(baseline)
+        engine_load = _t1_planned_set(baseline, s).target_load
+        baseline_others = _other_slot_loads(baseline, s)
         assert engine_load is not None
 
         te = s.exec(select(TierExercise).where(TierExercise.slot_id == "d1_t1")).one()
@@ -219,9 +233,9 @@ def test_http_load_apply_then_generate_seam():
 
     with Session(eng) as s:
         after = _assemble(s)
-        assert _t1_planned_set(after).target_load == engine_load + 10, \
+        assert _t1_planned_set(after, s).target_load == engine_load + 10, \
             "the HTTP-applied LOAD override must flow through generate to the prescription"
-        assert _other_slot_loads(after) == baseline_others, \
+        assert _other_slot_loads(after, s) == baseline_others, \
             "a LOAD override on d1_t1 must not affect any other slot"
 
 
@@ -239,7 +253,7 @@ def test_load_and_reps_override_apply_at_prescription(gen_db_calibrated):
 
     # Baseline — no active override.
     baseline = _assemble(gen_db)
-    baseline_set = _t1_planned_set(baseline)
+    baseline_set = _t1_planned_set(baseline, gen_db)
     engine_load = baseline_set.target_load
     baseline_reps_low = baseline_set.target_reps_low
     baseline_reps_high = baseline_set.target_reps_high
@@ -261,8 +275,8 @@ def test_load_and_reps_override_apply_at_prescription(gen_db_calibrated):
     gen_db.refresh(ov)
 
     with_delta = _assemble(gen_db)
-    assert _t1_planned_set(with_delta).target_load == engine_load + 10
-    assert _other_slot_loads(with_delta) == _other_slot_loads(baseline), \
+    assert _t1_planned_set(with_delta, gen_db).target_load == engine_load + 10
+    assert _other_slot_loads(with_delta, gen_db) == _other_slot_loads(baseline, gen_db), \
         "a LOAD override on d1_t1 must not affect any other slot"
 
     # Option-C guardrail: the override must NEVER write current_load/MovementState.
@@ -276,7 +290,7 @@ def test_load_and_reps_override_apply_at_prescription(gen_db_calibrated):
     gen_db.add(ov)
     gen_db.commit()
     with_absolute = _assemble(gen_db)
-    assert _t1_planned_set(with_absolute).target_load == 225
+    assert _t1_planned_set(with_absolute, gen_db).target_load == 225
 
     gen_db.refresh(state)
     assert state.current_load == current_load_before, \
@@ -290,7 +304,7 @@ def test_load_and_reps_override_apply_at_prescription(gen_db_calibrated):
     gen_db.add(ov)
     gen_db.commit()
     with_reps = _assemble(gen_db)
-    reps_set = _t1_planned_set(with_reps)
+    reps_set = _t1_planned_set(with_reps, gen_db)
     assert reps_set.target_reps_low == 5 and reps_set.target_reps_high == 8
     assert reps_set.target_load == engine_load, "REPS override must not touch load"
 
@@ -299,7 +313,7 @@ def test_load_and_reps_override_apply_at_prescription(gen_db_calibrated):
     gen_db.add(ov)
     gen_db.commit()
     reverted = _assemble(gen_db)
-    reverted_set = _t1_planned_set(reverted)
+    reverted_set = _t1_planned_set(reverted, gen_db)
     assert reverted_set.target_load == engine_load
     assert reverted_set.target_reps_low == baseline_reps_low
     assert reverted_set.target_reps_high == baseline_reps_high
@@ -325,7 +339,7 @@ def test_load_override_applies_even_when_a_movement_override_coexists(gen_db_cal
     gen_db.commit()
     gen_db.refresh(note)
 
-    engine_load = _t1_planned_set(_assemble(gen_db)).target_load
+    engine_load = _t1_planned_set(_assemble(gen_db), gen_db).target_load
     assert engine_load is not None
 
     # MOVEMENT override first (lower id) — bench->bench, a no-op swap.
@@ -345,6 +359,6 @@ def test_load_override_applies_even_when_a_movement_override_coexists(gen_db_cal
     gen_db.add(load_ov)
     gen_db.commit()
 
-    both = _t1_planned_set(_assemble(gen_db))
+    both = _t1_planned_set(_assemble(gen_db), gen_db)
     assert both.target_load == engine_load + 10, \
         "LOAD override must apply even when a MOVEMENT override coexists on the slot"
