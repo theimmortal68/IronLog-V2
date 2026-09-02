@@ -184,3 +184,66 @@ def test_duration_progression_never_touches_rep_based_movement(gen_db):
     assert carry_state.pending_load_delta == 5.0, (
         "Suitcase Carry's duration-based advance must fire correctly, independent of Bench"
     )
+
+
+# ---------------------------------------------------------------------------
+# Generation-side coverage (Fable review finding, 2026-09-02): the
+# TierExercise.duration_* -> lay_skeleton -> SlotSpec -> _build_exercise ->
+# _sets_for_scheme -> PlannedSet.target_duration_* chain (codex's
+# architectural half) had zero test coverage -- verified correct by manual
+# review, but untested. Suitcase Dreadmill Carry's real slot is live-only
+# (migration 063, not wired in program_seed.py), so this plants a synthetic
+# duration TierExercise directly into D2's real, fully-seeded T3 GS tier
+# (gen_db already has real PhasePolicy/EngineState rows via the full seed,
+# unlike a from-scratch minimal fixture) and runs the real
+# lay_skeleton -> resolve_context -> assemble path against it.
+# ---------------------------------------------------------------------------
+
+def test_generation_threads_duration_targets_onto_planned_sets(gen_db):
+    from ironlog.generation.assembler import assemble
+    from ironlog.generation.context import resolve_context
+    from ironlog.generation.proposer import Selections, SlotSelection
+    from ironlog.generation.skeleton import lay_skeleton
+    from ironlog.models.program import Tier, TierExercise, TierKind
+
+    carry = _suitcase_carry(gen_db)
+    t3_gs = gen_db.exec(
+        select(Tier).where(Tier.tier_label == "T3 GS", Tier.tier_kind == TierKind.GIANT_SET)
+    ).first()
+    assert t3_gs is not None, "D2's T3 GS tier must exist in the fully-seeded fixture"
+
+    te = TierExercise(
+        tier_id=t3_gs.id, slot_id="test_duration_slot", movement_id=carry.id,
+        exercise_order=99, tier_role="free",
+        duration_low_seconds=20, duration_high_seconds=30,
+    )
+    gen_db.add(te); gen_db.commit(); gen_db.refresh(te)
+
+    from ironlog.models.program import ProgramDay
+    pd = gen_db.get(ProgramDay, t3_gs.program_day_id)
+
+    def _canned(sk, ctx):
+        slots = []
+        for s in sk.adaptive_slots:
+            if s.kind in ("giant", "knee"):
+                slots.append(SlotSelection(s.slot_id, ctx.candidate_menus[s.slot_id][0]))
+        return Selections(ordering=[s.slot_id for s in slots], slots=slots, rationale="t")
+
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton(pd.day_role, gen_db)
+    ctx = resolve_context(pd.day_role, sk, gen_db, wk)
+    res = assemble(_canned(sk, ctx), sk, ctx, gen_db)
+
+    carry_exercises = [
+        (pe, ps)
+        for g in res.session.groups
+        for pe in g.exercises if pe.movement_id == carry.id
+        for ps in pe.planned_sets
+    ]
+    assert carry_exercises, "the synthetic duration slot must appear in the generated session"
+    for pe, ps in carry_exercises:
+        assert ps.target_duration_low_seconds == 20
+        assert ps.target_duration_high_seconds == 30
+        assert ps.target_reps_low is None and ps.target_reps_high is None, (
+            "a duration-based slot must not also carry spurious rep defaults"
+        )
