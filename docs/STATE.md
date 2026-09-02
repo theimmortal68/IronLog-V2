@@ -512,3 +512,80 @@ and got deployed in the same pass.
 3. Eventually: decide whether to do the full seed-code/yaml reconciliation
    against migrations 044-057, or formally declare live-DB the sole source
    of truth for this program.
+
+---
+
+# State — 2026-09-02
+
+## Current task
+Built and deployed both engine-work specs deferred from the outside-review
+batch: spec 58 (real alternating-pair tiers, D1 Pendlay/Bench) and spec 59
+(duration-based TierExercise, D2 Suitcase Dreadmill Carry). Both went
+through full worktree dispatch -> review -> merge -> live deploy.
+
+## Decisions made and why
+- **Both specs dispatched to codex**, each hit a real dispatch-layer issue:
+  large inline prompts (~20-30KB) silently failed to even spawn a worker
+  process (confirmed by process-liveness checking, not just tool-call
+  timeout text) -- worked around by writing the full prompt to a file
+  inside the worktree and dispatching a short pointer prompt instead. Once
+  that was fixed, both specs got a real, mostly-correct first pass from
+  codex covering the harder architectural work.
+- **Spec 58**: after codex's first pass, existing tests broke (correctly --
+  they asserted pre-pairing behavior) and 2 required deliverables (new test
+  file, docs update) were missing. A fix-round dispatch made zero further
+  progress (2 consecutive failures on the same remaining work) -- per
+  CLAUDE.md's retry-failure exception, Tier A finished directly: fixed a
+  real schema/migration VARCHAR-parity bug (`GroupType.ALTERNATING` renamed
+  to `ALT_PAIR`, matching its own value), updated 5 stale tests, wrote
+  `tests/test_assembler_alternating_pair.py` (11 tests), added docs. Fable
+  review: clean, two Mediums fixed pre-merge (`planned_set_order` scoped to
+  ALT_PAIR only; `pair_key` collision-hardened). **Caught on the mandatory
+  scratch-copy dry run** (not on live): the migration's content file assumed
+  fresh-reseed tier ids (T1b=2) but the live DB's T1b is actually id=21
+  (created out-of-order in this DB's real history) -- T1's UPDATE matched,
+  T1b's silently no-op'd. Fixed before ever touching live.
+- **Spec 59**: same pattern -- codex's first real pass covered the
+  architectural half (duration fields threaded through the whole
+  generation/analysis pipeline, no new `ProgressionRule` needed) but missed
+  both migration files, the actual Equipment/Movement/TierExercise content,
+  the new test file, and docs. Two earlier dispatch attempts produced
+  nothing (spawned, ran, zero output, no crash signal -- still unexplained).
+  Tier A finished the remainder directly, including catching a real
+  cross-field invariant (`test_load_progression_has_increment_source`
+  requires non-null `Movement.load_floor` on every LADDER movement --
+  spec's draft "load_floor NULL" language predated that discovery; used 0,
+  matching belt-squat/reverse-hyper's established convention). Fable
+  review: clean, no Critical/High. One Medium closed with a new integration
+  test (generation-side duration threading had zero coverage, verified only
+  by manual code read); a second Medium filed as a follow-up (below).
+
+## Open questions / follow-ups
+- **Duration-based movements are invisible to analysis.py's e1rm/MISS/
+  CEILING/stall machinery** (Fable review, spec 59) -- only the
+  load-advance path (`_rpe8` via `SessionPerf.hit_target`) was generalized
+  to handle duration, not `_best_e1rm_set`/stall detection. Zero impact for
+  Suitcase Dreadmill Carry today (single-rung `[5]` ladder, e1rm is
+  meaningless for a timed carry regardless), but a real gap for any future
+  duration-based movement with a genuine multi-rung progression. Not fixed
+  -- real scope beyond spec 59, athlete confirmed noting-not-fixing.
+- Same carried-forward items as prior entries (unmerged session branch is
+  now 12 sessions deep -- was flagged as needing resolution "soon" back at
+  session 6; the seed-code/yaml reconciliation debt against live-only
+  migrations 044-063).
+
+## Verified
+- Both specs: full suite green throughout (756 -> 760 tests across the two
+  merges), scratch-copy migration dry runs before every live touch, live DB
+  backed up before each apply, service confirmed serving (200) after each.
+- D1's Bench/Pendlay now genuinely alternate (Pendlay first, 90s rest each).
+  D2's T3 GS now has 3 members including the new timed Suitcase Carry slot
+  (20-30 sec/side).
+
+## Next step
+- No athlete-facing action needed for either spec -- both are live. D1's
+  next session will show the real alternating pair; D2's next session will
+  show the Suitcase Carry slot.
+- Whenever convenient: decide on the unmerged-session-branch question
+  (12 sessions deep now) and the seed-code/live-DB reconciliation debt --
+  both purely structural, no urgency, but the gap keeps growing.
