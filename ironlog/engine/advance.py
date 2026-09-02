@@ -24,7 +24,7 @@ from ..models.enums import LiftCategory, ProgressionMode, ProgressionRule
 
 @dataclass
 class SessionPerf:
-    hit_target: bool          # all working sets hit rep_high (both sides for unilateral)
+    hit_target: bool          # all working sets hit high target (reps or seconds)
     max_rpe: float            # highest RPE across working sets
     all_sides_cleared: bool   # unilateral AND-gate (True for bilateral)
     session_performed: bool = False       # RULE_DRIVEN: RPE-exempt, just "did it happen" (Task 3)

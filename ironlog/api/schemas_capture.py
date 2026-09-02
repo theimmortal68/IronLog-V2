@@ -16,6 +16,7 @@ class SetLogIn(BaseModel):
     is_warmup: bool = False
     actual_load: Optional[float] = None
     actual_reps: Optional[int] = None
+    actual_duration_seconds: Optional[int] = None
     feedback_tap: Optional[str] = None
     rpe_numeric: Optional[float] = None
     actual_unassisted_reps: Optional[int] = None
@@ -65,6 +66,8 @@ class PlannedSetOut(BaseModel):
     target_load: Optional[float] = None
     target_reps_low: Optional[int] = None
     target_reps_high: Optional[int] = None
+    target_duration_low_seconds: Optional[int] = None
+    target_duration_high_seconds: Optional[int] = None
     target_rpe: Optional[float] = None
     target_unassisted_reps: Optional[int] = None
     target_assisted_reps: Optional[int] = None

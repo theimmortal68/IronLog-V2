@@ -56,6 +56,9 @@ For the current goal — hold strength through the final stages of a cut — thr
 | **Daily undulation** | heavier/low-rep day + lighter/high-rep day across the week | n/a (fatigue distribution) | variety, fatigue spread |
 | **Wave loading** | rep waves at one load (e.g. 8/6/4) | n/a (rep-scheme variation) | variety without adding load |
 | **Rep-ratio (assisted)** | mixed unassisted + assisted reps per set | hit unassisted target → shift one rep assisted→unassisted; all-unassisted → drop a tube; tubes gone → add load | pull-ups |
+| **Duration double progression** (2026-09-01, spec 59) | fixed duration *range* (seconds), add seconds under cap | top of range (`duration_high_seconds`) on all sets at ≤ cap → +increment, reset toward `duration_low_seconds` | timed unilateral carries (Suitcase Dreadmill Carry) |
+
+**Duration double progression** is the exact same mechanism as rep-based double progression, substituting seconds for reps — no new `ProgressionRule` value was needed. `TierExercise`/`PlannedSet` carry `duration_low_seconds`/`duration_high_seconds` alongside (never together with) the existing rep fields; the advance/analysis layer's "did every working set hit the top of the range" check now looks at `target_duration_high_seconds` first, falling back to `target_reps_high` (`ironlog/persistence/run_analysis.py::_set_hits`). See `04_exercise_library_schema.md` for the schema fields.
 
 ---
 

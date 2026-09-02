@@ -103,7 +103,10 @@ def test_total_count_103(seeded):
     # 2026-09-01: +1 "Cable Serratus Punch/Reach [FT]" (D6's GS1, replaces
     # Seated Leg Extension per outside-review reconciliation, athlete
     # directive; old row stays ACTIVE, unwired): 148 -> 149.
-    assert len(_all(seeded)) == 149
+    # 2026-09-01: +1 "Suitcase Dreadmill Carry" (D2 T3 GS, fresh slot
+    # d2_t3f, spec 59; unwired in the fresh-seed universe, live-only wiring
+    # via migration 063): 149 -> 150.
+    assert len(_all(seeded)) == 150
 
 
 def test_status_counts(seeded):
@@ -144,7 +147,9 @@ def test_status_counts(seeded):
     # the DB variant to a barbell, athlete directive): 140 -> 141.
     # 2026-09-01: +1 ACTIVE Cable Serratus Punch/Reach [FT] (D6 GS1, replaces
     # Seated Leg Extension, athlete directive): 141 -> 142.
-    assert c[Status.ACTIVE] == 142
+    # 2026-09-01: +1 ACTIVE Suitcase Dreadmill Carry (D2 T3 GS, spec 59):
+    # 142 -> 143.
+    assert c[Status.ACTIVE] == 143
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

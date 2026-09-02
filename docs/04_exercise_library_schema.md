@@ -74,7 +74,13 @@ EquipPhase        : P1 | P2 | P3 | P4                   # when equipment comes o
 | available_phase | EquipPhase | when it joins the gym (VBS→P3, PCD→P4…) — expands the vocabulary on arrival |
 | notes | text | |
 
-Locked floors: barbell 45/2.5 · camber 30/2.5 · EZ 35/2.5 · DB 10-per-hand/2.5 · Ares single 10/2.5 · Ares dual 20/5 · belt-squat & rev-hyper plate-loaded floor 0 · KB 13.
+Locked floors: barbell 45/2.5 · camber 30/2.5 · EZ 35/2.5 · DB 10-per-hand/2.5 · Ares single 10/2.5 · Ares dual 20/5 · belt-squat & rev-hyper plate-loaded floor 0 · KB 13. Dreadmill (2026-09-01): floor NULL/5.
+
+**`load_unit` for one-side-loaded implements:** `LB_PER_HAND` means both hands are typically loaded equally (Dumbbells) — a suitcase-style implement that loads **one** arm at a time uses plain `LB` (a single loaded figure per set) instead, with `Movement.unilateral=True` already carrying the "one side at a time" fact. Don't double-encode it in the load unit.
+
+### 3a. Duration-based `TierExercise`/`PlannedSet`/`SetLog` (2026-09-01, spec 59)
+
+`TierExercise` (`ironlog/models/program.py`) and `PlannedSet`/`SetLog` (`ironlog/models/session.py`) carry additive nullable `duration_low_seconds`/`duration_high_seconds` (definition/prescription) and `actual_duration_seconds` (logged) alongside the existing rep fields — a slot is expected to populate **either** the rep fields **or** the duration fields, never both (a convention enforced by authoring discipline, not a DB `CHECK` constraint). Two-sided ("per side") prescriptions follow this program's existing unilateral convention: one `PlannedSet` per round represents both sides performed, not two separate rows (matches how `Kickstand RDL` — itself unilateral — has always worked).
 
 ---
 

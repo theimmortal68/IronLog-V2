@@ -73,6 +73,8 @@ class PlannedSet(SQLModel, table=True):
     target_load: Optional[float] = None
     target_reps_low: Optional[int] = None
     target_reps_high: Optional[int] = None
+    target_duration_low_seconds: Optional[int] = None
+    target_duration_high_seconds: Optional[int] = None
     target_rpe: Optional[float] = None
 
     # assisted (rep-ratio)
@@ -99,6 +101,7 @@ class SetLog(SQLModel, table=True):
 
     actual_load: Optional[float] = None
     actual_reps: Optional[int] = None
+    actual_duration_seconds: Optional[int] = None
     feedback_tap: Optional[FeedbackTap] = None     # required on WORKING/TOP/BACKOFF
     rpe_numeric: Optional[float] = None            # optional finer grain
     is_warmup: bool = False

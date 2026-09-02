@@ -48,6 +48,8 @@ class SlotSpec:
     # instead of hardcoding them.
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None
+    duration_low_seconds: Optional[int] = None
+    duration_high_seconds: Optional[int] = None
     rpe_cap: Optional[float] = None
     rest_seconds: Optional[int] = None
     # The source Tier's shoe label (display-only session-graph metadata; see
@@ -71,6 +73,8 @@ class AnchorSpec:
     pass over tiers/exercises, so zip(anchor_movement_ids, anchor_meta) is safe)."""
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None
+    duration_low_seconds: Optional[int] = None
+    duration_high_seconds: Optional[int] = None
     rpe_cap: Optional[float] = None
     rest_seconds: Optional[int] = None
     # The source Tier's tier_label (e.g. "T1"); carried alongside rest_seconds so
@@ -106,6 +110,8 @@ class _ResolvedSlot:
     movement_id: int
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None
+    duration_low_seconds: Optional[int] = None
+    duration_high_seconds: Optional[int] = None
 
 
 def week_parity(as_of: date) -> str:
@@ -193,10 +199,22 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
             resolved = _resolve_slot(db, te, meso_number, effective_as_of)
             rep_low = resolved.rep_low if resolved.rep_low is not None else te.rep_low
             rep_high = resolved.rep_high if resolved.rep_high is not None else te.rep_high
+            duration_low_seconds = (
+                resolved.duration_low_seconds
+                if resolved.duration_low_seconds is not None
+                else te.duration_low_seconds
+            )
+            duration_high_seconds = (
+                resolved.duration_high_seconds
+                if resolved.duration_high_seconds is not None
+                else te.duration_high_seconds
+            )
             if te.tier_role == "anchor" and tier.tier_kind != TierKind.GIANT_SET:
                 anchor_movement_ids.append(resolved.movement_id)
                 anchor_meta.append(AnchorSpec(
                     rep_low=rep_low, rep_high=rep_high,
+                    duration_low_seconds=duration_low_seconds,
+                    duration_high_seconds=duration_high_seconds,
                     rpe_cap=te.rpe_cap, rest_seconds=tier.rest_seconds,
                     tier_label=tier.tier_label, pair_key=pair_key,
                     shoe=tier.shoe,
@@ -213,6 +231,8 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                     is_giant_tier=tier.tier_kind == TierKind.GIANT_SET,
                     group_key=tier.tier_label, pair_key=pair_key,
                     rep_low=rep_low, rep_high=rep_high, rpe_cap=te.rpe_cap,
+                    duration_low_seconds=duration_low_seconds,
+                    duration_high_seconds=duration_high_seconds,
                     rest_seconds=tier.rest_seconds, shoe=tier.shoe,
                     tier_exercise_id=te.id, tier_order=tier.tier_order,
                 ))

@@ -33,6 +33,10 @@ EQUIPMENT = [
     ("Kettlebell", 13, None, LoadUnit.LB),
     ("Pull-up tower", None, None, LoadUnit.BODYWEIGHT),
     ("Tubes", None, None, LoadUnit.TUBE),
+    # 2026-09-01 (spec 59): plate-loaded, one arm at a time -- LB (single
+    # loaded figure), not LB_PER_HAND, since Movement.unilateral=True
+    # already carries "one side at a time". No fixed-bar floor.
+    ("Dreadmill", None, 5, LoadUnit.LB),
 ]
 
 # bracket-code -> Equipment.name (Fork 2 dictionary). Codes NOT here are
@@ -51,6 +55,7 @@ CODE_TO_EQUIP = {
     "TOWER": "Pull-up tower",
     "TUBES": "Tubes",
     "KB": "Kettlebell",
+    "DREADMILL": "Dreadmill",
 }
 
 # progression-model phase envelopes (locked)
@@ -1057,6 +1062,28 @@ MOVEMENTS = [
          region=Region.NONE, status=Status.ACTIVE,
          load_code=None, tags=["BALL"],
          progression_mode=ProgressionMode.CONDITIONING, scheme=Scheme.STRAIGHT, primary_muscle="ABS", secondary_muscles=["GLUTES", "HAMSTRINGS"]),
+    # 2026-09-01 (spec 59): D2 T3 GS 3rd member (fresh slot d2_t3f), duration-
+    # based (20-30 sec/side) via TierExercise.duration_low_seconds/
+    # duration_high_seconds -- see deploy/migrations/062-063 for the live
+    # wiring (movement row only here, matching D6's Cable Serratus Punch/
+    # Reach precedent this same session -- wiring stays live-only).
+    # LADDER/DOUBLE_PROGRESSION mirrors every other timed-set-capable LADDER
+    # movement, substituting duration for reps -- no new ProgressionRule
+    # value needed (run_analysis.py's hit-target check branches on
+    # target_duration_high_seconds before falling back to target_reps_high).
+    # load_floor=0 (not None): spec 59's draft language said "no floor the
+    # way a fixed-bar barbell has," but test_load_progression_has_increment_source
+    # requires a real (non-None) load_floor on every LADDER movement --
+    # matches this repo's own established convention for plate-loaded gear
+    # with no fixed minimum (belt-squat/reverse-hyper both use floor 0, per
+    # the EQUIPMENT table comment "belt-squat & rev-hyper plate-loaded floor 0").
+    dict(name="Suitcase Dreadmill Carry", base_name="Suitcase Dreadmill Carry",
+         region=Region.CORE, status=Status.ACTIVE,
+         load_code="DREADMILL", tags=["DREADMILL"], unilateral=True,
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[5], min_step=5, load_floor=0,
+         primary_muscle="ABS", secondary_muscles=["SPINAL_ERECTORS", "FOREARMS"],
+         notes="Athlete expects to start loaded above 75 lb -- first-session calibration guidance only, not a seeded baseline."),
 
     # ─────────────────────────────────────────────────────────────────────────
     # INACTIVE (8) — kept, dormant, eligible for future blocks

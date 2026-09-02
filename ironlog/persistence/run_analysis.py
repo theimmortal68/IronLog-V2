@@ -245,14 +245,24 @@ def _build_session_perf(mid: int, movement: Movement, set_logs: List[SetLog],
             continue
         groups[sl.set_index].append(sl)
 
+    def _set_hits(sl, ps) -> bool:
+        if ps is None:
+            return False
+        if ps.target_duration_high_seconds is not None:
+            return (
+                sl.actual_duration_seconds is not None
+                and sl.actual_duration_seconds >= ps.target_duration_high_seconds
+            )
+        if ps.target_reps_high is not None:
+            return sl.actual_reps is not None and sl.actual_reps >= ps.target_reps_high
+        return False
+
     def _group_hits(rows) -> bool:
         if not rows:
             return False
         for sl in rows:
             ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
-            if ps is None or ps.target_reps_high is None:
-                return False
-            if sl.actual_reps is None or sl.actual_reps < ps.target_reps_high:
+            if not _set_hits(sl, ps):
                 return False
         return True
 
@@ -313,7 +323,14 @@ def _clean_performed_assist_values(mid: int, set_logs: List[SetLog], planned_set
     def _group_hits(rows) -> bool:
         for sl in rows:
             ps = planned_sets.get(sl.planned_set_id) if sl.planned_set_id else None
-            if ps is None or ps.target_reps_high is None:
+            if ps is None:
+                return False
+            if ps.target_duration_high_seconds is not None:
+                if (sl.actual_duration_seconds is None
+                        or sl.actual_duration_seconds < ps.target_duration_high_seconds):
+                    return False
+                continue
+            if ps.target_reps_high is None:
                 return False
             if sl.actual_reps is None or sl.actual_reps < ps.target_reps_high:
                 return False
@@ -409,11 +426,14 @@ def run_analysis(
             logged.append(LoggedSet(
                 actual_load=sl.actual_load,
                 actual_reps=sl.actual_reps,
+                actual_duration_seconds=sl.actual_duration_seconds,
                 feedback_tap=sl.feedback_tap,
                 is_warmup=sl.is_warmup,
                 target_rpe=ps.target_rpe if ps else None,
                 target_reps_low=ps.target_reps_low if ps else None,
                 target_reps_high=ps.target_reps_high if ps else None,
+                target_duration_low_seconds=ps.target_duration_low_seconds if ps else None,
+                target_duration_high_seconds=ps.target_duration_high_seconds if ps else None,
             ))
         movements_inputs.append(MovementAnalysisInput(
             movement_id=mid,

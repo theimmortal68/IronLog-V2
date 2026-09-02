@@ -238,7 +238,9 @@ def _step_and_floor(movement: Movement, db: DBSession):
 def _sets_for_scheme(scheme: Scheme, load: Optional[float],
                      ctx: GenerationContext,
                      rep_low: Optional[int] = None, rep_high: Optional[int] = None,
-                     rpe_cap: Optional[float] = None) -> List[PlannedSet]:
+                     rpe_cap: Optional[float] = None,
+                     duration_low_seconds: Optional[int] = None,
+                     duration_high_seconds: Optional[int] = None) -> List[PlannedSet]:
     """Map scheme -> a concrete list of PlannedSets.
 
     TOPSET_BACKOFF: TOP set + one BACKOFF at 90% (reps/RPE still sourced from
@@ -255,7 +257,25 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
     """
     pol = ctx.phase_policy
     backoff_load = round(load * 0.9, 1) if load is not None else None
+    has_duration = duration_low_seconds is not None or duration_high_seconds is not None
     if scheme == Scheme.TOPSET_BACKOFF:
+        if has_duration:
+            return [
+                PlannedSet(
+                    set_index=0, set_role=SetRole.TOP,
+                    target_load=load,
+                    target_duration_low_seconds=duration_low_seconds,
+                    target_duration_high_seconds=duration_high_seconds,
+                    target_rpe=pol.top_set_rpe,
+                ),
+                PlannedSet(
+                    set_index=1, set_role=SetRole.BACKOFF,
+                    target_load=backoff_load,
+                    target_duration_low_seconds=duration_low_seconds,
+                    target_duration_high_seconds=duration_high_seconds,
+                    target_rpe=pol.rpe_band_low,
+                ),
+            ]
         return [
             PlannedSet(
                 set_index=0, set_role=SetRole.TOP,
@@ -271,8 +291,8 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
             ),
         ]
     # Default: 3 WORKING sets — reps/RPE sourced from the seeded TierExercise.
-    lo = rep_low if rep_low is not None else 8
-    hi = rep_high if rep_high is not None else 12
+    lo = rep_low if rep_low is not None else (None if has_duration else 8)
+    hi = rep_high if rep_high is not None else (None if has_duration else 12)
     rpe = rpe_cap if rpe_cap is not None else (
         pol.rpe_band_high if pol.rpe_band_high is not None else 8.0
     )
@@ -281,6 +301,8 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
             set_index=i, set_role=SetRole.WORKING,
             target_load=load,
             target_reps_low=lo, target_reps_high=hi,
+            target_duration_low_seconds=duration_low_seconds,
+            target_duration_high_seconds=duration_high_seconds,
             target_rpe=rpe,
         )
         for i in range(3)
@@ -448,6 +470,8 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                     is_anchor: bool = False,
                     rep_low: Optional[int] = None, rep_high: Optional[int] = None,
                     rpe_cap: Optional[float] = None,
+                    duration_low_seconds: Optional[int] = None,
+                    duration_high_seconds: Optional[int] = None,
                     band_inventory: Optional[List[Band]] = None,
                     prospective_ht: Optional[Dict[int, Tuple[float, list]]] = None,
                     prospective_ht_unified: Optional[Dict[Tuple[int, str], Tuple[float, list]]] = None,
@@ -480,7 +504,9 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     # captured, before it feeds _sets_for_scheme.
     load, rep_low, rep_high = _apply_slot_override(db, tier_exercise_id, load, rep_low, rep_high)
     sets = _sets_for_scheme(movement.scheme, load, ctx,
-                            rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap)
+                            rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap,
+                            duration_low_seconds=duration_low_seconds,
+                            duration_high_seconds=duration_high_seconds)
     if is_anchor and movement.ramp_eligible and load is not None:
         ramp_sets = [
             PlannedSet(
@@ -621,7 +647,9 @@ def _alternating_rounds(group: ExerciseGroup) -> int:
 def prescribe_swap_sets(new_movement: Movement, day_role: str,
                         tier_exercise_id: Optional[int],
                         rep_low: Optional[int], rep_high: Optional[int],
-                        rpe_cap: Optional[float], db: DBSession) -> List[PlannedSet]:
+                        rpe_cap: Optional[float], db: DBSession,
+                        duration_low_seconds: Optional[int] = None,
+                        duration_high_seconds: Optional[int] = None) -> List[PlannedSet]:
     """Build a fresh 3-set prescription for `new_movement`, matching the exact
     per-set structure (target_load / target_reps / HT plates+bands / etc.)
     _build_exercise produces during full-session generation -- reused here
@@ -653,6 +681,8 @@ def prescribe_swap_sets(new_movement: Movement, day_role: str,
     ex = _build_exercise(
         new_movement, 0, ctx, db, prospective={}, day_role=day_role,
         is_anchor=False, rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap,
+        duration_low_seconds=duration_low_seconds,
+        duration_high_seconds=duration_high_seconds,
         band_inventory=band_inventory, prospective_ht={}, prospective_ht_unified={},
         tier_exercise_id=tier_exercise_id,
     )
@@ -722,6 +752,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
         rep_low: Optional[int],
         rep_high: Optional[int],
         rpe_cap: Optional[float],
+        duration_low_seconds: Optional[int],
+        duration_high_seconds: Optional[int],
         tier_exercise_id: Optional[int],
     ) -> None:
         nonlocal construction_order
@@ -758,6 +790,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
             movement, len(group.exercises), ctx, db, prospective,
             day_role=skeleton.day_role, is_anchor=is_anchor,
             rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap,
+            duration_low_seconds=duration_low_seconds,
+            duration_high_seconds=duration_high_seconds,
             band_inventory=band_inventory, prospective_ht=prospective_ht,
             prospective_ht_unified=prospective_ht_unified,
             tier_exercise_id=tier_exercise_id,
@@ -772,6 +806,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                 meta.pair_key, m, meta.tier_order, meta.tier_label,
                 meta.rest_seconds, meta.shoe, True,
                 meta.rep_low, meta.rep_high, meta.rpe_cap,
+                meta.duration_low_seconds, meta.duration_high_seconds,
                 meta.tier_exercise_id,
             )
             continue
@@ -787,6 +822,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
                              day_role=skeleton.day_role, is_anchor=True,
                              rep_low=meta.rep_low, rep_high=meta.rep_high,
                              rpe_cap=meta.rpe_cap,
+                             duration_low_seconds=meta.duration_low_seconds,
+                             duration_high_seconds=meta.duration_high_seconds,
                              band_inventory=band_inventory, prospective_ht=prospective_ht,
                              prospective_ht_unified=prospective_ht_unified,
                              tier_exercise_id=meta.tier_exercise_id)
@@ -820,6 +857,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
                 slot.pair_key, m, slot.tier_order, slot.group_key or None,
                 slot.rest_seconds, slot.shoe, False,
                 slot.rep_low, slot.rep_high, slot.rpe_cap,
+                slot.duration_low_seconds, slot.duration_high_seconds,
                 slot.tier_exercise_id,
             )
         elif slot.is_giant_tier:
@@ -842,6 +880,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
                                  day_role=skeleton.day_role,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
+                                 duration_low_seconds=slot.duration_low_seconds,
+                                 duration_high_seconds=slot.duration_high_seconds,
                                  band_inventory=band_inventory, prospective_ht=prospective_ht,
                                  prospective_ht_unified=prospective_ht_unified,
                                  tier_exercise_id=slot.tier_exercise_id)
@@ -860,6 +900,8 @@ def assemble(selections: Selections, skeleton: Skeleton,
                                  day_role=skeleton.day_role,
                                  rep_low=slot.rep_low, rep_high=slot.rep_high,
                                  rpe_cap=slot.rpe_cap,
+                                 duration_low_seconds=slot.duration_low_seconds,
+                                 duration_high_seconds=slot.duration_high_seconds,
                                  band_inventory=band_inventory, prospective_ht=prospective_ht,
                                  prospective_ht_unified=prospective_ht_unified,
                                  tier_exercise_id=slot.tier_exercise_id)
