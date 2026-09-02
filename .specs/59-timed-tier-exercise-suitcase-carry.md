@@ -4,8 +4,23 @@
 
 Give the definition layer a real duration-based prescription type (seconds
 per set, not reps) so a timed unilateral carry can be a normal giant-set
-slot — then use it to add a "Suitcase Dreadmill Carry" accessory to D5 GS1
-in place of Ab Trainer Russian Twist.
+slot — then use it to add a "Suitcase Dreadmill Carry" accessory to D2 T3
+GS, as a 3rd member alongside ATG Split Squat and Hybrid Board Tib Raise.
+
+**2026-09-01 update (target moved, athlete directive):** this spec
+originally targeted D5 GS1 in place of Ab Trainer Russian Twist. That
+Russian Twist removal already happened independently and unconditionally
+(migration `055_d5_remove_russian_twist.sql`, no replacement — D5 GS1 is
+now a real, final 3-member giant set: Lying Leg Curl / Hybrid Board Tib
+Raise / Reverse Nordic Curl, athlete explicitly does not want it re-filled).
+The Suitcase Carry instead lands on **D2's T3 GS** (tier_id 8), as a 3rd
+member — D2 T3 currently holds ATG Split Squat (`d2_t3a`, order 1) and
+Hybrid Board Tib Raise `[D2]` (`d2_t3e`, order 2) after Ab Trainer Decline
+Sit-up was moved out to D2 T2 GS (migration `059_...`, exercise_order 4
+there). Everywhere below that says "D5 GS1" / "in place of Ab Trainer
+Russian Twist" should be read as "D2 T3 GS, as a new 3rd member (order 3)"
+instead — the file targets, schema/engine work, and edge cases are
+otherwise unchanged; only the destination slot differs.
 
 ## Background / why this exists
 
@@ -97,12 +112,18 @@ difference is the *set* is measured in seconds instead of reps).
      `rep_low`/`rep_high`-at-Movement-level pattern exists, if any — check
      before assuming there's a Movement-level duration default; the
      TierExercise-level fields may be sufficient).
-   - `UPDATE tierexercise SET movement_id=<new>, duration_low_seconds=20,
-     duration_high_seconds=30, rep_low=NULL, rep_high=NULL WHERE id=65` (the
-     current Ab Trainer Russian Twist slot, D5 GS1, order 2 — confirmed
-     this session's DB state; **re-verify the id is still 65** before
-     writing this migration, since the definition layer may have changed
-     between now and when this spec is executed).
+   - **INSERT** (not UPDATE — this is a new slot, not a repointed one; the
+     old target, `id=65`/Ab Trainer Russian Twist, was already deleted by
+     migration `055_d5_remove_russian_twist.sql` and D5 GS1 is not touched
+     by this spec at all) a new `tierexercise` row into **D2's T3 GS**
+     (`tier_id=8` as of this session — re-verify before writing the
+     migration, the definition layer may have changed since): fresh slot_id
+     (grep git history for the `d2_t3` namespace first, per this program's
+     never-reassign-slot_id convention — `d2_t3a`/`d2_t3d`/`d2_t3e` are
+     already live), `exercise_order=3` (after ATG Split Squat=1, Hybrid
+     Board Tib Raise `[D2]`=2), `tier_role='free'`,
+     `duration_low_seconds=20, duration_high_seconds=30, rep_low=NULL,
+     rep_high=NULL`.
 8. `tests/test_timed_tier_exercise.py` (or extend an existing progression
    test file) — new coverage for the duration-ladder progression path.
 9. `docs/03_progression_model_spec.md` and
@@ -140,7 +161,7 @@ difference is the *set* is measured in seconds instead of reps).
 3. **Do not touch `FINISHER_DURATION_THEN_ROPE` / `DayFinisher` at all** —
    this is a parallel, independent path for timed *tier* slots. The
    finisher mechanism stays exactly as-is.
-4. **Library content**: new Equipment + Movement rows, and the D5 GS1
+4. **Library content**: new Equipment + Movement rows, and the D2 T3 GS
    `TierExercise` swap, as detailed in File targets #7 above.
 
 ## Edge cases
@@ -198,10 +219,12 @@ migration's new columns.
   never touches `rep_low`/`rep_high` progression code paths (regression
   guard — a bug here should not be able to corrupt an unrelated rep-based
   movement's progression).
-- Manual check: after both migrations, generate a D5 session and confirm
-  the suitcase carry slot appears with a duration prescription (not "0-0
-  reps" or similar silent unit-mismatch symptom) and that Ab Trainer
-  Russian Twist no longer appears in D5 GS1.
+- Manual check: after both migrations, generate a D2 session and confirm
+  the suitcase carry slot appears in T3 GS with a duration prescription
+  (not "0-0 reps" or similar silent unit-mismatch symptom), alongside ATG
+  Split Squat and Hybrid Board Tib Raise `[D2]`. D5 is untouched by this
+  spec — Ab Trainer Russian Twist's removal from D5 GS1 already happened
+  independently (migration 055), not part of this spec's work.
 - Confirm `IronLog-V2-Client` DTOs need updating for the new
   `PlannedSet`/`SetLog` duration field(s) — new nullable fields are
   additive/safe per `CLAUDE.md`'s client contract section, but call out
