@@ -115,6 +115,28 @@ Generation reads the ledger to compute what's owed (step 3) and writes to it pos
 
 Novelty is measured on the **free + semi-anchor loading** layer only — the anchors are *supposed* to repeat, so they're excluded from the signature.
 
+### 6a. Session-structure group types (`ExerciseGroup.group_type`)
+
+Orthogonal to tier policy (which governs *what* churns) is group type, which governs *how the assembled session sequences a tier's working sets*:
+
+| `group_type` | Source | Behavior |
+|---|---|---|
+| `STRAIGHT` | `T1_STRAIGHT` tier, or any non-giant tier with no pairing | One movement, all its sets run back-to-back before the next group starts. |
+| `GIANT_SET` | `TierKind.GIANT_SET` tier | N≥2 movements *within one tier*, sets round-robin across all N every round (existing behavior, unchanged by 6b below). |
+| `ALT_PAIR` | Two `TierKind.PAIR` tiers linked via `Tier.paired_tier_id` (2026-09-01, spec 58) | Two movements from *two different tiers*, one each — see 6b. |
+
+`ALT_PAIR` is the only structure spanning two `Tier` rows instead of members within one; everything else in this document (tier policy, novelty scoring, the validator) operates per-tier and is unaffected by which of these three a tier's group ends up as.
+
+### 6b. Alternating pairs (`ALT_PAIR`)
+
+Two tiers with symmetric `paired_tier_id` pointers (both `TierKind.PAIR`, or one `PAIR` + one `T1_STRAIGHT`, matching program day and neither `GIANT_SET`) merge into one `ExerciseGroup` at assembly time instead of two separate `STRAIGHT` groups. The merged group's label is `"<lower-tier_order label>/<higher-tier_order label>"` (e.g. D1's Pendlay-first pairing produces `"T1b/T1"`), and its `rest_seconds` comes from the pair's tiers (both sides are expected to agree post-migration; the assembler warns and prefers the first tier's value if they ever diverge rather than failing generation).
+
+Working sets alternate A1, B1, A2, B2, … (`planned_sets_in_group_order` in `assembler.py`); warmup sets for both movements are emitted first, before any working-set round-robin. If the two movements resolve to different set counts, alternation runs through `min(N_a, N_b)` rounds, then the longer movement's remaining sets run straight — no set is ever silently dropped.
+
+A tier's `paired_tier_id` pointing at a missing tier, a tier in a different program day, or a `GIANT_SET` tier all degrade that tier to ordinary `STRAIGHT` assembly rather than crashing generation (logged as a warning) — a live-training athlete must never get a 500 from a data-integrity gap in the pairing link. A `PAIR`-kind tier is expected to carry exactly one `TierExercise`; more than one is treated as a data error and raises rather than silently picking one.
+
+`SlotMovementOverride`/`MesoRotation`/`WeekParityRotation` resolve exactly as they do for any other slot — pairing is a session-structure concern layered on top of whichever movement a slot resolves to, not a replacement for slot resolution.
+
 ---
 
 ## 7. Novelty — session signature

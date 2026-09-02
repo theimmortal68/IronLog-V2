@@ -11,10 +11,16 @@ shoes:
 
 days:
   d1:  # Upper A / Push — shoe: Metcon 9 (no swap)
-    T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      {m: bench_press, reps: [4,6], rule: rpe_8_standard, load: 155}]}  # 2026-08-10: maintenance block, T1 rep range 6-8 -> 4-6, real Wk1 locked 155x3x6 RPE8 (Belle Mere BMF Camber Bar 21" grip)
-    T1b: {group_key: "T1b", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
+    # 2026-09-01: T1/T1b linked as a real alternating pair (migration 060,
+    # spec 58) -- Pendlay Row goes first per athlete preference ("pull
+    # first"), both sides rest 90s (was 120). Block order swapped here to
+    # match: this yaml's block order is the parity-test source of truth for
+    # seeded slot order (test_program_seed_yaml_parity.py), which now
+    # expects Pendlay before Bench.
+    T1b: {group_key: "T1b", rest: 90, shoe: "Metcon 9", anchor: true, ex: [
       {m: pendlay_row_narrow, reps: [4,6], rule: hold_load_strain_constraint, load: 180}]}  # 2026-08-10: held at 170 while strain heals (maps to FIXED_LOAD), rep range 6-8 -> 4-6; 2026-08-25: staged raise -- 180 this week, then manually bump to 185 next week and hold there (still FIXED_LOAD, not auto-progression); live DB MovementState.id=3 updated directly
+    T1_STRAIGHT: {group_key: "T1", rest: 90, shoe: "Metcon 9", anchor: true, ex: [
+      {m: bench_press, reps: [4,6], rule: rpe_8_standard, load: 155}]}  # 2026-08-10: maintenance block, T1 rep range 6-8 -> 4-6, real Wk1 locked 155x3x6 RPE8 (Belle Mere BMF Camber Bar 21" grip)
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       # 2026-08-10: full T2 GS turnover -- Lying Tricep Extension / Incline DB
       # Press / Face-Up Incline Knee Raise all drop out of D1 entirely,

@@ -91,6 +91,7 @@ class Tier(SQLModel, table=True):
     """One training tier within a program day (T1, T2 GS, GS1, …)."""
     id: Optional[int] = Field(default=None, primary_key=True)
     program_day_id: int = Field(foreign_key="programday.id")
+    paired_tier_id: Optional[int] = Field(default=None, foreign_key="tier.id", index=True)
     tier_label: str       # "T1", "T2 GS", "GS1", …
     tier_order: int       # 1-based ordering within the day
     tier_kind: TierKind

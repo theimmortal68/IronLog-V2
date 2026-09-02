@@ -13,6 +13,7 @@ NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
 from datetime import date, datetime
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlmodel import Session as DBSession, select
@@ -37,6 +38,8 @@ from .context import GenerationContext
 from .load_trust import LoadTrust, compute_load_trust
 from .proposer import Selections
 from .skeleton import Skeleton
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -565,12 +568,54 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
 
     ex = PlannedExercise(
         movement_id=movement.id,
+        tier_exercise_id=tier_exercise_id,
         order_index=ex_order,
         scheme=movement.scheme,
         objective=objective,
     )
     ex.planned_sets.extend(sets)
     return ex
+
+
+def planned_sets_in_group_order(
+    group: ExerciseGroup,
+) -> List[Tuple[PlannedExercise, PlannedSet]]:
+    """Return planned sets in the order a group should be trained.
+
+    STRAIGHT and GIANT_SET preserve the existing nested exercise/set order.
+    ALTERNATING keeps warmups first, then round-robins non-warmup sets across
+    the pair. If set counts differ, remaining sets from the longer exercise
+    continue after the paired rounds.
+    """
+    exercises = sorted(group.exercises, key=lambda e: e.order_index)
+    if group.group_type != GroupType.ALT_PAIR:
+        return [
+            (ex, ps)
+            for ex in exercises
+            for ps in sorted(ex.planned_sets, key=lambda s: s.set_index)
+        ]
+
+    ordered: List[Tuple[PlannedExercise, PlannedSet]] = []
+    non_warmup: List[Tuple[PlannedExercise, List[PlannedSet]]] = []
+    for ex in exercises:
+        sets = sorted(ex.planned_sets, key=lambda s: s.set_index)
+        ordered.extend((ex, ps) for ps in sets if ps.is_warmup)
+        non_warmup.append((ex, [ps for ps in sets if not ps.is_warmup]))
+
+    max_sets = max((len(sets) for _, sets in non_warmup), default=0)
+    for set_pos in range(max_sets):
+        for ex, sets in non_warmup:
+            if set_pos < len(sets):
+                ordered.append((ex, sets[set_pos]))
+    return ordered
+
+
+def _alternating_rounds(group: ExerciseGroup) -> int:
+    counts = [
+        len([ps for ps in ex.planned_sets if not ps.is_warmup])
+        for ex in group.exercises
+    ]
+    return max(counts, default=1) or 1
 
 
 def prescribe_swap_sets(new_movement: Movement, day_role: str,
@@ -623,9 +668,11 @@ def assemble(selections: Selections, skeleton: Skeleton,
     """Turn the LLM's selections into a full in-memory Session.
 
     Layout:
-      1. Anchor movements → STRAIGHT groups, one per anchor TierExercise.
+      1. Anchor movements → STRAIGHT groups, one per anchor TierExercise,
+         except linked pair tiers, which accumulate into one ALTERNATING group.
       2. Adaptive slots → iterated in selections.ordering:
            giant tier  → exercises appended into one GIANT_SET group per source tier (rounds=3)
+           pair tier   → exercises appended into one ALTERNATING group per linked pair
            other       → own STRAIGHT group each
       All resulting groups (anchor + giant + straight adaptive) are then sorted
       by the source Tier's TRUE tier_order before order_index is assigned --
@@ -660,10 +707,74 @@ def assemble(selections: Selections, skeleton: Skeleton,
     # in the day, instead of anchors always being forced first.
     construction_order = 0
     pending_groups: List[Tuple[int, int, ExerciseGroup]] = []
+    pair_groups: Dict[str, ExerciseGroup] = {}
+    pair_group_rank: Dict[str, Tuple[int, int]] = {}
+    pair_group_labels: Dict[str, List[str]] = {}
+
+    def append_pair_exercise(
+        pair_key: str,
+        movement: Movement,
+        tier_order: Optional[int],
+        label: Optional[str],
+        rest_seconds: Optional[int],
+        shoe: Optional[str],
+        is_anchor: bool,
+        rep_low: Optional[int],
+        rep_high: Optional[int],
+        rpe_cap: Optional[float],
+        tier_exercise_id: Optional[int],
+    ) -> None:
+        nonlocal construction_order
+        if pair_key not in pair_groups:
+            pair_groups[pair_key] = ExerciseGroup(
+                order_index=0,  # assigned below, after the true-tier-order sort
+                group_type=GroupType.ALT_PAIR,
+                rounds=1,
+                rest_seconds=rest_seconds,
+                label=label,
+                shoe=shoe,
+            )
+            pair_group_rank[pair_key] = (tier_order, construction_order)
+            pair_group_labels[pair_key] = [label] if label else []
+            construction_order += 1
+        else:
+            group = pair_groups[pair_key]
+            if (
+                group.rest_seconds is not None
+                and rest_seconds is not None
+                and group.rest_seconds != rest_seconds
+            ):
+                logger.warning(
+                    "PAIR tiers for %s have mismatched rest_seconds (%s vs %s); "
+                    "using first tier value",
+                    pair_key, group.rest_seconds, rest_seconds,
+                )
+            if label and label not in pair_group_labels[pair_key]:
+                pair_group_labels[pair_key].append(label)
+                group.label = "/".join(pair_group_labels[pair_key])
+
+        group = pair_groups[pair_key]
+        ex = _build_exercise(
+            movement, len(group.exercises), ctx, db, prospective,
+            day_role=skeleton.day_role, is_anchor=is_anchor,
+            rep_low=rep_low, rep_high=rep_high, rpe_cap=rpe_cap,
+            band_inventory=band_inventory, prospective_ht=prospective_ht,
+            prospective_ht_unified=prospective_ht_unified,
+            tier_exercise_id=tier_exercise_id,
+        )
+        group.exercises.append(ex)
 
     # 1) Anchor movements — one STRAIGHT group per anchor TierExercise
     for mid, meta in zip(skeleton.anchor_movement_ids, skeleton.anchor_meta):
         m = movements[mid]
+        if meta.pair_key:
+            append_pair_exercise(
+                meta.pair_key, m, meta.tier_order, meta.tier_label,
+                meta.rest_seconds, meta.shoe, True,
+                meta.rep_low, meta.rep_high, meta.rpe_cap,
+                meta.tier_exercise_id,
+            )
+            continue
         group = ExerciseGroup(
             order_index=0,  # assigned below, after the true-tier-order sort
             group_type=GroupType.STRAIGHT,
@@ -704,7 +815,14 @@ def assemble(selections: Selections, skeleton: Skeleton,
         if m is None:
             continue
 
-        if slot.is_giant_tier:
+        if slot.pair_key:
+            append_pair_exercise(
+                slot.pair_key, m, slot.tier_order, slot.group_key or None,
+                slot.rest_seconds, slot.shoe, False,
+                slot.rep_low, slot.rep_high, slot.rpe_cap,
+                slot.tier_exercise_id,
+            )
+        elif slot.is_giant_tier:
             # group_key identifies the source tier; fallback to slot_id so that
             # manually-constructed SlotSpecs (empty group_key) still get separate groups.
             gk = slot.group_key if slot.group_key else slot_id
@@ -752,6 +870,19 @@ def assemble(selections: Selections, skeleton: Skeleton,
     for gk, gg in giant_groups.items():
         tier_order, rank = giant_group_rank[gk]
         pending_groups.append((tier_order, rank, gg))
+
+    for pk, pg in pair_groups.items():
+        tier_order, rank = pair_group_rank[pk]
+        if len(pg.exercises) < 2:
+            logger.warning(
+                "PAIR group %s assembled with %s exercise(s); treating as STRAIGHT",
+                pk, len(pg.exercises),
+            )
+            pg.group_type = GroupType.STRAIGHT
+            pg.rounds = 1
+        else:
+            pg.rounds = _alternating_rounds(pg)
+        pending_groups.append((tier_order, rank, pg))
 
     # Assign order_index by TRUE tier_order (construction_order as a stable,
     # defensive tie-break -- each Tier normally has a unique tier_order, so
