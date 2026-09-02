@@ -516,6 +516,7 @@ def submit_session(session_id: int, req: SubmitRequest, background_tasks: Backgr
             planned_set_id=sl.planned_set_id, session_id=session_id,
             movement_id=sl.movement_id, set_index=sl.set_index,
             actual_load=sl.actual_load, actual_reps=sl.actual_reps,
+            actual_duration_seconds=sl.actual_duration_seconds,
             feedback_tap=FeedbackTap(sl.feedback_tap) if sl.feedback_tap is not None else None,
             rpe_numeric=sl.rpe_numeric,
             is_warmup=sl.is_warmup,
@@ -629,10 +630,22 @@ def swap_exercise(session_id: int, exercise_id: int, req: SwapExerciseRequest,
     te = db.get(TE, pe.tier_exercise_id) if pe.tier_exercise_id is not None else None
     rep_low = te.rep_low if te else (remaining[0].target_reps_low if remaining else None)
     rep_high = te.rep_high if te else (remaining[0].target_reps_high if remaining else None)
+    duration_low_seconds = (
+        te.duration_low_seconds if te else (
+            remaining[0].target_duration_low_seconds if remaining else None
+        )
+    )
+    duration_high_seconds = (
+        te.duration_high_seconds if te else (
+            remaining[0].target_duration_high_seconds if remaining else None
+        )
+    )
     rpe_cap = te.rpe_cap if te else None
 
     fresh_sets = prescribe_swap_sets(new_mv, pe.group.session.day_role, pe.tier_exercise_id,
-                                     rep_low, rep_high, rpe_cap, db)
+                                     rep_low, rep_high, rpe_cap, db,
+                                     duration_low_seconds=duration_low_seconds,
+                                     duration_high_seconds=duration_high_seconds)
     fresh_by_index = {s.set_index: s for s in fresh_sets}
 
     # Every remaining (not-logged, not-skipped) set_index must have a
@@ -667,6 +680,8 @@ def swap_exercise(session_id: int, exercise_id: int, req: SwapExerciseRequest,
         ps.target_load = fresh.target_load
         ps.target_reps_low = fresh.target_reps_low
         ps.target_reps_high = fresh.target_reps_high
+        ps.target_duration_low_seconds = fresh.target_duration_low_seconds
+        ps.target_duration_high_seconds = fresh.target_duration_high_seconds
         ps.target_rpe = fresh.target_rpe
         ps.target_unassisted_reps = fresh.target_unassisted_reps
         ps.target_assisted_reps = fresh.target_assisted_reps
@@ -982,6 +997,8 @@ def _serialize_exercise(pe, db, sid=None, eid=None) -> ExerciseOut:
         id=_sid(ps), set_index=ps.set_index, set_role=ps.set_role.value,
         is_warmup=ps.is_warmup, is_skipped=ps.is_skipped, target_load=ps.target_load,
         target_reps_low=ps.target_reps_low, target_reps_high=ps.target_reps_high,
+        target_duration_low_seconds=ps.target_duration_low_seconds,
+        target_duration_high_seconds=ps.target_duration_high_seconds,
         target_rpe=ps.target_rpe, target_unassisted_reps=ps.target_unassisted_reps,
         target_assisted_reps=ps.target_assisted_reps, target_plates=ps.target_plates,
         band_pair_id=ps.band_pair_id, target_felt_peak=ps.target_felt_peak,
@@ -1142,6 +1159,7 @@ class LoggedSet(BaseModel):
     movement_name: str
     set_index: int
     reps: Optional[int] = None
+    duration_seconds: Optional[int] = None
     load: Optional[float] = None
     tap: Optional[str] = None
     is_warmup: bool
@@ -1190,6 +1208,7 @@ def get_session_logs(session_id: int, db: Session = Depends(get_session)):
         logs.append(LoggedSet(
             movement_id=sl.movement_id, movement_name=(mv.name if mv else ""),
             set_index=sl.set_index, reps=sl.actual_reps, load=sl.actual_load,
+            duration_seconds=sl.actual_duration_seconds,
             tap=(sl.feedback_tap.value if sl.feedback_tap else None),
             is_warmup=sl.is_warmup,
             rpe_numeric=sl.rpe_numeric, felt_peak=sl.felt_peak,

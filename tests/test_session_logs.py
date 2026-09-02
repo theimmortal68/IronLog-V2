@@ -56,9 +56,12 @@ def test_session_logs_returns_actuals():
     assert body["session_id"] == sid
     assert len(body["logs"]) >= 1
     first = body["logs"][0]
+    # 2026-09-02 (spec 59): duration_seconds added alongside reps for
+    # duration-based movements (e.g. Suitcase Carry) -- always present as a
+    # key, None for rep-based sets like this one.
     assert set(first.keys()) == {
-        "movement_id", "movement_name", "set_index", "reps", "load", "tap",
-        "is_warmup", "rpe_numeric", "felt_peak"}
+        "movement_id", "movement_name", "set_index", "reps", "duration_seconds",
+        "load", "tap", "is_warmup", "rpe_numeric", "felt_peak"}
     assert first["load"] == 165.0 and first["reps"] == 8
     assert first["tap"] == "ON_TARGET"
     assert first["rpe_numeric"] == 8.0
