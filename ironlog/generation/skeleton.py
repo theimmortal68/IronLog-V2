@@ -318,12 +318,19 @@ def _pair_key_for_tier(db: Session, tier: Tier, exercises: List[TierExercise]) -
 
     if partner.paired_tier_id != tier.id:
         logger.warning(
-            "Tier %s (%s) pair is not symmetric with tier %s (%s); using the "
-            "link that exists",
+            "Tier %s (%s) pair is not symmetric with tier %s (%s); the "
+            "partner side will resolve to an empty pair_key and degrade to "
+            "STRAIGHT, so no real pair forms here either",
             tier.id, tier.tier_label, partner.id, partner.tier_label,
         )
 
-    return f"pair:{min(tier.id, partner.id)}"
+    # Fable review (2026-09-01): min(id) alone collides if corrupted data
+    # ever has a THIRD tier one-sidedly pointing at one side of a real
+    # pair (A<->B symmetric, C->A one-sided) -- C would silently merge
+    # into A/B's group under a bare min-id key. Keying on both ids makes
+    # that data error produce its own (harmless, single-exercise, then
+    # STRAIGHT-degraded) key instead.
+    return f"pair:{min(tier.id, partner.id)}:{max(tier.id, partner.id)}"
 
 
 def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:

@@ -1008,6 +1008,7 @@ def _serialize_session(ws, db, finisher=None, warmup=None) -> SessionDetailRespo
     approve() re-derives everything from the stored candidate, not the preview.
     """
     from ..models.session import Session as WorkoutSession  # noqa
+    from ..models.enums import GroupType
     _set_counter = [0]
     _set_ids = {}
 
@@ -1035,6 +1036,15 @@ def _serialize_session(ws, db, finisher=None, warmup=None) -> SessionDetailRespo
                 pe, db, sid=_sid,
                 eid=(pe.id if pe.id is not None else ei),
             ))
+        # Fable review (2026-09-01): planned_sets_in_group_order returns
+        # nested per-exercise order for anything other than ALT_PAIR
+        # (deliberately, per spec 58's "keep GIANT_SET byte-for-byte
+        # unchanged" constraint -- see that function's docstring). Emitting
+        # this field for GIANT_SET groups would silently misrepresent their
+        # real round-robin training order (A1,A2,A3,B1,B2,B3,... instead of
+        # A1,B1,C1,A2,B2,C2,...) under a name that invites a client to trust
+        # it as THE play order. Scope the field to ALT_PAIR only until/unless
+        # GIANT_SET gets the same treatment as its own deliberate change.
         planned_set_order = [
             {
                 "exercise_id": exercise_ids[id(pe)],
@@ -1043,7 +1053,7 @@ def _serialize_session(ws, db, finisher=None, warmup=None) -> SessionDetailRespo
                 "set_index": ps.set_index,
             }
             for pe, ps in planned_sets_in_group_order(g)
-        ]
+        ] if g.group_type == GroupType.ALT_PAIR else []
         groups_out.append(GroupOut(
             id=(g.id if g.id is not None else gi), order_index=g.order_index,
             group_type=g.group_type.value, rounds=g.rounds, rest_seconds=g.rest_seconds,
