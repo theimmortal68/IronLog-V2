@@ -125,7 +125,7 @@ MOVEMENTS = [
     dict(name="Bench Press [PB]", base_name="Bench Press", region=Region.UPPER,
          lift_category=LiftCategory.BENCH, is_primary=True, status=Status.ACTIVE,
          load_code="PB", tags=["PB"], progression_mode=ProgressionMode.LADDER,
-         scheme=Scheme.STRAIGHT, increment_ladder=[5, 2.5], min_step=2.5,
+         scheme=Scheme.DOUBLE_PROGRESSION, increment_ladder=[5, 2.5], min_step=2.5,
          load_floor=45, rpe_capped=True, family="bench", is_family_anchor=True, primary_muscle="MID_LOWER_CHEST", secondary_muscles=["FRONT_DELT", "TRICEPS"]),
     dict(name="Standing OHP [PB]", base_name="Standing OHP", region=Region.UPPER,
          lift_category=LiftCategory.OHP, is_primary=True, status=Status.ACTIVE,

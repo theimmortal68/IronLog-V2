@@ -551,10 +551,12 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # -- same movement, load_code unchanged.
     # 2026-09-01: linked with T1b as an alternating pair. Pendlay goes first
     # in tier_order per athlete preference; both sides rest 90s between sets.
+    # 2026-09-02: scheme switched STRAIGHT -> DOUBLE_PROGRESSION (athlete
+    # directive), matching T1b Pendlay Row's scheme at the same 4-6 rep range.
     t1 = _add_tier(db, pd.id, "T1", 2, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, t1.id, "d1_t1", "Bench Press [PB]", lib, 1, "anchor",
             pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
-            scheme="STRAIGHT")
+            scheme="DOUBLE_PROGRESSION")
 
     # T1b — Pendlay Row Narrow (anchor). 2026-08-10: held at 170 while the
     # strain heals (real Wk1 executed 170x3x8, over the new 4-6 rep cap --
@@ -817,9 +819,15 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # explicitly-allowed reassignment case (that's T1b below), so it does
     # NOT reuse the old "d4_t1_ohp" slot_id. Rep range drops 6-8 -> 4-6,
     # matching the FINAL doc and every other T1 primary this redesign.
-    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=120, shoe="Metcon 9")
+    # 2026-09-02: linked with T1b as an alternating pair, matching D1's
+    # T1/T1b setup -- Lat Pulldown goes first in tier_order per athlete
+    # preference (T1's own warmup ramp still plays first, ahead of both
+    # exercises' working sets), both sides rest 90s between exercises (not
+    # per round). Scheme switched STRAIGHT -> DOUBLE_PROGRESSION (athlete
+    # directive), matching T1b's scheme.
+    t1 = _add_tier(db, pd.id, "T1", 2, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, t1.id, "d4_t1_btn_ohp", "Seated BTN OHP", lib, 1, "anchor",
-            pattern="vertical_push", rep_low=4, rep_high=6, scheme="STRAIGHT")
+            pattern="vertical_push", rep_low=4, rep_high=6, scheme="DOUBLE_PROGRESSION")
 
     # T1b — Better Fly Lat Pulldown (anchor, REPLACES Wide-Grip Pull-up).
     # 2026-08-11: athlete directive (grip-free vertical pull isolation, cable
@@ -831,7 +839,12 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # per this task's brief, same treatment as D1's T1b promotion precedent.
     # Rep range 6-8, RPE_8_STANDARD (cable double-progression, not the old
     # PULL_UP_ROLLING_MAX rule).
-    t1b = _add_tier(db, pd.id, "T1b", 2, TierKind.PAIR, rounds=1, rest_seconds=180, shoe="Metcon 9")
+    t1b = _add_tier(db, pd.id, "T1b", 1, TierKind.PAIR, rounds=1, rest_seconds=90, shoe="Metcon 9")
+    t1.paired_tier_id = t1b.id
+    t1b.paired_tier_id = t1.id
+    db.add(t1)
+    db.add(t1b)
+    db.flush()
     _add_te(db, t1b.id, "d4_t1", "Better Fly Lat Pulldown", lib, 1, "anchor",
             pattern="vertical_pull", rep_low=6, rep_high=8, scheme="DOUBLE_PROGRESSION")
 
