@@ -819,3 +819,86 @@ feedback surfaced first a stale-export bug, then a stale-session bug.
 ## Session notes
 - `/usage` not available as a callable tool in this environment -- no weekly-usage figure
   recorded (same gap noted by the prior session).
+
+---
+
+# State — 2026-09-03 (session 2)
+
+## Current task
+Athlete requested 3 program edits (D1 T2/T3 swap, D4 T2/T3 swap, D6 GS2 reorder) plus asked
+to resolve two pre-existing pieces of debt surfaced by the prior same-day session: the
+14-session-deep unmerged `session/2026-08-29-d6-gs3-seated-leg-extension` branch, and D6's
+`program_seed.py`/yaml never having been updated for migrations 048-057 (Standing OHP T1
+tier, Serratus Punch swap, Seated Leg Extension add/move/removal -- all live-DB-only until
+now).
+
+## Decisions made and why
+- **Merged the 14-session branch to `main`** -- verified `origin/main` had not diverged
+  (`git merge-base` == `origin/main` tip), so it was a clean fast-forward, no conflicts
+  possible. Ran the full suite at the branch tip first (`760 passed`... actually `755
+  passed, 5 failed` pre-fix, the already-known D4 yaml drift) before pushing, to confirm
+  nothing new was broken. Athlete explicitly chose this over "live-DB only, skip code"
+  and "leave D6 code gap out of scope" when asked -- both were offered as narrower/safer
+  options and declined in favor of the full reconciliation.
+- **D6 `program_seed.py`/yaml reconciliation, D4 T1/T1b yaml/test drift fix, and the 3
+  athlete-requested edits were done together in one worktree** (`task/d1-d4-d6-tier-reorg`)
+  since they all touch the same handful of files (`program_seed.py`, the seed yaml, 2 test
+  files) -- splitting would have caused merge conflicts on the same functions. Dispatched
+  to codex first (backend outage, hard 404s, not a task issue), then gemini (timed out at
+  600s with confirmed zero writes/zero process alive -- genuinely dead, not a zombie), then
+  a Claude subagent, which completed it: 760 passed, 4 commits.
+- **Subagent flagged a "concurrent writer" anomaly** -- files in the worktree were changing
+  between its own reads before it had made any edit itself. No live process was found
+  rooted in the worktree at any point I checked (before dispatch, and again after
+  completion). Never definitively explained; the tree was clean and consistent by the time
+  I reviewed it independently (re-ran `pytest -q` myself: `760 passed`, matched the
+  subagent's claim) so this was **not held up as a merge blocker**, but flagging in case a
+  similar anomaly recurs -- worth checking `ps`/`/proc` more aggressively mid-dispatch, not
+  just before/after, next time this happens.
+- **Fable-style review (Opus subagent, adversarial, read-only) run before merge** since the
+  diff touched test assertions and program-structure invariants, not just mechanical
+  edits. Found one Medium (two Bench Press scheme regression-guard assertions were deleted
+  instead of re-pinned to the new correct value, `DOUBLE_PROGRESSION` -- a real, if
+  pre-existing-root-caused, coverage gap) and two Low nits (migration comment overstating
+  its own WHERE-clause guard; a test-local copy of `YAML_M_TO_LIBRARY` no longer an exact
+  mirror of the production map). Fixed the Medium directly (mechanical, <5 lines, zero new
+  identifiers -- re-pinned both assertions to `DOUBLE_PROGRESSION` rather than round-tripping
+  back to the generator). Left the two Lows as noted, not fixed -- true nits, reviewer
+  explicitly verified they carried no actual risk.
+- **New migrations 064/065/066** encode the 3 athlete edits as idempotent `UPDATE`s
+  following the existing `deploy/migrations/` convention (single-statement or fully
+  idempotent per the README's rule) -- reviewed and verified against a real pre-064 copy of
+  the live DB (every `tierexercise.id`/`tier_id` confirmed correct) before being applied.
+- **Applied to production via `systemctl restart ironlogv2.service`** (its `ExecStartPre`
+  runs `python -m ironlog.migrate`, the house-standard apply-pending mechanism -- not raw
+  ad-hoc SQL). Confirmed no session was in progress first (last completed 2026-09-02, none
+  logged for today) and got explicit user confirmation before touching the live DB, per
+  this project's standing caution on `ironlog.db` being the same file as production.
+
+## Verified
+- `pytest -q` on `main` post-merge: `760 passed`, run independently (not trusted from any
+  subagent's claim).
+- Live DB post-restart: `schema_migrations` shows `066_d6_gs2_reorder` as the new max;
+  direct read-only query of D1 T2/T3 GS, D4 T2/T3 GS, and D6 GS2 confirms all three
+  athlete-requested edits landed exactly as specified (exact exercise names/order verified
+  above in this session's own transcript).
+- `ironlogv2.service`: `active (running)`, `ExecStartPre` migration step exited
+  `status=0/SUCCESS`.
+
+## Open questions
+- The two Fable-review Low nits (migration WHERE-clause guard could be tighter; the yaml
+  parity test's local `YAML_M_TO_LIBRARY` mirror has drifted from `rule_wiring.py`'s
+  production version by one entry) are unfixed, low-priority, carried forward.
+- `IronLog-V2-wt-incline-handoff` worktree (branch `feature/incline-reduction-terminal-
+  handoff`, commit `b57f222`) still exists, still unmerged, still NOT touched this session
+  -- same carried-forward note as every recent session. Whoever owns it should merge or
+  abandon it.
+- Seed-code/live-DB reconciliation debt: this session closed the D6 gap specifically, but
+  the general pattern (a live-DB-only migration landing without a corresponding
+  `program_seed.py`/yaml update) is a process gap, not a one-time fix -- it will recur
+  unless a future session adds a check/reminder for it.
+
+## Next step
+1. Nothing blocking -- the athlete's 3 requested edits are live and verified.
+2. Whenever convenient: the two Low nits above, and the `IronLog-V2-wt-incline-handoff`
+   worktree.
