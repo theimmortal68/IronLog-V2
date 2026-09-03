@@ -125,11 +125,13 @@ def test_d1_t2_giant_set_stays_grouped(gen_db_calibrated):
     # turned over to the movements actually executed in real Wk1 (Lying
     # Tricep Extension / Incline DB Press / Face-Up Incline Knee Raise all
     # dropped out of D1 entirely).
+    # 2026-09-03 (athlete directive, C1): Sagittal Lat Pulldown traded in
+    # from T3 GS (fresh slot "d1_t2h"); Lateral Raise traded out to T3 GS.
     group = _giant_group_by_label(res.session, "T2 GS")
     assert _names_for_group(group, gen_db) == [
         "Stryker Pad Seated OHP [DB]",
+        "Better Fly Sagittal Lat Pulldown [FT]",
         "Matrix Machine Preacher Curl [EZ]",
-        "Better Fly Standing Lateral Raise [FT]",
     ]
 
 

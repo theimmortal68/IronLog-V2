@@ -155,9 +155,20 @@ EXPECTED_NEEDS_CAL = {
     # 2026-08-16 (athlete directive, effective next week): "Better Fly Cable
     # Bicep Curl [FT]" replaced by "D-Handle Cable Bicep Curl [FT]" -- the
     # Better Fly cuff doesn't work well for curls. New movement, needs-cal.
+    # 2026-09-03: code/yaml catch-up to already-live migrations 048-057.
+    # "Swiss Bar CG Press [SB]" (was D6's standalone T1) REMOVED from this
+    # set -- no longer programmed on D6 at all (T1 tier restored, but as
+    # Standing OHP [PB], not CG Press; CG Press drops out of D6's wiring
+    # entirely, verify_all_days never reports it). "Standing OHP [PB]" is
+    # the new T1 anchor -- needs-cal (unwired since Task 3's D4 T1 swap to
+    # Seated BTN OHP, no real D6 history). "Seated Leg Extension [GHR + FT]"
+    # (was GS3's 4th member) REMOVED -- GS3 back to 3 members, migration 057
+    # replaces it with "Cable Serratus Punch/Reach [FT]" in GS1 instead
+    # (needs-cal, zero prior history).
     "D6 Weak Points": {
         "Wide-Grip Pull-up [TOWER + TUBES]",
-        "Swiss Bar CG Press [SB]",
+        "Standing OHP [PB]",
+        "Cable Serratus Punch/Reach [FT]",
         # 2026-08-23: D-Handle Cable Bicep Curl [FT] (d6_g2g, real Wk1
         # baseline never seeded here anyway) reverted back to Better Fly
         # Cable Bicep Curl [FT] at fresh slot d6_g2h -- needs-cal.
@@ -166,9 +177,6 @@ EXPECTED_NEEDS_CAL = {
         "Better Fly Rear Delt Extension [FT]",
         "Better Fly OH Tricep Extension [FT]",
         "AbMat Ab Bench Pad Cable Crunch [FT]",
-        # 2026-08-29: new GS3 slot d6_g3f, Seated Leg Extension [GHR + FT],
-        # zero prior history, needs-calibration.
-        "Seated Leg Extension [GHR + FT]",
     },
 }
 

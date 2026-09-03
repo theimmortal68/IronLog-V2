@@ -334,10 +334,16 @@ def test_last_valid_matches_reordered_prior_by_slot_identity(gen_db):
     d4_t2a/d4_t2b/d4_t2c to d4_t2d/d4_t2e/d4_t2f -- D4's T2 GS was fully turned over
     per the FINAL doc, old slot_ids vacated. Generic reorder-replay logic under test
     here is unaffected by which movements occupy the slots.)
+
+    (2026-09-03, athlete directive C2: Cable Pullover and Lying Tricep Extension
+    traded T2/T3 GS placement -- "d4_t2f" and "d4_t3e" are both VACATED now
+    (fresh slots "d4_t3g"/"d4_t2g"). T2 GS's current membership is
+    d4_t2d/d4_t3d/d4_t2g -- swapped in here, generic reorder-replay logic is
+    still unaffected by which movements occupy the slots.)
     """
     wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
-    old_order = {"d4_t2d": 1, "d4_t2e": 2, "d4_t2f": 3}
-    current_order = {"d4_t2d": 1, "d4_t2f": 2, "d4_t2e": 3}
+    old_order = {"d4_t2d": 1, "d4_t3d": 2, "d4_t2g": 3}
+    current_order = {"d4_t2d": 1, "d4_t2g": 2, "d4_t3d": 3}
 
     _set_slot_orders(gen_db, old_order)
     old_sk = lay_skeleton("D4 Upper Pull", gen_db)

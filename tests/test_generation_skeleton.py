@@ -74,19 +74,24 @@ def test_invalid_day_role_raises(gen_db):
         lay_skeleton("X Nonexistent", gen_db)
 
 
-def test_d6_has_no_t1_anchor_and_gs1_anchor_folds_into_giant_tier(gen_db):
+def test_d6_has_t1_anchor_and_gs1_pullup_folds_into_giant_tier(gen_db):
     """2026-08-12 (STAB maintenance-block redesign, Task 5): D6's standalone
     T1 tier (Dips) is ELIMINATED ENTIRELY -- the FINAL doc's D6 has no
     standalone T1 at all; Dips folds back into GS1 alongside the pull-up and
-    the new close-grip bench. D6 now has ZERO true anchor tiers (GS1's
-    Pull-up keeps tier_role="anchor" but folds into the giant tier, same as
-    before -- tier_role="anchor" only becomes a real Skeleton anchor when
+    the new close-grip bench.
+
+    2026-09-03: code/yaml catch-up to already-live migrations 048-057 --
+    D6's T1 tier is BACK, but as a real T1_STRAIGHT anchor (Standing OHP
+    [PB], low-fatigue specificity/lockout work), not the old GS1-folded
+    Dips. sk.anchor_movement_ids now includes Standing OHP's movement id
+    (a real Skeleton anchor, since tier_kind=T1_STRAIGHT != GIANT_SET).
+    GS1's Pull-up still keeps tier_role="anchor" but still folds into the
+    giant tier (tier_role="anchor" only becomes a real Skeleton anchor when
     tier_kind != GIANT_SET, per skeleton.py's lay_skeleton)."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    assert sk.anchor_movement_ids == []
-    assert sk.anchor_meta == []
+    assert sk.anchor_movement_ids == [_movement_id(gen_db, "Standing OHP [PB]")]
     # 2026-08-12 (STAB redesign fix, post-Task-5): d6_g1a repointed to the
     # new ASSISTED "Wide-Grip Pull-up [TOWER + TUBES]" -- see
     # docs/superpowers/specs/2026-08-10-stab-maintenance-block-redesign-
@@ -112,11 +117,18 @@ def test_d6_gs1_slots_share_giant_tier_group(gen_db):
     Bench Camber-14 (d6_g1f) directly traded GS placement -- Dips + CG
     Press are both heavy compound presses, rotating them together causes
     interference. GS1 is now Pull-up / CG Press / Rear Delt Extension
-    (d6_g1a/d6_g1f/d6_g2f); Dips moved to GS2."""
+    (d6_g1a/d6_g1f/d6_g2f); Dips moved to GS2.
+
+    2026-09-03: code/yaml catch-up to already-live migrations 048-057 --
+    CG Press drops out of D6 entirely (T1 tier restored as Standing OHP,
+    not CG Press). GS1's 3rd member is now Cable Serratus Punch/Reach [FT]
+    (fresh slot "d6_g1h", migration 057) -- "d6_g1f" is VACATED. GS1 is now
+    Pull-up / Cable Serratus Punch-Reach / Rear Delt Extension
+    (d6_g1a/d6_g1h/d6_g2f)."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    for slot_id in ("d6_g1a", "d6_g1f", "d6_g2f"):
+    for slot_id in ("d6_g1a", "d6_g1h", "d6_g2f"):
         assert slots[slot_id].is_giant_tier is True
         assert slots[slot_id].group_key == "GS1"
 
@@ -136,8 +148,12 @@ def test_d6_gs1_slot_order_preserves_pullup_first(gen_db):
     2026-08-16 (revised): Dips (d6_g1e) and Close-Grip Bench Camber-14
     (d6_g1f) directly traded GS placement -- see test_d6_gs1_slots_share_
     giant_tier_group's updated docstring for why. GS1 order is now
-    Pull-up / CG Press / Rear Delt Extension."""
+    Pull-up / CG Press / Rear Delt Extension.
+
+    2026-09-03: code/yaml catch-up to already-live migrations 048-057 --
+    CG Press (d6_g1f) drops out of D6 entirely; GS1 order is now
+    Pull-up / Cable Serratus Punch-Reach / Rear Delt Extension."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     gs1_slots = [s.slot_id for s in sk.adaptive_slots if s.group_key == "GS1"]
 
-    assert gs1_slots == ["d6_g1a", "d6_g1f", "d6_g2f"]
+    assert gs1_slots == ["d6_g1a", "d6_g1h", "d6_g2f"]
