@@ -32,12 +32,18 @@ CHANGED_REP_TARGETS = {
     "d1_t2a": (4, 6),
     "d1_t2f": (8, 12),
     "d1_t2g": (8, 12),
-    "d1_t2e": (10, 15),
     "d1_t3a": (4, 6),
     # 2026-08-13: d1_t3c (Lat Prayer) vacated -- replaced by fresh d1_t3e
     # (Better Fly Sagittal Lat Pulldown [FT], athlete directive), same
     # rep target (8-12).
-    "d1_t3e": (8, 12),
+    # 2026-09-03 (athlete directive, C1): Sagittal Lat Pulldown and Lateral
+    # Raise traded T2/T3 GS placement -- Wide-Grip Pull-up + Sagittal Lat
+    # Pulldown together in T3 was too much lat work back-to-back.
+    # d1_t3e VACATED -- Sagittal Lat Pulldown now at fresh slot "d1_t2h"
+    # (T2 GS), same rep target (8-12). d1_t2e VACATED -- Lateral Raise now
+    # at fresh slot "d1_t3f" (T3 GS), same rep target (10-15).
+    "d1_t2h": (8, 12),
+    "d1_t3f": (10, 15),
     "d1_t3d": (8, 12),
     # 2026-08-11 (STAB maintenance-block redesign, Task 2): d2_t1 (Belt Squat
     # anchor) moves from UNCHANGED_REP_TARGETS to here -- T1's rep range
@@ -64,8 +70,14 @@ CHANGED_REP_TARGETS = {
     "d4_t1": (6, 8),
     "d4_t2d": (8, 12),
     "d4_t2e": (8, 12),
-    "d4_t2f": (10, 15),
-    "d4_t3e": (8, 12),
+    # 2026-09-03 (athlete directive, C2): Cable Pullover and Lying Tricep
+    # Extension traded T2/T3 GS placement -- Stryker Pad CSR Barbell +
+    # Cable Pullover together in T2 was too much back work back-to-back.
+    # d4_t2f VACATED -- Cable Pullover now at fresh slot "d4_t3g" (T3 GS),
+    # same rep target (10-15). d4_t3e VACATED -- Lying Tricep Extension now
+    # at fresh slot "d4_t2g" (T2 GS), same rep target (8-12).
+    "d4_t3g": (10, 15),
+    "d4_t2g": (8, 12),
     # 2026-08-20 (athlete directive): d4_t3a (DB Rear Delt Fly) VACATED --
     # replaced by fresh slot d4_t3f (Better Fly Rear Delt Extension [FT]),
     # same 10-15 rep target.
@@ -114,8 +126,18 @@ CHANGED_REP_TARGETS = {
     # (Cable V-Bar Pushdown / T-Bar Row Wide) vacated, replaced by fresh
     # d6_g3d/e (Better Fly OH Tricep Extension / AbMat Ab Bench Pad Cable
     # Crunch).
-    "d6_g1e": (8, 12),
-    "d6_g1f": (4, 6),
+    # 2026-09-03: code/yaml catch-up to already-live migrations 048-057.
+    # D6's standalone T1 tier is BACK (Standing OHP [PB], low-fatigue
+    # specificity, rep-fixed 3-3, rpe_cap=7.0) -- fresh slot
+    # "d6_t1_standing_ohp" (the earlier "d6_t1"/CG-Press-era T1 stays
+    # vacated). GS1's 3rd member is now Cable Serratus Punch/Reach [FT]
+    # (fresh slot "d6_g1h", migration 057) -- "d6_g1f" (Close-Grip Bench
+    # Camber-14) is VACATED, no longer a live slot_id; d6_g1e (Dips) is
+    # UNCHANGED, still in GS2 (not listed here, rep target unchanged).
+    # GS3's 4th member (Seated Leg Extension, "d6_g3f") is REMOVED entirely
+    # -- back to a 3-member giant set, not listed here.
+    "d6_t1_standing_ohp": (3, 3),
+    "d6_g1h": (12, 20),
     # 2026-08-16: d6_g2d (Better Fly Cable Bicep Curl) vacated -- replaced by
     # fresh d6_g2g (D-Handle Cable Bicep Curl, athlete directive), same rep
     # target (10-15). 2026-08-23: reverted -- d6_g2g VACATED in turn,
@@ -154,8 +176,8 @@ TIER_REST_MAP = {
     # ("D2 Lower A", "T4") added 2026-08-11 (Ab Trainer Decline Sit-up),
     # removed 2026-08-19 -- merged into T2 GS as a 3rd giant-set member
     # (athlete directive); D2's T4 tier no longer exists.
-    ("D4 Upper Pull", "T1"): 120,
-    ("D4 Upper Pull", "T1b"): 180,
+    ("D4 Upper Pull", "T1"): 90,
+    ("D4 Upper Pull", "T1b"): 90,
     ("D4 Upper Pull", "T2 GS"): 90,
     ("D4 Upper Pull", "T3 GS"): 75,
     ("D5 Lower B", "T1"): 180,
@@ -227,10 +249,6 @@ def test_schemes_straight(gen_db):
     names = {m.name: m for m in gen_db.exec(select(Movement)).all()}
     assert names["Belt Squat [GHR + FT]"].scheme == Scheme.STRAIGHT
     assert names["RDL [PB]"].scheme == Scheme.STRAIGHT
-    # Task 2 review fix: Bench Press seed-source parity with the live-only
-    # fix (the 148.5-class bug — Bench must not regress to a 2-set
-    # top+backoff on a from-scratch reseed).
-    assert names["Bench Press [PB]"].scheme == Scheme.STRAIGHT
 
 
 def test_te_schemes_synced_to_straight(gen_db):
@@ -243,7 +261,7 @@ def test_te_schemes_synced_to_straight(gen_db):
     # RDL [PB] -> Kickstand RDL [DB]; TierExercise.scheme stays "STRAIGHT",
     # same convention as every other T1 anchor regardless of movement).
     tes = {te.slot_id: te for te in gen_db.exec(select(TierExercise)).all()}
-    for slot_id in ("d1_t1", "d2_t1", "d5_t1_kickstand_rdl"):
+    for slot_id in ("d2_t1", "d5_t1_kickstand_rdl"):
         assert tes[slot_id].scheme == "STRAIGHT", (
             f"{slot_id}: expected TierExercise.scheme == 'STRAIGHT', "
             f"got {tes[slot_id].scheme!r}"

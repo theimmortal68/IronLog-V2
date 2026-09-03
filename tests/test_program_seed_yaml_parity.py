@@ -68,6 +68,7 @@ YAML_M_TO_LIBRARY = {
     # ── d4 Upper Pull ────────────────────────────────────────────────────────
     "pull_up_d4":                       "Wide-Grip Pull-up [TOWER]",
     "standing_ohp_d4":                  "Standing OHP [PB]",
+    "standing_ohp_d6":                  "Standing OHP [PB]",
     "meadows_row_bruno_bar":            "Meadows Row [OB + LM]",
     "single_arm_db_row":                "Single-Arm DB Row [DB]",
     "face_up_incline_knee_raise_d4":    "Face-Up Incline Knee Raise",
@@ -124,7 +125,7 @@ YAML_M_TO_LIBRARY = {
     "better_fly_rear_delt_ext_d6":      "Better Fly Rear Delt Extension [FT]",
     "better_fly_oh_tricep_ext_d6":      "Better Fly OH Tricep Extension [FT]",
     "abmat_ab_bench_pad_cable_crunch_d6": "AbMat Ab Bench Pad Cable Crunch [FT]",
-    "seated_leg_extension_d6":          "Seated Leg Extension [GHR + FT]",
+    "cable_serratus_punch_reach_d6":    "Cable Serratus Punch/Reach [FT]",
 }
 
 # meso-variant ids used inside `meso: {...}` dicts -> canonical library name
