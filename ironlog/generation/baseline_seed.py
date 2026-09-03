@@ -212,10 +212,22 @@ from ironlog.models.session import (
 # 15deg x4-6, Ares carries its existing 2026-08-19 band-assist baseline)
 # are applied live-DB-only when this ships, matching how every other
 # real-data correction landed this session -- not through this dict.
+#
+# 2026-09-03 (athlete directive, C1/C2 GS reorder): d1_t2e (Better Fly
+# Standing Lateral Raise) traded T2/T3 GS placement with d1_t3e (Better
+# Fly Sagittal Lat Pulldown) -- Wide-Grip Pull-up + Sagittal Lat Pulldown
+# was too much lat work back-to-back. Lateral Raise's real Wk1 baseline
+# carries forward to its fresh slot_id "d1_t3f" (never-reassign-slot_id);
+# "d1_t2e" is VACATED, not reused. Sagittal Lat Pulldown never had a
+# BASELINES entry (needs-cal), so its new slot "d1_t2h" also has none.
+# D4's parallel Cable Pullover / Lying Tricep Extension T2/T3 GS trade
+# (fresh slots "d4_t3g"/"d4_t2g") needs no BASELINES change -- neither
+# movement ever had an entry at its old slot (d4_t2f/d4_t3e), both were
+# already needs-calibration.
 BASELINES = {
     "d1_t1": ("load", 155, None), "d1_t2a": ("load", 170, None),
     "d1_t2f": ("load", 65, None), "d1_t2g": ("load", 55, None),
-    "d1_t2e": ("load", 20, None),
+    "d1_t3f": ("load", 20, None),  # Better Fly Standing Lateral Raise, real Wk1 lock -- carries forward from the vacated "d1_t2e" (2026-09-03: T2/T3 GS swap, fresh slot_id per never-reassign-slot_id)
     "d2_t1": ("load", 260, None),
     "d2_t3a": ("load", 25, None),
     "d2_t2f": ("assist", 15, None),  # Ab Trainer Decline Sit-up, real Wk1 incline angle (2026-08-19: slot_id d2_t2f is now seated in T3 GS -- relocated d2_t4a->T2 GS then same-day traded T2 GS->T3 GS with Hybrid Board Tib Raise [D2]; slot_id is movement-intrinsic and doesn't change with tier)

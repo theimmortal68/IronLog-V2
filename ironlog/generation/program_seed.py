@@ -586,41 +586,20 @@ def _seed_d1(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t2.id, "d1_t2f", "Stryker Pad Seated OHP", lib, 1, "free",
             pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2g", "Matrix Machine Preacher Curl", lib, 2, "free",
+    _add_te(db, t2.id, "d1_t2h", "Better Fly Sagittal Lat Pulldown", lib, 2, "free",
+            pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t2.id, "d1_t2g", "Matrix Machine Preacher Curl", lib, 3, "free",
             pattern="bicep_curl", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d1_t2e", "Better Fly Standing Lateral Raise", lib, 3, "free",
-            pattern="lateral_raise", rep_low=10, rep_high=15,
-            scheme="DOUBLE_PROGRESSION")
 
-    # T3 GS — Wide-Grip Pull-up (dead-hang) / Better Fly Sagittal Lat Pulldown /
-    # Ab Wheel Rollout.
-    # 2026-08-10: switched from assisted neutral-grip (Pull-up [TOWER +
-    # TUBES]) to unassisted Wide-Grip dead-hang -- athlete directive, real
-    # Wk1 executed 4/4/4. Cross-Body Lateral Raise (old d1_t3b) dropped
-    # entirely (Better Fly Standing Lateral Raise in T2 above covers that
-    # role now). Ab Wheel Rollout RELOCATES here from its old T4 GS slot
-    # (d1_t4b) -- D1's mandatory core slot (anti-extension pattern), kept
-    # after the athlete confirmed proper bracing technique resolves the
-    # earlier hyperextension-strain concern. It's an existing movement
-    # moving tiers, not a new one, but gets a fresh slot_id (d1_t3d) per
-    # the never-reassign convention -- d1_t3b/d1_t4b are vacated, not
-    # reused.
-    # 2026-08-13: Lat Prayer [ANDREONI + FT] (old d1_t3c) replaced by Better
-    # Fly Sagittal Lat Pulldown [FT] (athlete directive -- the Andreoni
-    # station's lat-prayer motion isn't reproducible on the Better Fly cuff;
-    # the sagittal-plane pulldown is the correct Better Fly substitute).
-    # Genuinely new movement filling a vacated spot -> fresh slot_id
-    # "d1_t3e" (never-reassign-slot_id); d1_t3c is vacated, not reused. Lat
-    # Prayer [ANDREONI + FT] stays ACTIVE in the library, unwired from every
-    # day now -- not deleted, per the never-delete-orphans convention.
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d1_t3a", "Wide-Grip Pull-up", lib, 1, "free",
             pattern="vertical_pull", rep_low=4, rep_high=6, scheme="REP_RATIO")
-    _add_te(db, t3.id, "d1_t3e", "Better Fly Sagittal Lat Pulldown", lib, 2, "free",
-            pattern="lat", rep_low=8, rep_high=12, scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d1_t3d", "Ab Wheel Rollout", lib, 3, "free",
+    _add_te(db, t3.id, "d1_t3d", "Ab Wheel Rollout", lib, 2, "free",
             pattern="core", rep_low=8, rep_high=12, scheme="REP_LADDER")
+    _add_te(db, t3.id, "d1_t3f", "Better Fly Standing Lateral Raise", lib, 3, "free",
+            pattern="lateral_raise", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
 
     # T4 GS tier is fully removed. 2026-08-10: once Ab Wheel Rollout moves
     # to T3 above, its only other two members -- Seated Cable Row (old
@@ -878,46 +857,18 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, t2.id, "d4_t3d", "PureTorque Pro Rotation", lib, 2, "free",
             pattern="rotation", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t2.id, "d4_t2f", "Better Fly Cable Pullover", lib, 3, "free",
-            pattern="lat", rep_low=10, rep_high=15, scheme="DOUBLE_PROGRESSION")
+    _add_te(db, t2.id, "d4_t2g", "Lying Tricep Extension", lib, 3, "free",
+            pattern="tricep_extension", rep_low=8, rep_high=12,
+            scheme="DOUBLE_PROGRESSION")
 
-    # T3 GS — DB Rear Delt Fly (unchanged slot, rep range widens 8-12 ->
-    # 10-15 per the FINAL doc) / Lying Tricep Extension [SB] (REUSED, not a
-    # new movement -- see the dated comment on that Movement row in
-    # ironlog/seed.py; its D1-original slot dropped it in Task 1, D4 now
-    # wires it fresh at "d4_t3e", not the vacated Andreoni slot "d4_t3b" --
-    # never-reassign-slot_id) / PureTorque Pro Rotation (unchanged slot
-    # "d4_t3d", unchanged reps -- already IS the FINAL doc's
-    # `cable_woodchopper` entry, same equipment [ares_high_pulley,
-    # puretorque_pro], confirmed via Step 1 verification, no rewiring
-    # needed). Andreoni Cable Pullover (old d4_t3b) drops out of D4's wiring
-    # entirely, not referenced by any other day -- fully unwired, not
-    # deleted.
-    #
-    # 2026-08-20 (athlete directive): DB Rear Delt Fly (d4_t3a) replaced by
-    # Better Fly Rear Delt Extension [FT] -- genuinely different Movement
-    # row (not a reconfiguration of the same one), so per this session's
-    # never-reassign-slot_id precedent (mirrors D1's Lat Prayer -> Better
-    # Fly Sagittal Lat Pulldown swap) this gets a fresh slot_id "d4_t3f";
-    # d4_t3a is VACATED, not reused. Same rep target (10-15) and pattern
-    # ("rear_delt") as the movement it replaces, matching this Movement's
-    # own D6 wiring (d6_g2f) for consistency. Better Fly Rear Delt
-    # Extension [FT] is an EXISTING shared Movement row (already wired on
-    # D6 GS1) -- day-scoped MovementState, independent assist/load track.
-    #
-    # 2026-08-20 (same reconciliation as T2 GS above): PureTorque Pro
-    # Rotation moved OUT of this tier into T2 GS; Ab Trainer Hanging Leg
-    # Raise (d4_t2e) moves IN here instead (was T2 GS). Slot_id/config
-    # unchanged for both, tier-swap only.
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
     _add_te(db, t3.id, "d4_t3f", "Better Fly Rear Delt Extension", lib, 1, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d4_t3e", "Lying Tricep Extension", lib, 2, "free",
-            pattern="tricep_extension", rep_low=8, rep_high=12,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, t3.id, "d4_t2e", "Ab Trainer Hanging Leg Raise", lib, 3, "free",
+    _add_te(db, t3.id, "d4_t2e", "Ab Trainer Hanging Leg Raise", lib, 2, "free",
             pattern="core", rep_low=8, rep_high=12)
+    _add_te(db, t3.id, "d4_t3g", "Better Fly Cable Pullover", lib, 3, "free",
+            pattern="lat", rep_low=10, rep_high=15, scheme="DOUBLE_PROGRESSION")
 
 
 # ---------------------------------------------------------------------------
@@ -1087,97 +1038,36 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     # resolved further here). "Pull-up - Neutral Grip (Paused) [TOWER]"
     # stays ACTIVE in the library, now unwired from every day -- not
     # deleted, per the never-delete-orphans convention.
-    gs1 = _add_tier(db, pd.id, "GS1", 1, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    # 2026-09-03: code/yaml catch-up to already-live migrations 048-057 (Seated Leg Extension add/move/removal, Dips reclassification, Standing OHP low-fatigue retune, GS1 Serratus swap).
+    t1 = _add_tier(db, pd.id, "T1", 1, TierKind.T1_STRAIGHT, rounds=1, rest_seconds=180, shoe="Metcon 9")
+    _add_te(db, t1.id, "d6_t1_standing_ohp", "Standing OHP [PB]", lib, 1, "anchor",
+            pattern="vertical_push", rep_low=3, rep_high=3, rpe_cap=7.0, scheme="STRAIGHT")
+
+    gs1 = _add_tier(db, pd.id, "GS1", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
     _add_te(db, gs1.id, "d6_g1a", "Wide-Grip Pull-up (D6 Assisted)", lib,
             1, "anchor", pattern="vertical_pull", rep_low=5, rep_high=8,
             scheme="REP_RATIO")
-    # Dips -- moves from its own vacated T1 tier (d6_t1) into GS1. Per the
-    # never-reassign-slot_id convention (D1's Ab Wheel Rollout precedent:
-    # a tier move gets a FRESH slot_id even for an unchanged movement), this
-    # is a new slot "d6_g1e" -- d6_t1 (and the earlier-vacated d6_g1b) stay
-    # vacated, not reused. Reps 6-8 -> 8-12, scheme STRAIGHT ->
-    # DOUBLE_PROGRESSION, rule assistance_reduction -> rpe_8_standard,
-    # matching the Movement-level ASSISTED->LADDER conversion in
-    # ironlog/seed.py (see that file's comment for the full reasoning: FINAL
-    # doc's D6 dips equipment lists NO assistance gear and current_load: 150
-    # is the movement's exact original pre-2026-07-26 cable-loaded baseline).
-    # 2026-08-16 (athlete directive, revised): Close-Grip Bench Camber-14
-    # (d6_g1f) and Dips (d6_g1e) directly traded GS placement -- Dips +
-    # CG Press are both heavy compound pressing movements (triceps/chest
-    # dominant), rotating them together in the same giant set creates
-    # interference (no recovery between them). CG Press now sits here in
-    # GS1 (Dips moves to GS2, see below); Better Fly Rear Delt Extension
-    # (d6_g2f) stays in GS1 from the earlier interim fix. Swapped tier_id/
-    # exercise_order only; slot_id, pattern, rep targets, scheme are
-    # unchanged/movement-intrinsic, per this session's established
-    # tier-swap convention (mirrors the D4 Ab Trainer/PureTorque
-    # Apex-conflict fix).
-    _add_te(db, gs1.id, "d6_g1f", "Close-Grip Bench Camber-14", lib, 2, "free",
-            pattern="bench", rep_low=4, rep_high=6, rpe_cap=8.0,
+    _add_te(db, gs1.id, "d6_g1h", "Cable Serratus Punch/Reach [FT]", lib, 2, "free",
+            pattern="serratus_protraction", rep_low=12, rep_high=20,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs1.id, "d6_g2f", "Better Fly Rear Delt Extension", lib, 3, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 
-    # GS2 -- FULL turnover (2026-08-12, Task 5). Reverse Hyper Recovery,
-    # DB Seal Row, and Lateral Raise (old d6_g2a/b/c) all drop out of D6's
-    # wiring entirely -- none referenced by any other day, so all three
-    # become fully unwired (Movement rows stay ACTIVE in the library,
-    # MovementState rows at their old slot_ids left in place, per the
-    # never-delete-orphans convention). Old slot_ids d6_g2a/b/c VACATED, not
-    # reused -- new members get fresh slots d6_g2d/e/f. All three new
-    # movements are needs-calibration (zero prior history).
-    #
-    # 2026-08-16 (athlete directive, revised): Dips (was GS1's d6_g1e)
-    # traded places with Close-Grip Bench Camber-14 -- now paired with
-    # Bicep Curl and Stryker Pad CSR Cables (both pull-ish/isolation), no
-    # press-press overlap.
-    #
-    # 2026-08-16 (athlete directive, effective next week): Better Fly Cable
-    # Bicep Curl (d6_g2d) replaced by D-Handle Cable Bicep Curl -- the Better
-    # Fly cuff doesn't work well for curls, athlete switched to D-handles
-    # mid-session. Genuinely new movement filling a vacated spot -> fresh
-    # slot_id "d6_g2g" (never-reassign-slot_id); d6_g2d is vacated, not
-    # reused. Better Fly Cable Bicep Curl [FT] stays ACTIVE in the library,
-    # unwired -- not deleted.
-    #
-    # 2026-08-23 (athlete directive): reverted back to Better Fly Cable
-    # Bicep Curl [FT] -- d6_g2g (D-Handle) VACATED in turn, not reused
-    # (never-reassign-slot_id applies to reverts too, even back to a
-    # movement that previously occupied an earlier vacated slot -- d6_g2d
-    # stays vacated, this is a genuinely fresh identity-change event, not
-    # an undo of a live-only deviation). Fresh slot_id "d6_g2h". D-Handle
-    # Cable Bicep Curl stays ACTIVE in the library, unwired -- not deleted.
-    gs2 = _add_tier(db, pd.id, "GS2", 2, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
-    _add_te(db, gs2.id, "d6_g2h", "Better Fly Cable Bicep Curl", lib, 1, "free",
-            pattern="bicep_curl", rep_low=10, rep_high=15,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, gs2.id, "d6_g2e", "Stryker Pad CSR Cables", lib, 2, "free",
+    # GS2 -- FULL turnover (2026-08-12, Task 5).
+    # 2026-09-03: GS2 reordered: CSR Cables (compound pull) moves to pos 1, Cable Bicep Curl (isolation) to pos 2.
+    gs2 = _add_tier(db, pd.id, "GS2", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=90, shoe="Metcon 9")
+    _add_te(db, gs2.id, "d6_g2e", "Stryker Pad CSR Cables", lib, 1, "free",
             pattern="horizontal_pull", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
-    # 2026-08-16 (athlete directive): scheme DOUBLE_PROGRESSION -> REP_RATIO,
-    # matching the Movement-level LADDER->ASSISTED conversion (see
-    # ironlog/seed.py's Dips comment) -- back to band-assisted, this time
-    # as a plain CABLE_LB assist value, not the old discrete band-count
-    # ladder from the 2026-07-26 experiment.
-    # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix):
-    # scheme REP_RATIO -> DOUBLE_PROGRESSION, matching the Movement-level
-    # ASSISTED->LADDER revert (see ironlog/seed.py's Dips comment) -- the
-    # real bands add resistance, they don't assist.
+    _add_te(db, gs2.id, "d6_g2h", "Better Fly Cable Bicep Curl", lib, 2, "free",
+            pattern="bicep_curl", rep_low=10, rep_high=15,
+            scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs2.id, "d6_g1e", "Dips", lib, 3, "free",
             pattern="vertical_push", rep_low=8, rep_high=12,
             scheme="DOUBLE_PROGRESSION")
 
-    # GS3 -- Face Pull RETAINED (unchanged slot_id d6_g3a, existing movement)
-    # but rep range corrected 15-20 -> 10-15 per the FINAL doc's face_pull
-    # entry (rep_low 10, rep_high 15) -- same treatment as D5's retained
-    # Reverse Nordic Curl slot (d5_t3b), which also kept its slot_id while
-    # gaining a fresh exercise_order/rep range. Cable V-Bar Pushdown and
-    # T-Bar Row Wide (old d6_g3b/c) drop out of D6's wiring entirely -- not
-    # in the FINAL doc's D6 GS3 composition, no other day references them.
-    # Old slot_ids d6_g3b/c VACATED, not reused -- new members get fresh
-    # slots d6_g3d/e.
-    gs3 = _add_tier(db, pd.id, "GS3", 3, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
+    gs3 = _add_tier(db, pd.id, "GS3", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=60, shoe="Metcon 9")
     _add_te(db, gs3.id, "d6_g3a", "Face Pull", lib, 1, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
@@ -1186,7 +1076,4 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, gs3.id, "d6_g3e", "AbMat Ab Bench Pad Cable Crunch", lib, 3, "free",
             pattern="core", rep_low=10, rep_high=15,
-            scheme="DOUBLE_PROGRESSION")
-    _add_te(db, gs3.id, "d6_g3f", "Seated Leg Extension", lib, 4, "free",
-            pattern="leg_extension", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")

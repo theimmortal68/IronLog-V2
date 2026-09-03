@@ -98,6 +98,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     # ── d4 Upper Pull ────────────────────────────────────────────────────────
     "pull_up_d4":                        "Wide-Grip Pull-up [TOWER]",
     "standing_ohp_d4":                   "Standing OHP [PB]",
+    "standing_ohp_d6":                   "Standing OHP [PB]",  # 2026-09-03: D6 T1 catch-up (reuses the same library row, unwired since Task 3's D4 swap to Seated BTN OHP)
     "meadows_row_bruno_bar":             "Meadows Row [OB + LM]",
     "single_arm_db_row":                 "Single-Arm DB Row [DB]",
     "face_up_incline_knee_raise_d4":     "Face-Up Incline Knee Raise",
@@ -171,6 +172,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "better_fly_oh_tricep_ext_d6":       "Better Fly OH Tricep Extension [FT]",
     "abmat_ab_bench_pad_cable_crunch_d6": "AbMat Ab Bench Pad Cable Crunch [FT]",
     "seated_leg_extension_d6":           "Seated Leg Extension [GHR + FT]",
+    "cable_serratus_punch_reach_d6":     "Cable Serratus Punch/Reach [FT]",  # 2026-09-03: replaces seated_leg_extension_d6 in D6 GS1 (migration 057)
     "t_bar_row_wide_kleva":              "T-Bar Row - Wide [OB + KLEVA + LM]",
 }
 

@@ -22,17 +22,13 @@ days:
     T1_STRAIGHT: {group_key: "T1", rest: 90, shoe: "Metcon 9", anchor: true, ex: [
       {m: bench_press, reps: [4,6], rule: rpe_8_standard, load: 155}]}  # 2026-08-10: maintenance block, T1 rep range 6-8 -> 4-6, real Wk1 locked 155x3x6 RPE8 (Belle Mere BMF Camber Bar 21" grip)
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      # 2026-08-10: full T2 GS turnover -- Lying Tricep Extension / Incline DB
-      # Press / Face-Up Incline Knee Raise all drop out of D1 entirely,
-      # replaced by real Wk1-executed movements (APEX Config A: Stryker Pad +
-      # Matrix Machine).
-      {m: stryker_pad_seated_ohp_d1, reps: [8,12], rule: rpe_8_standard, load: 65},  # 2026-08-10: real Wk1 locked 65x3x12 (possibly RPE 6-7, verify Wk2)
-      {m: matrix_machine_preacher_curl_d1, reps: [8,12], rule: rpe_8_standard, load: 55},  # 2026-08-10: real Wk1 locked 55x3x12 RPE8, reintroduces bicep work
-      {m: better_fly_standing_lateral_raise_d1, reps: [10,15], rule: rpe_8_standard, load: 20}]}  # 2026-08-10: real Wk1 locked 20x3x12 RPE8
+      {m: stryker_pad_seated_ohp_d1, reps: [8,12], rule: rpe_8_standard, load: 65},
+      {m: better_fly_sagittal_lat_pulldown_d1, reps: [8,12], rule: rpe_8_standard},
+      {m: matrix_machine_preacher_curl_d1, reps: [8,12], rule: rpe_8_standard, load: 55}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: pull_up_d1, reps: [4,6], rule: pull_up_rolling_max},  # 2026-08-10: switched to Wide-Grip dead-hang unassisted (was assisted neutral-grip 3-band ladder), real Wk1 executed 4/4/4
-      {m: better_fly_sagittal_lat_pulldown_d1, reps: [8,12], rule: rpe_8_standard},  # 2026-08-13: replaces lat_prayer (Andreoni motion not reproducible on Better Fly) -- new, needs-calibration
-      {m: ab_wheel_rollout_d1, reps: [8,12], rule: rep_ladder_at_cap}]}  # 2026-08-10: relocated from the now-removed T4 GS; D1's mandatory core slot (anti-extension), real Wk1 locked 3x8 bodyweight
+      {m: pull_up_d1, reps: [4,6], rule: pull_up_rolling_max},
+      {m: ab_wheel_rollout_d1, reps: [8,12], rule: rep_ladder_at_cap},
+      {m: better_fly_standing_lateral_raise_d1, reps: [10,15], rule: rpe_8_standard, load: 20}]}
     # T4 GS removed entirely 2026-08-10: Ab Wheel Rollout moved to T3 above;
     # Seated Cable Row and Cross-Body Rear Delt Fly (its old T4 co-members)
     # both drop out of D1's real Wk1 execution, no replacement.
@@ -105,10 +101,10 @@ days:
     # slot dropped it in Task 1, unused since); PureTorque Pro Rotation
     # unchanged (already IS the FINAL doc's `cable_woodchopper` entry, same
     # equipment, confirmed by Step 1 verification, no rewiring needed).
-    T1_STRAIGHT: {group_key: "T1", rest: 120, shoe: "Metcon 9", anchor: true, ex: [
-      {m: seated_btn_ohp_d4, reps: [4,6], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration (zero prior history).
-    T1b: {group_key: "T1b", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
+    T1b: {group_key: "T1b", rest: 90, shoe: "Metcon 9", anchor: true, ex: [
       {m: better_fly_lat_pulldown_d4, reps: [6,8], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration. Reuses slot_id "d4_t1" (program_seed.py comment) -- the anchor slot's content changed, not its identity.
+    T1_STRAIGHT: {group_key: "T1", rest: 90, shoe: "Metcon 9", anchor: true, ex: [
+      {m: seated_btn_ohp_d4, reps: [4,6], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration (zero prior history).
     # 2026-08-20 (code/live reconciliation, athlete confirmed live is
     # correct): Ab Trainer Hanging Leg Raise and PureTorque Pro Rotation
     # direct-traded T2/T3 placement at some earlier point this session
@@ -116,22 +112,13 @@ days:
     # committed to code -- this closes that gap). PureTorque now sits in
     # T2_GIANT; Ab Trainer Hanging Leg Raise moves to T3_GIANT.
     T2_GIANT: {group_key: "T2 GS", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: stryker_pad_csr_barbell_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: new, needs-calibration
-      # 2026-07-26: Dragon Flag replaced by PureTorque Pro Rotation (athlete
-      # directive -- "Cable Woodchopper" in the original proposal, this
-      # existing library movement IS that rotational core pattern).
-      {m: puretorque_pro_rotation_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-20: traded in from T3_GIANT (see above note); config unchanged.
-      {m: better_fly_cable_pullover_d4, reps: [10,15], rule: rpe_8_standard}]}  # 2026-08-11: new, needs-calibration
-    # 2026-08-20 (athlete directive): DB Rear Delt Fly (old d4_t3a) VACATED --
-    # replaced by Better Fly Rear Delt Extension [FT] (fresh slot "d4_t3f",
-    # never-reassign-slot_id -- genuinely different Movement row, mirrors
-    # the D1 Lat Prayer -> Better Fly Sagittal Lat Pulldown precedent).
-    # Existing shared Movement row, already wired on D6 (m-id
-    # better_fly_rear_delt_ext_d6) -- this is D4's own day-scoped m-id.
+      {m: stryker_pad_csr_barbell_d4, reps: [8,12], rule: rpe_8_standard},
+      {m: puretorque_pro_rotation_d4, reps: [8,12], rule: rpe_8_standard},
+      {m: lying_tricep_extension_camber7_d4, reps: [8,12], rule: rpe_8_standard}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: better_fly_rear_delt_ext_d4, reps: [10,15], rule: rpe_8_standard},  # 2026-08-20: new slot, needs-calibration
-      {m: lying_tricep_extension_camber7_d4, reps: [8,12], rule: rpe_8_standard},  # 2026-08-11: reused movement (Lying Tricep Extension [SB]), fresh slot "d4_t3e" -- needs-calibration. grip: 7_inch is a physical-setup detail (same BMF Camber Bar family as D1 Bench Press's 21" grip note), not a schema field.
-      {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]}]}  # 2026-08-20: traded in from T2_GIANT (see above note); config unchanged.
+      {m: better_fly_rear_delt_ext_d4, reps: [10,15], rule: rpe_8_standard},
+      {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]},
+      {m: better_fly_cable_pullover_d4, reps: [10,15], rule: rpe_8_standard}]}
 
   d5:  # Lower B — shoe: Metcon 9 through T1, SWAP -> Adipower II at T2 (moved from T3
        # 2026-07-17: BSS-family needs the heel, so the swap must land before BSS, not after)
@@ -186,64 +173,18 @@ days:
     # straight tier (Dips) ELIMINATED ENTIRELY -- FINAL doc's D6 has no
     # standalone T1; Dips folds back into GS1. Z2 (backward 3min@5°@1.5 /
     # forward 12min@5°@3.0) deferred (not engine-managed).
+    # 2026-09-03: code/yaml catch-up to already-live migrations 048-057 (Seated Leg Extension add/move/removal, Dips reclassification, Standing OHP low-fatigue retune, GS1 Serratus swap).
+    T1_STRAIGHT: {group_key: "T1", rest: 180, shoe: "Metcon 9", anchor: true, ex: [
+      {m: standing_ohp_d6, reps: [3,3], rule: rpe_8_standard}]}  # 2026-09-03: reuses the existing "Standing OHP [PB]" library row (unwired since Task 3's D4 T1 swap to Seated BTN OHP) -- low-fatigue specificity exposure, not a strength grind; rpe_cap=7.0 on the TierExercise (program_seed.py), deliberate 1-2s lockout every rep.
     GS1: {group_key: "GS1", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      # 2026-08-12 (STAB redesign fix, post-Task-5): pull_up_neutral_paused_d6
-      # -> pull_up_d6_wide_grip_assisted, per docs/superpowers/specs/2026-08-10-
-      # stab-maintenance-block-redesign-design.md §5 (confirmed-final pull-up
-      # architecture -- D6 gets an ASSISTED wide-grip pull-up, sling + single
-      # 20lb band, assist_ladder [20,0], not the old unassisted neutral-grip
-      # variant). Task 5 initially left this unchanged after confirming the
-      # exact movement name had never existed in the repo -- correct check,
-      # wrong conclusion; the fix was to CREATE the movement, not skip it.
       {m: pull_up_d6_wide_grip_assisted, reps: [5,8], rule: assistance_reduction, assist_level: 20, assist_ladder: [20, 0]},
-      # 2026-08-16 (athlete directive, revised): close_grip_bench_camber_14_d6
-      # and dips directly traded GS placement -- Dips + CG Press are both
-      # heavy compound presses, rotating them together causes interference.
-      # CG Press sits here now; Dips moves to GS2 below.
-      # close_grip_bench_camber_14_d6: reuses the existing "Swiss Bar CG
-      # Press [SB]" movement (see program_seed.py's PROGRAM_TO_LIBRARY
-      # comment) -- needs-calibration, wk1_calibration_estimate 135-145 per
-      # the FINAL doc (135 <= 155*0.90=139.5 <= 145).
-      {m: close_grip_bench_camber_14_d6, reps: [4,6], rule: rpe_8_standard},
+      {m: cable_serratus_punch_reach_d6, reps: [12,20], rule: rpe_8_standard},
       {m: better_fly_rear_delt_ext_d6, reps: [10,15], rule: rpe_8_standard}]}
-    # GS2: FULL turnover -- hip_thrust_d6 (3rd/final Hip Thrust removal this
-    # redesign), reverse_hyper_recovery, db_seal_row, lateral_raise_ares all
-    # drop out entirely. All three new members are needs-calibration (zero
-    # prior history).
-    #
-    # 2026-08-16 (athlete directive, revised): dips (was GS1) traded places
-    # with close_grip_bench_camber_14_d6 -- now paired with Bicep Curl and
-    # Stryker Pad CSR Cables (both pull-ish/isolation), no press-press
-    # overlap.
-    #
-    # 2026-08-16 (athlete directive): dips converted back to band assist
-    # (2nd flip) -- real stackable-band setup (green 50-120lb, purple
-    # 25-80lb, black 10-50lb, combined/swapped mid-session), modeled as a
-    # plain CABLE_LB assist value (see ironlog/seed.py's Dips comment).
-    # Real Wk1 last-set data (purple alone, 12 reps @ RPE 8.5) seeds
-    # assist_level=50 -- not needs-cal.
-    #
-    # 2026-08-16 (athlete directive, effective next week): better_fly_
-    # cable_bicep_curl_d6 replaced by d_handle_cable_bicep_curl_d6 -- the
-    # Better Fly cuff doesn't work well for curls, athlete switched to
-    # D-handles mid-session.
-    # 2026-08-23 (athlete directive): reverted back to
-    # better_fly_cable_bicep_curl_d6 -- fresh slot "d6_g2h"
-    # (never-reassign-slot_id, d6_g2g/D-Handle VACATED in turn).
-    #
-    # 2026-08-31 (athlete directive, 3rd flip -- misclassification fix): dips
-    # reverts to rpe_8_standard -- the real bands ADD resistance, they don't
-    # assist, so assistance_reduction had the progression direction backwards
-    # (see ironlog/seed.py's Dips comment for the full reasoning).
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
       {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
+      {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
       {m: dips, reps: [8,12], rule: rpe_8_standard}]}
-    # GS3: Face Pull retained (rep range corrected 15-20 -> 10-15 per the
-    # FINAL doc). cable_v_bar_pushdown and t_bar_row_wide_kleva drop out
-    # entirely, replaced by two new needs-calibration movements.
     GS3: {group_key: "GS3", rest: 60, rounds: 3, shoe: "Metcon 9", ex: [
       {m: face_pull, reps: [10,15], rule: rpe_8_standard, load: 30},
       {m: better_fly_oh_tricep_ext_d6, reps: [8,12], rule: rpe_8_standard},
-      {m: abmat_ab_bench_pad_cable_crunch_d6, reps: [10,15], rule: rpe_8_standard},
-      {m: seated_leg_extension_d6, reps: [10,15], rule: rpe_8_standard}]}
+      {m: abmat_ab_bench_pad_cable_crunch_d6, reps: [10,15], rule: rpe_8_standard}]}
