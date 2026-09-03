@@ -249,6 +249,12 @@ def test_schemes_straight(gen_db):
     names = {m.name: m for m in gen_db.exec(select(Movement)).all()}
     assert names["Belt Squat [GHR + FT]"].scheme == Scheme.STRAIGHT
     assert names["RDL [PB]"].scheme == Scheme.STRAIGHT
+    # 2026-09-02: Bench Press [PB] switched STRAIGHT -> DOUBLE_PROGRESSION
+    # (athlete directive, matches T1b Pendlay Row's scheme) -- re-pinned
+    # here rather than dropped, so a future regression back to a 2-set
+    # top+backoff on a from-scratch reseed (the 148.5-class bug) is still
+    # caught.
+    assert names["Bench Press [PB]"].scheme == Scheme.DOUBLE_PROGRESSION
 
 
 def test_te_schemes_synced_to_straight(gen_db):
@@ -266,6 +272,13 @@ def test_te_schemes_synced_to_straight(gen_db):
             f"{slot_id}: expected TierExercise.scheme == 'STRAIGHT', "
             f"got {tes[slot_id].scheme!r}"
         )
+    # 2026-09-02: d1_t1 (Bench Press) switched STRAIGHT -> DOUBLE_PROGRESSION
+    # alongside its Movement.scheme flip above -- re-pinned at the new value
+    # instead of dropped.
+    assert tes["d1_t1"].scheme == "DOUBLE_PROGRESSION", (
+        f"d1_t1: expected TierExercise.scheme == 'DOUBLE_PROGRESSION', "
+        f"got {tes['d1_t1'].scheme!r}"
+    )
 
 
 def test_unilateral_flags(gen_db):
