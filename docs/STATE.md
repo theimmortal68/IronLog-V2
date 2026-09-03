@@ -745,3 +745,77 @@ turned out to be a real successful submit, not a bug -- deferred, not fixed.
 4. Whenever convenient (carried forward, now 13 sessions deep): resolve the
    unmerged-session-branch question and the seed-code/live-DB reconciliation
    debt.
+
+---
+
+# State — 2026-09-03
+
+## Current task
+Athlete asked for an updated program-export gist; two rounds of "this doesn't read right"
+feedback surfaced first a stale-export bug, then a stale-session bug.
+
+## Decisions made and why
+- **Program-export script never displayed ALT_PAIR/superset grouping.** The gist generator
+  (an ad-hoc SQL dump + Python formatter, not a committed script) listed T1/T1b as two
+  independent `###` blocks with no indication `Tier.paired_tier_id` links them into one
+  alternating group -- athlete couldn't tell Bench/Pendlay (or OHP/Lat-Pulldown) were
+  supposed to round-robin. Fixed the formatter (this session, not committed anywhere --
+  it's a one-off `/tmp` script each time) to detect `paired_tier_id` links and render both
+  sides under one `"<A>/<B> (ALTERNATING PAIR)"` header. **Should probably become a real,
+  committed script** (`scripts/export_program.py` or similar) instead of hand-rebuilt each
+  time -- flagged, not done this session (out of scope for a same-day fix, low urgency).
+- **Discovered mid-fix: a different session (commit `67cc726`, 2026-09-02 20:59, on this same
+  `session/2026-08-29-...` branch) did further real work after this session's own specs
+  58/59 closed** -- switched D1 Bench Press and D4 Seated BTN OHP from STRAIGHT to
+  DOUBLE_PROGRESSION scheme (athlete directive) and linked D4's T1/T1b as a true
+  alternating-pair superset (previously unlinked despite spec 58 having built the mechanism
+  for D1). Live DB already matched (that session's own STATE.md entry confirms it verified
+  the UPDATEs). This session's gist was stale relative to that work, not wrong about D1/D4
+  as originally shipped -- re-verified against current live DB before regenerating.
+- **Found, NOT fixed this session**: that session's `67cc726` broke 5 tests
+  (`test_phase1_reconciliation.py::test_tier_rests_seeded/test_schemes_straight/
+  test_te_schemes_synced_to_straight`, `test_program_seed_yaml_parity.py::
+  test_seeded_base_slots_match_yaml/test_seeded_tiers_match_yaml`) and never noticed --
+  its own STATE.md "Verified" section only mentions the IronLog-V2-Client repo's test
+  suite, not this repo's `pytest -q`. Root cause: `docs/program/phase1-seed-source.yaml`
+  was updated for D1's T1/T1b (by this session's earlier spec-58 work) but D4's T1/T1b
+  section was never touched by `67cc726` -- still says Bench-equivalent STRAIGHT/120s/
+  T1-before-T1b for D4, contradicting both the live DB and `program_seed.py`'s own
+  `_seed_d4`. Athlete was asked whether to fix now; ended session before answering --
+  **left broken, not fixed**, see Unresolved/Next step.
+
+## Verified
+- Live DB re-queried directly (not trusted from any prior session's notes) for both D1 and
+  D4's T1/T1b: both show symmetric `paired_tier_id`, correct pull-first `tier_order`,
+  `rest_seconds=90` both sides, `TierExercise.scheme='DOUBLE_PROGRESSION'` both sides.
+  `ironlogv2.service` confirmed serving (`GET /docs` -> 200).
+- `git status`/`git log`: no uncommitted work from this session, nothing unpushed (this
+  session made no commits of its own -- read-only investigation + a `/tmp`-only export
+  script, no repo files touched).
+- Pre-existing uncommitted files in the working tree (unchanged from every prior session's
+  identical note, still not this session's, still not touched): `.superpowers/sdd/
+  task-2-report.md`, `.superpowers/sdd/task-7-report.md`, `docs/build-plan.md`,
+  `docs/program/phase1-warmup-finisher-source.yaml`,
+  `ironlog/generation/live_seed_ramp_and_finishers.py`, plus the long-standing untracked
+  `.specs/*.md` batch and `ironlog.db.bak-*` sprawl.
+
+## Open questions
+- Same carried-forward items as every recent entry: unmerged session branch now 14 sessions
+  deep on `session/2026-08-29-d6-gs3-seated-leg-extension`; seed-code/live-DB reconciliation
+  debt keeps growing (this entry adds a fresh instance of exactly that debt -- D4's yaml).
+
+## Next step
+1. **Fix the 5 failing tests** -- update `docs/program/phase1-seed-source.yaml`'s D4 T1/T1b
+   section to match `program_seed.py`'s `_seed_d4` (T1b/Lat-Pulldown first, both rest 90s,
+   both DOUBLE_PROGRESSION scheme) and `tests/test_phase1_reconciliation.py`'s
+   `TIER_REST_MAP`/scheme-assertion lists, mirroring exactly how this session's own spec-58
+   work fixed the equivalent D1 gap. Athlete was asked, session ended before an answer --
+   do this first thing next session unless told otherwise.
+2. Consider promoting the ad-hoc gist-export script to a real committed file so it doesn't
+   need hand-rebuilding (and re-discovering the ALT_PAIR display gap) every time.
+3. Whenever convenient (carried forward, 14 sessions now): the unmerged-branch and
+   seed-code-reconciliation-debt questions.
+
+## Session notes
+- `/usage` not available as a callable tool in this environment -- no weekly-usage figure
+  recorded (same gap noted by the prior session).
