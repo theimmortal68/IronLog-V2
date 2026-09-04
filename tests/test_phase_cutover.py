@@ -199,3 +199,48 @@ def db_session():
     SQLModel.metadata.create_all(engine)
     with DbSession(engine) as session:
         yield session
+
+
+def test_recovery_status_window_matches_readiness_pipeline_exactly(db_session):
+    """Regression guard: caught live, right before applying to production.
+
+    The pre-check window in _compute_recovery_status must match
+    readiness.py's own BOOL_WINDOW_DAYS cutoff EXACTLY. Before the fix, the
+    pre-check used an off-by-one-wider window (`<= BOOL_WINDOW_DAYS`, 11 days
+    inclusive) than compute_sleep_ok/compute_subjective_ok's own internal
+    window (10 days inclusive, via readiness.py's _trailing_rows). That let
+    the pre-check see 5 readings (enough to "trust the real function") while
+    the real function's own narrower window saw only 4 -- below its own
+    BOOL_MIN_READINGS threshold -- and failed closed to False, producing a
+    spurious POOR from data that was actually just borderline-sparse.
+
+    as_of = 2026-09-04. Correct 10-day window (BOOL_WINDOW_DAYS=10) is
+    [2026-08-26, 2026-09-04]. This fixture seeds 5 healthy readings, but one
+    (2026-08-25) sits exactly one day OUTSIDE the correct window and inside
+    only the old buggy window -- leaving exactly 4 valid readings in the
+    correct window, one short of BOOL_MIN_READINGS=5.
+    """
+    db_session.add(EngineState(id=1, current_phase=Phase.STAB))
+    for d in (
+        date(2026, 8, 25),  # outside the correct window, inside the old buggy one
+        date(2026, 8, 27),
+        date(2026, 8, 29),
+        date(2026, 8, 31),
+        date(2026, 9, 2),
+    ):
+        db_session.add(DailyReadiness(date=d, sleep_ok=True, subjective_ok=True))
+    db_session.add(TrainingSession(date=date(2026, 9, 2), day_role="Upper A", phase="STAB"))
+    db_session.commit()
+
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1,
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
+
+    # Correct behavior: only 4 valid readings fall in the true 10-day window
+    # (2026-08-25 is excluded), below BOOL_MIN_READINGS -- insufficient data
+    # defaults optimistically to NORMAL, not a spurious POOR.
+    assert plan["recovery_status"] == "NORMAL", (
+        "insufficient-data case must default to NORMAL, not fail closed to "
+        "POOR via a pre-check/real-function window mismatch"
+    )

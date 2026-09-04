@@ -26,7 +26,16 @@ def _compute_recovery_status(readiness_inputs: List[DailyReadinessInput], as_of:
     If one is explicitly failing, CAUTION.
     If both are failing, POOR.
     """
-    recent = [r for r in readiness_inputs if 0 <= (as_of - r.date).days <= BOOL_WINDOW_DAYS]
+    # Window must match readiness.py's own _trailing_rows cutoff EXACTLY
+    # (cutoff = as_of - (BOOL_WINDOW_DAYS - 1), inclusive both ends) -- using
+    # `<= BOOL_WINDOW_DAYS` here (one day wider) let this pre-check see 5+
+    # readings and "trust the real function" while compute_sleep_ok's own
+    # narrower window saw only 4 and failed closed to False, producing a
+    # false POOR from what was actually borderline/insufficient data (caught
+    # live, before applying to production: real recent readiness data was
+    # sleep_ok=True/subjective_ok=True almost every day, yet this bug
+    # produced RecoveryStatus.POOR).
+    recent = [r for r in readiness_inputs if 0 <= (as_of - r.date).days <= BOOL_WINDOW_DAYS - 1]
     
     sleep_readings = [r.sleep_ok for r in recent if r.sleep_ok is not None]
     subj_readings = [r.subjective_ok for r in recent if r.subjective_ok is not None]
