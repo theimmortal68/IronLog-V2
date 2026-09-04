@@ -439,3 +439,45 @@ def test_d5_giant_sets_have_no_trailing_anchor_tier(gen_db_calibrated):
     ], f"D5 must have no standalone T4 tier after the T4->GS1 merge, got {layout}"
     gs1 = groups[1]
     assert "Ab Trainer Russian Twist" in _names_for_group(gs1, gen_db)
+
+
+def test_envelope_rpe_cannot_raise_target_above_legacy_default(gen_db_calibrated):
+    """Fable review (High): an envelope rpe_cap higher than the legacy default
+    (e.g. INTENSIFY/PEAK postures resolving ~8.5-9.0 against a CUT phase's
+    top_set_rpe/rpe_band_high/hard_cap around 7.5-8.0) must never RAISE the
+    prescribed target or loosen the validator's RPE_OVER_CAP clamp -- the
+    envelope is a ceiling on top of the legacy default, never a floor under
+    it. Regression guard for the fix in _rpe_target_from_envelope and
+    repair.py's phase_hard_cap (both now min() against the legacy value)."""
+    from ironlog.generation.assembler import _rpe_target_from_envelope
+
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    assert ctx.phase_policy.hard_cap < 9.0, (
+        "test assumption: legacy hard_cap must be lower than the INTENSIFY "
+        "envelope this test constructs, or this test proves nothing"
+    )
+
+    high_envelope = resolve_envelope(
+        planned_posture="INTENSIFY",
+        body_comp_state="MAINTENANCE",
+        recovery_status="NORMAL",
+        deload_active=False,
+    )
+    assert high_envelope.rpe_cap > ctx.phase_policy.hard_cap, (
+        "test assumption: INTENSIFY+MAINTENANCE+NORMAL must resolve an "
+        "rpe_cap above the legacy hard_cap, or this test proves nothing"
+    )
+    ctx.resolved_envelope = high_envelope
+
+    # No slot-level cap -> must fall back to legacy_default, not the higher
+    # envelope_cap.
+    target = _rpe_target_from_envelope(ctx, None, ctx.phase_policy.rpe_band_high)
+    assert target == ctx.phase_policy.rpe_band_high
+    assert target < high_envelope.rpe_cap
+
+    validation_context = build_validation_context(ctx, gen_db)
+    assert validation_context.phase_hard_cap == ctx.phase_policy.hard_cap
+    assert validation_context.phase_hard_cap < high_envelope.rpe_cap

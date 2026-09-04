@@ -249,9 +249,15 @@ def _rpe_target_from_envelope(
     if ctx.resolved_envelope is None:
         return slot_rpe_cap if slot_rpe_cap is not None else legacy_default
     envelope_cap = ctx.resolved_envelope.rpe_cap
+    # Envelope is a ceiling, never a floor -- it can only tighten the target
+    # below whatever the slot/legacy default already was (Fable review, High
+    # finding: an envelope_cap higher than the legacy default, e.g. INTENSIFY/
+    # PEAK postures resolving 9.0 RPE against a CUT-phase legacy default of
+    # 7.5-8.0, must not raise the prescribed target or loosen the validator's
+    # RPE_OVER_CAP clamp).
     if slot_rpe_cap is not None:
         return min(slot_rpe_cap, envelope_cap)
-    return envelope_cap
+    return min(legacy_default, envelope_cap)
 
 
 def _legacy_rpe_capped_by_envelope(ctx: GenerationContext, legacy_target: float) -> float:

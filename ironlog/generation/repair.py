@@ -70,8 +70,11 @@ def build_validation_context(ctx: GenerationContext, db: DBSession) -> Validatio
     # satisfy a weekly target.  Weekly frequency is guaranteed at program-design
     # time (test_knee_frequencies_are_satisfiable) and soft-biased via owed
     # requirements (Fork 3); it is not a per-session structural hard reject.
+    # The envelope can only tighten the validator's hard cap, never loosen it
+    # (Fable review, High finding) -- a posture resolving a higher rpe_cap
+    # than the phase's own hard_cap must not widen the RPE_OVER_CAP clamp.
     phase_hard_cap = (
-        ctx.resolved_envelope.rpe_cap
+        min(ctx.phase_policy.hard_cap, ctx.resolved_envelope.rpe_cap)
         if ctx.resolved_envelope is not None
         else ctx.phase_policy.hard_cap
     )
