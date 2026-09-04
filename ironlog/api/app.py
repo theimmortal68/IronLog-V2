@@ -48,6 +48,22 @@ from ..models import (
     SetRole, MovementWeaknessSignal, Status,
 )
 from ..notes.classify import classify_session_notes
+
+from .schemas_periodization import (
+    CurrentPlanOut, MacrocycleSummaryOut, MesocycleSummaryOut, MicrocycleSummaryOut,
+    DeloadStateOut, MacrocycleDetailOut, MesocycleInstanceOut, ResolverTraceStepOut
+)
+from ..models.periodization import (
+    Macrocycle, Mesocycle, Microcycle, MesocycleTemplate, BodyCompState, RecoveryStatus, DeloadState
+)
+from ..generation.context import (
+    resolve_current_microcycle,
+    _active_body_comp_state,
+    _current_recovery_status,
+    _active_deload_state,
+)
+from ..engine.periodization_resolver import resolve_envelope
+
 from .schemas_capture import (SubmitRequest, SubmitResponse,
                                SessionDetailResponse, GroupOut, ExerciseOut, PlannedSetOut,
                                SwapExerciseRequest)
@@ -1682,3 +1698,128 @@ def confirm_phase(req: ConfirmPhaseRequest, db: Session = Depends(get_session)):
     db.add(engine_state)
     db.commit()
     return {"status": "confirmed", "current_phase": engine_state.current_phase.value}
+
+
+
+# ---------------------------------------------------------------------------
+# Periodization read endpoints (Task 5)
+# ---------------------------------------------------------------------------
+
+@app.get("/training/plan/current", response_model=CurrentPlanOut)
+def get_current_plan(db: Session = Depends(get_session)):
+    today = date.today()
+    micro = resolve_current_microcycle(db, today)
+    if micro is None:
+        return CurrentPlanOut()
+    
+    meso = db.get(Mesocycle, micro.mesocycle_id)
+    macro = db.get(Macrocycle, meso.macrocycle_id) if meso and meso.macrocycle_id else None
+    
+    macro_out = None
+    if macro:
+        macro_out = MacrocycleSummaryOut(
+            id=macro.id,
+            goal=macro.goal,
+            status=macro.status.value,
+        )
+    
+    meso_out = None
+    if meso:
+        meso_out = MesocycleSummaryOut(
+            id=meso.id,
+            template_id=meso.template_id,
+            ordinal=meso.ordinal,
+            status=meso.status.value,
+        )
+        
+    micro_out = MicrocycleSummaryOut(
+        id=micro.id,
+        ordinal=micro.ordinal,
+        planned_posture=micro.planned_posture,
+        effective_posture=micro.effective_posture,
+        lifecycle_status=micro.lifecycle_status.value,
+        drift_status=micro.drift_status.value,
+        drift_days=micro.drift_days,
+        planned_start_date=micro.planned_start_date,
+        planned_end_date=micro.planned_end_date,
+        actual_start_date=micro.actual_start_date,
+        actual_completion_date=micro.actual_completion_date,
+    )
+    
+    body_comp = _active_body_comp_state(db, today)
+    recovery = _current_recovery_status(db, today)
+    deload = _active_deload_state(db, micro)
+    
+    body_comp_str = body_comp.state.value if body_comp else None
+    recovery_str = recovery.status.value if recovery else None
+    
+    deload_out = None
+    if deload:
+        deload_out = DeloadStateOut(
+            active=deload.active,
+            trigger_reason=deload.trigger_reason,
+        )
+        
+    resolver_trace = None
+    if body_comp and recovery:
+        resolved = resolve_envelope(
+            planned_posture=micro.planned_posture,
+            body_comp_state=body_comp.state,
+            recovery_status=recovery.status,
+            deload_active=deload.active if deload else False,
+            deload_trigger_reason=deload.trigger_reason if deload else None,
+        )
+        resolver_trace = [
+            ResolverTraceStepOut(
+                axis=step.axis,
+                before=dict(step.before),
+                after=dict(step.after)
+            )
+            for step in resolved.trace
+        ]
+
+    return CurrentPlanOut(
+        macrocycle=macro_out,
+        mesocycle=meso_out,
+        microcycle=micro_out,
+        body_comp_state=body_comp_str,
+        recovery_status=recovery_str,
+        deload_state=deload_out,
+        resolver_trace=resolver_trace,
+    )
+
+@app.get("/training/macrocycles/{macrocycle_id}", response_model=MacrocycleDetailOut)
+def get_macrocycle(macrocycle_id: int, db: Session = Depends(get_session)):
+    macro = db.get(Macrocycle, macrocycle_id)
+    if macro is None:
+        raise HTTPException(status_code=404, detail="macrocycle not found")
+        
+    mesos = db.exec(
+        select(Mesocycle)
+        .where(Mesocycle.macrocycle_id == macrocycle_id)
+        .order_by(Mesocycle.ordinal)
+    ).all()
+    
+    meso_outs = []
+    for m in mesos:
+        tmpl = db.get(MesocycleTemplate, m.template_id)
+        meso_outs.append(MesocycleInstanceOut(
+            id=m.id,
+            template_id=m.template_id,
+            template_name=tmpl.name if tmpl else "",
+            ordinal=m.ordinal,
+            planned_start_date=m.planned_start_date,
+            planned_end_date=m.planned_end_date,
+            actual_start_date=m.actual_start_date,
+            actual_end_date=m.actual_end_date,
+            status=m.status.value,
+        ))
+        
+    return MacrocycleDetailOut(
+        id=macro.id,
+        goal=macro.goal,
+        planned_start_date=macro.planned_start_date,
+        planned_end_date=macro.planned_end_date,
+        status=macro.status.value,
+        mesocycles=meso_outs,
+    )
