@@ -968,3 +968,72 @@ Design doc: `docs/superpowers/specs/2026-09-03-long-range-periodization-design.m
 - This session's own commits (this STATE.md append included) are on
   `session/2026-09-04-periodization-close`, per the standing session-branch rule -- merge to
   `main` at close.
+
+---
+
+# State — 2026-09-04 (session 2, same day)
+
+## Current task
+User asked to run the production periodization cutover. Ran it -- two more real bugs
+surfaced during the dry-run/apply process itself, both fixed before/immediately after
+the live write.
+
+## Decisions made and why
+- **Migration 067 wasn't applied to live yet** (schema_migrations maxed at 066) -- restarted
+  `ironlogv2.service` first (`ExecStartPre` runs the migration runner), confirmed no session
+  in progress, confirmed 067 applied before touching anything else.
+- **Caught before ever applying**: dry-run computed `RecoveryStatus=POOR` against real
+  DailyReadiness data that was almost entirely `sleep_ok=True/subjective_ok=True` --
+  traced the cause to a window mismatch between `_compute_recovery_status`'s own
+  "enough data?" pre-check (`<= BOOL_WINDOW_DAYS`, 11 days inclusive) and
+  `compute_sleep_ok`/`compute_subjective_ok`'s actual internal window (`readiness.py`'s
+  `_trailing_rows`, 10 days inclusive) -- the pre-check saw 5 readings and trusted the real
+  function, which saw only 4 in its own narrower window and failed closed to `False`,
+  collapsing to a spurious POOR. Fixed in a dedicated worktree/commit (`6af5440`,
+  `task/07-cutover-recovery-window-fix`), with a regression test that reproduces the exact
+  live scenario and is confirmed to fail without the fix. Re-ran dry-run after the fix:
+  `RecoveryStatus=NORMAL`, matching the real data. Applied `--apply` with
+  `--current-mesocycle-ordinal 1 --current-microcycle-ordinal 1 --seed-posture BUILD`
+  (genuinely fresh start -- no periodization tracking existed before this, so there was no
+  real "week N of an existing block" to preserve; "seed now, not week 1" from the design doc
+  was about not resetting an *already-tracked* block, which doesn't apply to a first-ever
+  cutover).
+- **Caught immediately after applying**: the seeded `Microcycle` had
+  `lifecycle_status=NOT_STARTED`, but `resolve_current_microcycle()` (spec 04) only
+  matches `ACTIVE` -- nothing in any of the 6 specs builds a NOT_STARTED->ACTIVE
+  transition (explicitly out of scope everywhere it could have been). The cutover would
+  have written fully correct, completely inert state. Fixed with a direct 3-row UPDATE
+  (Microcycle/Mesocycle/Macrocycle -> ACTIVE, `actual_start_date` set on Micro/Meso) --
+  confirmed correct via a live `GET /training/plan/current` call showing the full resolved
+  envelope and trace.
+
+## Verified
+- `GET /training/plan/current` on the live server returns the fully resolved state:
+  Macrocycle/Mesocycle/Microcycle all ACTIVE, BodyCompState=MAINTENANCE, RecoveryStatus=
+  NORMAL, DeloadState=null, resolver_trace showing BUILD baseline (rpe_cap=8.0,
+  volume_multiplier=0.95) passing through MAINTENANCE/NORMAL as true no-ops to the same
+  Effective values -- end-to-end periodization is live and correctly wired.
+- Direct SQL read of `macrocycle`/`mesocycle`/`microcycle`/`bodycompstate`/`recoverystatus`/
+  `mesorotation` rows post-apply, matches the dry-run plan exactly.
+- `ironlogv2.service` active, no errors.
+
+## Open questions
+- **No mechanism yet advances a Microcycle's `lifecycle_status`/`ordinal` week to week.**
+  This session's direct ACTIVE flip was a one-time bootstrap for the cutover itself, not a
+  reusable mechanism -- a future session needs to build the actual week-advancement logic
+  (something must eventually mark this Microcycle COMPLETE and create/activate ordinal=2).
+  Not scoped in any of the 6 original specs; flagging as the most load-bearing gap left.
+- Same carried-forward item: `IronLog-V2-wt-incline-handoff` worktree untouched.
+
+## Next step
+1. **Build Microcycle/Mesocycle advancement logic** -- nothing currently transitions week to
+   week; right now periodization will stay frozen on Microcycle #1/Mesocycle #1 forever
+   without it. This is the natural next build, not urgent today but the system is
+   incomplete without it.
+2. Whenever convenient (carried forward): `IronLog-V2-wt-incline-handoff` worktree.
+
+## Session notes
+- CORE memory ingested this session (both live-caught bugs, the fresh-start ordinal
+  reasoning, the lifecycle-activation gap).
+- This session's own commits are on `session/2026-09-04-cutover-applied` -- merge to `main`
+  at close.
