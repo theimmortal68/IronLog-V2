@@ -132,6 +132,7 @@ class MesoRotation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     tier_exercise_id: int = Field(foreign_key="tierexercise.id")
     meso_number: int
+    mesocycle_id: Optional[int] = Field(default=None, foreign_key="mesocycle.id")
     movement_id: int = Field(foreign_key="movement.id")
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None

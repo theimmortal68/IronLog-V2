@@ -24,6 +24,7 @@ class Session(SQLModel, table=True):
     date: date
     day_role: str                                  # "Upper A" / "Lower A" / ...
     phase: str                                     # snapshot of EngineState phase
+    prescription_snapshot: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     status: SessionStatus = SessionStatus.PLANNED
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     approved_at: Optional[datetime] = None
