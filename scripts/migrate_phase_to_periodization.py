@@ -1,7 +1,7 @@
 import argparse
 import sys
-from datetime import date
-from typing import List, Optional, Tuple, Dict, Any
+from datetime import date, timedelta
+from typing import List, Optional
 
 from sqlmodel import Session as DbSession, select
 
@@ -11,11 +11,10 @@ from ironlog.models.session import Session as TrainingSession
 from ironlog.models.program import MesoRotation
 from ironlog.models.periodization import (
     BodyCompState, BodyCompStateValue, RecoveryStatus, RecoveryStatusValue,
-    Macrocycle, Mesocycle, Microcycle, PlanStatus, MicrocycleLifecycleStatus,
-    MicrocycleDriftStatus
+    Macrocycle, Mesocycle, Microcycle, MesocycleTemplate
 )
 from ironlog.engine.readiness import (
-    DailyReadinessInput, compute_sleep_ok, compute_subjective_ok
+    DailyReadinessInput, compute_sleep_ok, compute_subjective_ok, BOOL_MIN_READINGS, BOOL_WINDOW_DAYS
 )
 from ironlog.engine.periodization_resolver import resolve_envelope
 
@@ -26,16 +25,14 @@ def _compute_recovery_status(readiness_inputs: List[DailyReadinessInput], as_of:
     If both sleep and subjective readiness are OK (or undefined due to lack of data), NORMAL.
     If one is explicitly failing, CAUTION.
     If both are failing, POOR.
-    (Note: the underlying compute_* functions return False on sparse data, so we need to be careful.
-    Actually, if they return False, it means they are failing the check.
-    We'll treat False as a negative signal.)
     """
-    # compute_sleep_ok and compute_subjective_ok return False if sparse data OR bad ratio.
-    # To avoid defaulting to POOR when there's simply no data, let's check if we have data.
-    recent = [r for r in readiness_inputs if (as_of - r.date).days <= 10]
+    recent = [r for r in readiness_inputs if 0 <= (as_of - r.date).days <= BOOL_WINDOW_DAYS]
     
-    has_sleep = any(r.sleep_ok is not None for r in recent)
-    has_subj = any(r.subjective_ok is not None for r in recent)
+    sleep_readings = [r.sleep_ok for r in recent if r.sleep_ok is not None]
+    subj_readings = [r.subjective_ok for r in recent if r.subjective_ok is not None]
+    
+    has_sleep = len(sleep_readings) >= BOOL_MIN_READINGS
+    has_subj = len(subj_readings) >= BOOL_MIN_READINGS
 
     sleep_ok = compute_sleep_ok(readiness_inputs, as_of) if has_sleep else True
     subj_ok = compute_subjective_ok(readiness_inputs, as_of) if has_subj else True
@@ -51,7 +48,11 @@ def _compute_recovery_status(readiness_inputs: List[DailyReadinessInput], as_of:
 def migrate(
     session: DbSession,
     apply: bool,
+    current_mesocycle_ordinal: int,
     current_microcycle_ordinal: int,
+    mesocycle_length_weeks: int,
+    seed_posture: str,
+    
     calibration_maps_to: Optional[str] = None,
     rebuild_maps_to: Optional[str] = None,
     shadow_validation_sessions: int = 10,
@@ -59,6 +60,11 @@ def migrate(
 ) -> dict:
     if as_of is None:
         as_of = date.today()
+
+    existing_macro = session.exec(select(Macrocycle)).first()
+    if existing_macro and apply:
+        print("Error: Migration looks like it has already been run (Macrocycle rows exist).", file=sys.stderr)
+        raise RuntimeError("Migration idempotency guard failed.")
 
     engine_state = session.exec(select(EngineState).where(EngineState.id == 1)).first()
     
@@ -77,24 +83,52 @@ def migrate(
         if not rebuild_maps_to:
             raise ValueError("EngineState is in REBUILD phase. You must provide --rebuild-maps-to=CUT|MAINTENANCE|GAIN")
         body_comp_value = rebuild_maps_to
+    
+    if not body_comp_value:
+        print(f"Error: Could not map EngineState current_phase={current_phase} to a BodyCompState.", file=sys.stderr)
+        print("Aborting migration because core periodization state cannot be determined.", file=sys.stderr)
+        raise RuntimeError("Missing BodyCompState mapping.")
+
+    template = session.exec(select(MesocycleTemplate)).first()
+    if template:
+        template_action = f"reusing existing template id={template.id}"
+        template_name = template.name
     else:
-        # Fallback if engine state is missing or unknown
-        pass
+        template_action = "creating new template"
+        template_name = "Cutover Template"
+
+    planned_end_date = as_of + timedelta(weeks=mesocycle_length_weeks)
+    micro_end_date = as_of + timedelta(days=6)
+    expected_sessions = 4
+    macrocycle_goal = "Initial Cutover Goal"
 
     plan = {
         "body_comp_state": body_comp_value,
         "recovery_status": None,
+        "seed_posture": seed_posture,
+        "mesocycle_ordinal": current_mesocycle_ordinal,
+        "mesocycle_length_weeks": mesocycle_length_weeks,
+        "mesocycle_template_action": template_action,
+        "mesocycle_template_name": template_name,
+        "macrocycle_goal": macrocycle_goal,
+        "expected_sessions": expected_sessions,
+        "planned_start_date": as_of.isoformat(),
+        "planned_end_date": planned_end_date.isoformat(),
+        "micro_end_date": micro_end_date.isoformat(),
         "meso_rotations": [],
         "shadow_validation": []
     }
 
     print("=== MIGRATION PLAN ===")
-    if body_comp_value:
-        print(f"Proposed BodyCompState: {body_comp_value} (from {current_phase})")
-    else:
-        print(f"Skipping BodyCompState creation (current_phase={current_phase}, not mapped)")
+    print(f"Proposed BodyCompState: {body_comp_value} (from {current_phase})")
+    
+    print(f"Proposed Macrocycle Goal: '{macrocycle_goal}'")
+    print(f"Proposed Seed Posture: {seed_posture}")
+    print(f"Proposed Expected Sessions: {expected_sessions}")
+    print(f"Proposed Mesocycle Ordinal: {current_mesocycle_ordinal}")
+    print(f"Proposed Mesocycle Length: {mesocycle_length_weeks} weeks")
+    print(f"Proposed Template Action: {template_action} ('{template_name}')")
 
-    # 2. Compute initial RecoveryStatus
     db_readiness = session.exec(select(DailyReadiness)).all()
     inputs = [
         DailyReadinessInput(
@@ -111,10 +145,8 @@ def migrate(
     plan["recovery_status"] = recovery_status_val.value
     print(f"Proposed RecoveryStatus: {recovery_status_val.value} (computed fresh from readiness pipeline)")
 
-    # 3. Seed Macrocycle/Mesocycle/Microcycle representing "now"
     print(f"Proposed Microcycle Ordinal: {current_microcycle_ordinal}")
     
-    # 4. Shadow Validation Pass
     recent_sessions = session.exec(
         select(TrainingSession)
         .order_by(TrainingSession.date.desc())
@@ -125,67 +157,58 @@ def migrate(
     if not recent_sessions:
         print("No recent sessions found for shadow validation.")
     
+    shadow_errors = 0
     for sess in recent_sessions:
-        if body_comp_value:
-            # We assume a default planned_posture for the validation, or try to guess.
-            # We'll use BUILD as a generic posture just to see the resolver output.
-            # But wait, what posture to use? Let's use PUSH.
-            test_posture = "PUSH"
-            try:
-                resolved = resolve_envelope(
-                    planned_posture=test_posture,
-                    body_comp_state=body_comp_value,
-                    recovery_status=recovery_status_val.value,
-                    deload_active=False
-                )
-                res_str = f"RPE Cap: {resolved.rpe_cap}, Vol Multiplier: {resolved.volume_multiplier}"
-            except Exception as e:
-                res_str = f"Error resolving: {e}"
-            
-            val_entry = {
-                "session_id": sess.id,
-                "date": sess.date,
-                "historical_phase": sess.phase,
-                "simulated_envelope": res_str
-            }
-            plan["shadow_validation"].append(val_entry)
-            print(f"Session {sess.id} ({sess.date}) - Historical Phase: {sess.phase} -> Simulated (Posture={test_posture}): {res_str}")
-        else:
-            print(f"Session {sess.id} ({sess.date}) - Historical Phase: {sess.phase} -> Cannot simulate without BodyCompState")
+        try:
+            resolved = resolve_envelope(
+                planned_posture=seed_posture,
+                body_comp_state=body_comp_value,
+                recovery_status=recovery_status_val.value,
+                deload_active=False
+            )
+            res_str = f"RPE Cap: {resolved.rpe_cap}, Vol Multiplier: {resolved.volume_multiplier}"
+        except Exception as e:
+            res_str = f"Error resolving: {e}"
+            shadow_errors += 1
+        
+        val_entry = {
+            "session_id": sess.id,
+            "date": sess.date.isoformat(),
+            "historical_phase": sess.phase,
+            "simulated_envelope": res_str
+        }
+        plan["shadow_validation"].append(val_entry)
+        print(f"Session {sess.id} ({sess.date}) - Historical Phase: {sess.phase} -> Simulated (Posture={seed_posture}): {res_str}")
 
-    # 5. MesoRotation Backfill
     rotations = session.exec(select(MesoRotation)).all()
     
     if rotations:
+        existing_mesos = list(set(r.meso_number for r in rotations))
         print("\n--- MesoRotation Backfill ---")
-        # For simplicity, we just map them to the new mesocycle ID which we will create as 1 (or next val)
+        print(f"Collapsing {len(rotations)} MesoRotation rows (original meso_numbers: {existing_mesos}) into the new single Mesocycle.")
         plan["meso_rotations"] = [r.id for r in rotations]
-        print(f"Will map {len(rotations)} MesoRotation rows to the new Mesocycle ID.")
     
+    if shadow_errors > 0:
+        print(f"\nWARNING: Shadow validation encountered {shadow_errors} error(s). Please review the logs above.", file=sys.stderr)
+        raise RuntimeError("Shadow validation errors occurred.")
+
     if apply:
         print("\n=== APPLYING CHANGES ===")
-        # Insert Macrocycle, Mesocycle, Microcycle
-        macro = Macrocycle(goal="Initial Cutover Goal", planned_start_date=as_of)
+        macro = Macrocycle(goal=macrocycle_goal, planned_start_date=as_of)
         session.add(macro)
         session.flush()
         
-        # We need a MesocycleTemplate for the Mesocycle.
-        # But wait, Mesocycle requires a template_id. We might need to create a dummy template if one doesn't exist?
-        # Let's just create a dummy one for the cutover, or wait, is there an existing one?
-        # The design says Mesocycle needs template_id. Let's create one.
-        from ironlog.models.periodization import MesocycleTemplate
-        template = session.exec(select(MesocycleTemplate)).first()
         if not template:
-            template = MesocycleTemplate(name="Cutover Template", postures=["BUILD", "PUSH", "CONSOLIDATE", "DELOAD"])
+            template = MesocycleTemplate(name=template_name, postures=["BUILD", "PUSH", "CONSOLIDATE", "DELOAD"])
             session.add(template)
             session.flush()
             
         meso = Mesocycle(
             template_id=template.id,
             macrocycle_id=macro.id,
-            ordinal=1,
+            ordinal=current_mesocycle_ordinal,
             planned_start_date=as_of,
-            planned_end_date=as_of,
+            planned_end_date=planned_end_date,
         )
         session.add(meso)
         session.flush()
@@ -194,15 +217,14 @@ def migrate(
             mesocycle_id=meso.id,
             ordinal=current_microcycle_ordinal,
             planned_start_date=as_of,
-            planned_end_date=as_of,
-            expected_sessions=4,
-            planned_posture="BUILD"
+            planned_end_date=micro_end_date,
+            expected_sessions=expected_sessions,
+            planned_posture=seed_posture
         )
         session.add(micro)
         
-        if body_comp_value:
-            bcs = BodyCompState(state=BodyCompStateValue(body_comp_value), effective_from=as_of)
-            session.add(bcs)
+        bcs = BodyCompState(state=BodyCompStateValue(body_comp_value), effective_from=as_of)
+        session.add(bcs)
             
         rs = RecoveryStatus(as_of_date=as_of, status=RecoveryStatusValue(recovery_status_val.value))
         session.add(rs)
@@ -226,8 +248,14 @@ def main():
                         help="Explicit mapping for CALIBRATION phase")
     parser.add_argument("--rebuild-maps-to", type=str, choices=["CUT", "MAINTENANCE", "GAIN"],
                         help="Explicit mapping for REBUILD phase")
+    parser.add_argument("--current-mesocycle-ordinal", type=int, required=True,
+                        help="The ordinal of the athlete's current mesocycle")
     parser.add_argument("--current-microcycle-ordinal", type=int, required=True,
                         help="The ordinal of the athlete's current microcycle")
+    parser.add_argument("--mesocycle-length-weeks", type=int, default=4,
+                        help="The expected length of the new mesocycle in weeks")
+    parser.add_argument("--seed-posture", type=str, default="BUILD", choices=["BUILD", "PUSH", "CONSOLIDATE", "DELOAD"],
+                        help="The posture to use for the cutover validation and seeding (default BUILD)")
     
     args = parser.parse_args()
     
@@ -236,12 +264,15 @@ def main():
             migrate(
                 session=session,
                 apply=args.apply,
+                current_mesocycle_ordinal=args.current_mesocycle_ordinal,
                 current_microcycle_ordinal=args.current_microcycle_ordinal,
+                mesocycle_length_weeks=args.mesocycle_length_weeks,
+                seed_posture=args.seed_posture,
+                
                 calibration_maps_to=args.calibration_maps_to,
                 rebuild_maps_to=args.rebuild_maps_to
             )
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":

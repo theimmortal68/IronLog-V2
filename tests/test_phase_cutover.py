@@ -52,33 +52,51 @@ def _setup_db(session, phase, seed_readiness=True):
 
 def test_migrate_cut(db_session):
     _setup_db(db_session, Phase.CUT)
-    plan = migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 4))
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
     assert plan["body_comp_state"] == "CUT"
     assert len(plan["shadow_validation"]) == 1
 
 def test_migrate_stab(db_session):
     _setup_db(db_session, Phase.STAB)
-    plan = migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 4))
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
     assert plan["body_comp_state"] == "MAINTENANCE"
 
 def test_migrate_calibration_requires_arg(db_session):
     _setup_db(db_session, Phase.CALIBRATION)
     with pytest.raises(ValueError, match="You must provide --calibration-maps-to"):
-        migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 4))
+        migrate(
+            db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+            mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+        )
 
 def test_migrate_calibration_with_arg(db_session):
     _setup_db(db_session, Phase.CALIBRATION)
-    plan = migrate(db_session, apply=False, current_microcycle_ordinal=1, calibration_maps_to="MAINTENANCE", as_of=date(2026, 9, 4))
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", calibration_maps_to="MAINTENANCE", as_of=date(2026, 9, 4)
+    )
     assert plan["body_comp_state"] == "MAINTENANCE"
 
 def test_migrate_rebuild_requires_arg(db_session):
     _setup_db(db_session, Phase.REBUILD)
     with pytest.raises(ValueError, match="You must provide --rebuild-maps-to"):
-        migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 4))
+        migrate(
+            db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+            mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+        )
 
 def test_migrate_rebuild_with_arg(db_session):
     _setup_db(db_session, Phase.REBUILD)
-    plan = migrate(db_session, apply=False, current_microcycle_ordinal=1, rebuild_maps_to="GAIN", as_of=date(2026, 9, 4))
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", rebuild_maps_to="GAIN", as_of=date(2026, 9, 4)
+    )
     assert plan["body_comp_state"] == "GAIN"
 
 def test_migrate_recovery_status_computation(db_session):
@@ -91,40 +109,84 @@ def test_migrate_recovery_status_computation(db_session):
     db_session.add(DailyReadiness(date=date(2026, 9, 5), sleep_ok=False, subjective_ok=True))
     db_session.commit()
     
-    plan = migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 6))
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 6)
+    )
     assert plan["recovery_status"] == RecoveryStatusValue.CAUTION.value
 
 def test_migrate_dry_run_is_idempotent(db_session):
     _setup_db(db_session, Phase.CUT)
-    plan1 = migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 4))
-    plan2 = migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 4))
+    plan1 = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
+    plan2 = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
     assert plan1 == plan2
 
-def test_migrate_apply_writes_data(db_session):
+def test_migrate_apply_writes_data_and_matches_plan(db_session):
     _setup_db(db_session, Phase.CUT)
-    migrate(db_session, apply=True, current_microcycle_ordinal=3, as_of=date(2026, 9, 4))
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=2, current_microcycle_ordinal=3, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
+    migrate(
+        db_session, apply=True, current_mesocycle_ordinal=2, current_microcycle_ordinal=3, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
     
-    # Assert DB writes
-    assert db_session.exec(select(Macrocycle)).first() is not None
+    # Assert DB writes exactly match plan
+    macro = db_session.exec(select(Macrocycle)).first()
+    assert macro is not None
+    assert macro.goal == plan["macrocycle_goal"]
+    assert macro.planned_start_date.isoformat() == plan["planned_start_date"]
+    
     meso = db_session.exec(select(Mesocycle)).first()
     assert meso is not None
+    assert meso.ordinal == plan["mesocycle_ordinal"]
+    assert meso.planned_start_date.isoformat() == plan["planned_start_date"]
+    assert meso.planned_end_date.isoformat() == plan["planned_end_date"]
+    
     micro = db_session.exec(select(Microcycle)).first()
     assert micro is not None
     assert micro.ordinal == 3
+    assert micro.expected_sessions == plan["expected_sessions"]
+    assert micro.planned_posture == plan["seed_posture"]
     
     bcs = db_session.exec(select(BodyCompState)).first()
-    assert bcs.state.value == "CUT"
+    assert bcs.state.value == plan["body_comp_state"]
     
     rs = db_session.exec(select(RecoveryStatus)).first()
-    assert rs.status.value == RecoveryStatusValue.NORMAL.value
+    assert rs.status.value == plan["recovery_status"]
     
     # Assert MesoRotation was backfilled
     rot = db_session.exec(select(MesoRotation)).first()
     assert rot.mesocycle_id == meso.id
+    assert rot.id in plan["meso_rotations"]
+
+def test_migrate_idempotency_guard(db_session):
+    _setup_db(db_session, Phase.CUT)
+    migrate(
+        db_session, apply=True, current_mesocycle_ordinal=2, current_microcycle_ordinal=3, 
+        mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 4)
+    )
+    
+    # Second apply should raise
+    with pytest.raises(RuntimeError, match="Migration idempotency guard failed"):
+        migrate(
+            db_session, apply=True, current_mesocycle_ordinal=2, current_microcycle_ordinal=3, 
+            mesocycle_length_weeks=4, seed_posture="BUILD", as_of=date(2026, 9, 5) # different day to prove it guards anyway
+        )
 
 def test_shadow_validation_pass(db_session):
     _setup_db(db_session, Phase.CUT)
-    plan = migrate(db_session, apply=False, current_microcycle_ordinal=1, as_of=date(2026, 9, 4))
+    plan = migrate(
+        db_session, apply=False, current_mesocycle_ordinal=1, current_microcycle_ordinal=1, 
+        mesocycle_length_weeks=4, seed_posture="PUSH", as_of=date(2026, 9, 4)
+    )
     assert len(plan["shadow_validation"]) == 1
     assert "Simulated" not in plan["shadow_validation"][0]["simulated_envelope"] # It's a formatted string
     assert "RPE Cap:" in plan["shadow_validation"][0]["simulated_envelope"]
