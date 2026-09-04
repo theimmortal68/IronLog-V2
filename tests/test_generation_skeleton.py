@@ -7,7 +7,7 @@ adaptive slots with program_movement_id set on every slot.
 
 NO from __future__ import annotations (project-wide constraint).
 """
-from ironlog.generation.skeleton import lay_skeleton
+from ironlog.generation.skeleton import lay_skeleton, week_parity
 from ironlog.models.library import Movement
 from sqlmodel import select
 
@@ -209,9 +209,17 @@ def test_lay_skeleton_microcycle_ordinal_parity_resolution(gen_db):
         resolved_b = True
     assert resolved_b, "Odd ordinal should resolve to B"
 
-    # Assert different dates but same ordinal resolve identically
-    date1 = date(2026, 1, 1)
-    date2 = date(2026, 1, 15)  # Definitely a different calendar week
+    # Assert different dates but same ordinal resolve identically. Pick dates
+    # that genuinely differ under the OLD calendar-based week_parity (proven
+    # by the assert below) -- otherwise this test would pass even if
+    # _resolve_slot regressed back to calendar keying, silently losing
+    # coverage for the exact bug this spec fixes (Fable review, High finding).
+    date1 = date(2026, 1, 5)   # week_parity == "A" (the epoch Monday itself)
+    date2 = date(2026, 1, 12)  # week_parity == "B" (one week later)
+    assert week_parity(date1) != week_parity(date2), (
+        "test setup invalid: these dates must differ under the OLD "
+        "calendar-based parity for this to be a meaningful regression guard"
+    )
     sk_date1 = lay_skeleton("D1 Upper Push", gen_db, microcycle_ordinal=4, as_of=date1)
     sk_date2 = lay_skeleton("D1 Upper Push", gen_db, microcycle_ordinal=4, as_of=date2)
     assert sk_date1.anchor_movement_ids == sk_date2.anchor_movement_ids

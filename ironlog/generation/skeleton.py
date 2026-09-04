@@ -152,16 +152,17 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         Movement ids for TierExercises with tier_role=="anchor" outside
         GIANT_SET tiers.
         Resolved via _resolve_slot: an active SlotMovementOverride takes
-        precedence, then the matching MicrocycleParityRotation row for as_of's
-        parity, then the matching MesoRotation row for meso_number, then
-        te.movement_id.
+        precedence, then the matching MicrocycleParityRotation row for the
+        current parity (microcycle_ordinal when given, else as_of's calendar
+        parity), then the matching MesoRotation row for mesocycle_id/meso_number,
+        then te.movement_id.
 
     adaptive_slots:
         SlotSpec for every non-anchor TierExercise, plus anchor exercises
         inside GIANT_SET tiers, with
         program_movement_id resolved via the same _resolve_slot precedence
-        (SlotMovementOverride > MicrocycleParityRotation(as_of) >
-        MesoRotation(meso_number) > te.movement_id).
+        (SlotMovementOverride > MicrocycleParityRotation(microcycle_ordinal or as_of) >
+        MesoRotation(mesocycle_id or meso_number) > te.movement_id).
         kind = "knee" if knee_modality set,
                "giant" if tier is GIANT_SET and tier_role is not anchor,
                "accessory" otherwise.
@@ -265,8 +266,8 @@ def _effective_exercise_order(db: Session, te: TierExercise) -> float:
 def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date, microcycle_ordinal: Optional[int] = None, mesocycle_id: Optional[int] = None) -> _ResolvedSlot:
     """Resolve the movement id and optional rep overrides for a TierExercise slot.
 
-    Precedence: active SlotMovementOverride > MicrocycleParityRotation(as_of) >
-    MesoRotation(meso_number) > te.movement_id.
+    Precedence: active SlotMovementOverride > MicrocycleParityRotation(microcycle_ordinal
+    or as_of) > MesoRotation(mesocycle_id or meso_number) > te.movement_id.
     Base program (te.movement_id) is never mutated by this resolution.
 
     Filters to override_type == MOVEMENT: SlotMovementOverride is now a general
