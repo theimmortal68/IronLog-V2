@@ -1,211 +1,234 @@
 # Microcycle/Mesocycle Advancement — Design
 
-**Revision 2** — incorporates 12 corrections from a review pass on revision 1 (a written contradiction between §2 and §4, a production-critical missing-bootstrap bug, a regression against the original periodization design's own lifecycle/drift split, an ambient-mutable-state dependency, a single-event reconciler result that can't represent catching up across multiple boundaries, unspecified transaction/concurrency behavior, an off-by-one posture index, unpersisted plan-exhaustion state, an under-specified audit log, a fragile display-label match, undefined duplicate-session handling, and three smaller schema cleanups). Six of the twelve were assessed as blockers (would produce incorrect advancement, not just untidy architecture); all twelve are incorporated here since none required new design questions — every fix was already fully specified.
+**Revision 3** — incorporates 7 corrections from a second review pass on revision 2, 3 flagged as blockers. The biggest: **revision 2 still conflated Session *generation* with Session *completion*.** IronLog-V2 generates a `Session` row on-demand when the athlete opens the app for a day (`status=PLANNED`) — that is not the same event as actually training. Revision 2's "generating a Session resolves the slot to `COMPLETED`" would have let opening the app and never training still count as a completed workout toward advancement. Fixed by separating *binding* (generation) from *resolution* (actual completion, keyed off the existing `Session.status` transition to `COMPLETED` — confirmed to already exist at `ironlog/api/app.py:553`, not invented here). The other two blockers: `EXTENDED` was defined as a `schedule_state` value in revision 2 but the drift-band transition rules never actually produced it (unreachable state), and revision 2 never specified what session generation/policy resolution should do when reconciliation leaves the plan in a blocked state.
 
 ## Background
 
 The long-range periodization system (`docs/superpowers/specs/2026-09-03-long-range-periodization-design.md`, live in production since 2026-09-04) resolves a session's effective envelope from whatever the *current* Macrocycle/Mesocycle/Microcycle/BodyCompState/RecoveryStatus/DeloadState happen to be — but nothing advances that state over time. The cutover seeded exactly one Microcycle (#1, ordinal 1, planned 2026-09-04 to 2026-09-10) and manually activated it as a one-time bootstrap. Without this design, that state is permanent: periodization is live and correctly *wired*, but temporally *static*.
 
-This document covers the state machine that makes it move: Microcycle lifecycle transitions, Mesocycle rollover, and the scheduling/scaffolding (`MicrocycleSlot`, `Session.microcycle_id`, the reconciler service, the audit log) those transitions need to be evaluated correctly. It does not cover DeloadState's own trigger/evidence logic (explicitly out of scope, see §6) or exercise-rotation/constraint-type classification (a separate, later topic — captured in CORE memory from this same session, not part of this design).
+This document covers the state machine that makes it move. It does not cover DeloadState's own trigger/evidence logic (§6) or exercise-rotation/constraint-type classification (captured in CORE memory, not part of this design).
 
 ## Architecture invariants this design must not violate
 
 Same six from repo-root `CLAUDE.md` as the original design doc; the two most load-bearing for this one:
 1. **Rules dispose; the model proposes.** The reconciler (§3) is deterministic. It never asks an LLM anything.
-3. **Planned vs Logged**, extended again: `MicrocycleSlot.resolution` (§2) is itself a planned-vs-actual pair — `planned_date`/`day_code` (what was expected) vs. `resolution`/`session_id`/`resolved_at` (what happened). Never collapse these into a single mutable field.
+3. **Planned vs Logged**, extended again: `MicrocycleSlot.resolution` (§2) is a planned-vs-actual pair. Never collapse it into a single mutable field.
 
-## 1. `Session.microcycle_id`
+## 1. `Session.microcycle_id` and `Session.plan_status`
 
-New nullable, indexed FK on `Session`. Populated at generation time (`ironlog/generation/assembler.py`'s `WorkoutSession(...)` construction, alongside the existing `prescription_snapshot`) going forward. **One-time backfill**, not a live migration: for the handful of sessions already generated since the 2026-09-04 cutover, extract `microcycle_id` from their existing `prescription_snapshot.microcycle_id` JSON key where present and resolvable to a real row. Genuinely pre-periodization sessions stay `NULL` — no inference attempted. Deleting a `Microcycle` that has resolved `Session` rows pointing to it must be restricted (FK `ON DELETE RESTRICT` or equivalent), never cascaded — historical training records are never invalidated by periodization-entity cleanup.
-
-**Unplanned/duplicate sessions (fix #11):** only a `Session` that binds to a `PENDING` `MicrocycleSlot` at generation time resolves planned work. If a slot for that `day_code` is already resolved (a second session generated for a day already completed) or no matching slot exists in the current Microcycle at all, the new `Session` is classified `UNPLANNED` (a new boolean/flag on `Session`, or a sentinel in `prescription_snapshot` — implementer's call) and **never** resolves a slot by falling back to a raw count. This is the entire reason slot identity was introduced instead of `expected_sessions`; a count-based fallback anywhere defeats it.
+New nullable, indexed FK `microcycle_id` on `Session`, plus a new **required, real column** `plan_status: PLANNED | UNPLANNED` (fix #5 — revision 2 left this as "boolean or JSON, implementer's call"; that's wrong for something advancement accounting needs to query directly. `prescription_snapshot` is historical context, not a queryable source of truth for whether a session counted toward the plan). Both populated at generation time. **One-time backfill** for the handful of sessions generated since the 2026-09-04 cutover (extract `microcycle_id` from existing `prescription_snapshot.microcycle_id` JSON where resolvable; `plan_status=PLANNED` for all of them, since periodization wasn't yet distinguishing unplanned sessions when they were generated). Genuinely pre-periodization sessions stay `NULL`/unclassified. Deleting a `Microcycle` with resolved `Session` rows must be restricted, never cascaded.
 
 ## 2. `MicrocycleSlot` — the real source of truth for "what was this week supposed to look like"
-
-`expected_sessions` (an int on `Microcycle`) cannot answer "which specific day got skipped" or distinguish "5 arbitrary sessions happened" from "the actual planned rotation happened." `MicrocycleSlot` replaces it as the authoritative model:
 
 ```
 MicrocycleSlot
   id
   microcycle_id (FK)
-  ordinal                      -- position within the week
-  day_code                     -- stable identity: "D1".."D7" (fix #10)
-  day_label                    -- display snapshot at materialization time: "Upper A" etc,
-                                   never matched against -- purely informational
+  ordinal
+  day_code                     -- stable identity: "D1".."D7"
+  day_label                    -- display snapshot, never matched against
   planned_date
   slot_type                    -- TRAINING | REST
-  resolution                   -- PENDING | COMPLETED | SKIPPED | NOT_APPLICABLE (fix #12;
-                                   REST slots are NOT_APPLICABLE, never PENDING/COMPLETED --
-                                   "pending" implies an obligation a rest day doesn't carry)
+  resolution                   -- PENDING | COMPLETED | SKIPPED | NOT_APPLICABLE (REST slots)
   resolution_source            -- SESSION | INFERRED_BOUNDARY | USER_EXPLICIT
-  session_id (FK, nullable, unique when non-null — fix #6)
+  session_id (FK, nullable, unique when non-null)
   resolved_at (nullable)
 ```
 
-**Snapshotted once, at Microcycle materialization** (bootstrap, or the advancement engine creating the next one — §4/§5) from the `Program` the owning `Mesocycle` is bound to (§4a) — not whatever `Program` happens to be active at that instant. If a `Program`'s day rotation changes later, already-materialized Microcycles are unaffected. Same principle as `prescription_snapshot`: preserve what was true at the time.
+**Snapshotted once, at Microcycle materialization**, from the specific `Program` the owning `Mesocycle` is bound to (§5c) — never "whatever's active." **Invariant, unchanged from revision 2:** at most one `TRAINING` slot per `(microcycle_id, day_code)`; `(microcycle_id, ordinal)` unique. A Microcycle with zero `TRAINING` slots may never automatically reach `COMPLETE` — see the bootstrap in §2b, which exists specifically because Microcycle #1 is already live in production with zero slots and this exact vacuous-truth bug was caught in review before shipping.
 
-**Resolution flow:** when a `Session` is generated for a given `day_code`, it resolves the matching `PENDING` slot in the current Microcycle (`resolution=COMPLETED`, `resolution_source=SESSION`, `session_id` set, `resolved_at` set), in the **same transaction** as the `Session` insert (§6) — a shifted session (planned Sunday, trained Monday) still resolves its own originally-planned slot, not a slot from whatever microcycle Monday nominally falls in. A `TRAINING` slot only becomes `SKIPPED` (`resolution_source=INFERRED_BOUNDARY`) at drift-window expiry (§4) — **never inferred mid-week, and never by synthesizing a fake `Session` row.**
+### 2a. Binding vs. resolution (fix #1, blocker)
 
-**Invariant:** at most one `TRAINING` slot per `(microcycle_id, day_code)`, and `(microcycle_id, ordinal)` unique (fix #6) — unless a future program model explicitly supports repeated day-roles in one week (it doesn't today). **A Microcycle with zero `TRAINING` slots may never automatically reach `COMPLETE`** (fix #2) — the "all resolved" check is vacuously true over an empty set, which is exactly the bug the bootstrap in §2a exists to prevent.
+**Generating a `Session` binds a slot; it does not resolve it.** Two distinct events, keyed off `Session.status` (already exists: `PLANNED | IN_PROGRESS | COMPLETED | SKIPPED`; the transition to `COMPLETED` already happens at `ironlog/api/app.py:553`, the workout-submit endpoint — this design reuses that signal, it does not invent a second "completed" concept):
 
-### 2a. Bootstrap: `MicrocycleSlot` for the already-live Microcycle #1 (production-critical, fix #2)
+```
+Session generated (status=PLANNED):
+  slot.session_id = session.id
+  slot.resolution stays PENDING
 
-Microcycle #1 (id 1, ordinal 1, `ACTIVE`, planned 2026-09-04 to 2026-09-10) already exists in production with **zero** `MicrocycleSlot` rows — it was materialized by the cutover script before this subsystem existed. If the reconciler ships without a bootstrap, its first invocation would find zero `PENDING` training slots (there are zero slots, period) and immediately, incorrectly complete Microcycle #1. This is not a hypothetical edge case; it is the exact next thing that would happen in production. **This design cannot ship without this bootstrap, and the bootstrap must run before the reconciler is ever invoked against live data.**
+Session.status → COMPLETED (existing submit-workout flow, app.py:553):
+  slot.resolution = COMPLETED
+  slot.resolution_source = SESSION
+  slot.resolved_at = the completion timestamp already recorded on Session
+```
 
-One-time bootstrap script (following the cutover script's own precedent):
-1. Snapshot Microcycle #1's expected `TRAINING`/`REST` slots from the `Program` its owning Mesocycle is bound to (§4a — for the bootstrap specifically, this is "whichever `Program` row is currently the seeded one," since no `program_id` existed on Mesocycle #1 until this same bootstrap sets it).
-2. Backfill `Session.microcycle_id` (§1) for any sessions already generated since 2026-09-04.
-3. For each backfilled `Session`, resolve its matching `day_code` slot: `resolution=COMPLETED`, `resolution_source=SESSION`, `session_id` set.
-4. **Verify** the resulting slot count matches the expected `TRAINING` slot count for the program's day rotation before considering the bootstrap successful — a silent zero-slot result must hard-fail the bootstrap, not proceed.
-5. Only after this verified bootstrap runs does the reconciler (§3) become safe to invoke against production.
+If `Session.status` is ever set to `SKIPPED` (the enum value already exists) instead, the bound slot resolves `SKIPPED` / `resolution_source=USER_EXPLICIT` — not `INFERRED_BOUNDARY`, since this was an explicit signal, not a boundary-time inference. Nothing in this design currently produces `Session.status=SKIPPED` (no explicit-skip endpoint is built here — same non-goal as revision 1/2), but the resolution path is defined now so it composes cleanly whenever that's built.
+
+**A slot with `session_id != NULL` is already bound, regardless of its `resolution` value.** A second `Session` generated for the same `day_code` must not attach to an already-bound slot — it becomes `plan_status=UNPLANNED` (§1), full stop, never a fallback count.
+
+**Drift expiry and a bound-but-incomplete slot:** if a slot is bound to a `Session` that never reached `COMPLETED` (the athlete opened the app but never trained, or never submitted) and the Microcycle's drift window expires (§4), that slot still resolves `SKIPPED` / `INFERRED_BOUNDARY` — the `session_id` FK is **not** cleared; it remains as historical evidence the day was opened but not completed. This is exactly the gap revision 2 missed.
+
+### 2b. Bootstrap: `MicrocycleSlot` for the already-live Microcycle #1 (production-critical)
+
+Unchanged from revision 2 — still required, still blocking, still must run before the reconciler is ever invoked against live data:
+1. Snapshot Microcycle #1's expected `TRAINING`/`REST` slots from the `Program` its (now-bound, §5c) Mesocycle uses.
+2. Backfill `Session.microcycle_id`/`plan_status` for sessions already generated since 2026-09-04.
+3. For each, resolve its matching `day_code` slot per the binding/resolution split in §2a (i.e., check the real `Session.status`, not just "a Session exists" — a session generated but never completed binds the slot without resolving it, exactly as live behavior should be).
+4. **Verify** the resulting slot count matches the expected `TRAINING` count before considering the bootstrap successful — a silent zero-slot result hard-fails the bootstrap.
 
 ## 3. The reconciler: `reconcile_current_training_state()`
 
-A single idempotent entry point, invoked lazily — **no scheduler, no background job, no new infrastructure** in this pass. Called at the top of:
-- session generation (`ironlog/generation/context.py`'s `resolve_context`, before `resolve_current_microcycle` is used)
-- `GET /training/plan/current`
-- any future write path that depends on current periodization state
+Invoked lazily, no scheduler, at the top of session generation, `GET /training/plan/current`, and any future write path depending on periodization state.
 
-Ordered steps per invocation:
-1. Refresh/evaluate RecoveryStatus *(already exists, unchanged)*
-2. Evaluate DeloadState — **no-op placeholder in this pass** (§6)
-3. **Reconcile lifecycle to a fixed point** (fix #5): loop applying due Microcycle/Mesocycle transitions (§4/§5) until either no further transition is due, or a blocking state is reached (`INCOMPLETE`, `AWAITING_NEXT_MESOCYCLE` — §5). A capped iteration bound (e.g. 100) guards against a logic bug turning this into an infinite loop; hitting the bound is itself logged as an error, not silently truncated. This single loop replaces what revision 1 described as separate "step 3 (Microcycle)" / "step 4 (Mesocycle)" steps — advancing a Microcycle can immediately make a Mesocycle transition due (final Microcycle completing), which can immediately make the next Mesocycle's first Microcycle due to activate, all in one lazy call after (for example) two weeks of the app not being opened.
-4. Resolve effective policy *(already exists — `resolve_envelope`, unchanged)*
+1. Refresh/evaluate RecoveryStatus *(unchanged)*
+2. Evaluate DeloadState — no-op placeholder (§6)
+3. **Reconcile lifecycle to a fixed point**: loop applying due Microcycle/Mesocycle transitions until no further transition is due or a blocking state is reached (`INCOMPLETE`, `AWAITING_NEXT_MESOCYCLE`). Capped iteration bound, logged as an error if hit.
+4. Resolve effective policy — **conditionally, see §3a**.
 
-**Transaction/concurrency (fix #6):** the entire reconciliation (steps 1-3) runs inside one DB transaction, with the current active Mesocycle/Microcycle row(s) locked for the duration (`SELECT ... FOR UPDATE` or SQLite's equivalent serialization) — two concurrent calls must not both observe "due" and both attempt to advance. DB-level uniqueness backs this up structurally, not just at the application level:
-- `UNIQUE(macrocycle_id, ordinal)` on `Mesocycle`
-- `UNIQUE(mesocycle_id, ordinal)` on `Microcycle`
-- `UNIQUE(microcycle_id, ordinal)` and `UNIQUE(microcycle_id, day_code)` on `MicrocycleSlot`
-- `UNIQUE(session_id)` on `MicrocycleSlot` where `session_id IS NOT NULL`
-- At most one `ACTIVE` Mesocycle per Macrocycle, at most one `ACTIVE`/`EXTENDED`-schedule-state Microcycle per Mesocycle — enforced by a partial unique index where the target DB supports it (SQLite does, via `CREATE UNIQUE INDEX ... WHERE status = 'ACTIVE'`), application-level check as a fallback otherwise.
+**Transaction/concurrency, unchanged from revision 2:** steps 1-3 run in one DB transaction with the current active Mesocycle/Microcycle locked. DB-level uniqueness: `UNIQUE(macrocycle_id, ordinal)` on Mesocycle, `UNIQUE(mesocycle_id, ordinal)` on Microcycle, `UNIQUE(microcycle_id, ordinal)` + `UNIQUE(microcycle_id, day_code)` on `MicrocycleSlot`, `UNIQUE(session_id)` on `MicrocycleSlot` where non-null. **Simplified uniqueness invariant (fix #7b — revision 2's phrasing conflated the now-separate axes):** at most one `lifecycle_status=ACTIVE` Microcycle per Mesocycle; `schedule_state` is irrelevant to this constraint since it's orthogonal to lifecycle.
 
-**Idempotency:** repeated calls with nothing due are pure reads. Return shape is a **structured list, not a single enum** (fix #5):
+Return shape unchanged from revision 2 — structured, not a single enum:
 ```
 ReconcileResult
-  transitions: List[Transition]   -- e.g. [MICROCYCLE_COMPLETED, MESOCYCLE_COMPLETED,
-                                            MESOCYCLE_ACTIVATED, MICROCYCLE_ACTIVATED]
+  transitions: List[Transition]
   final_microcycle_id
   final_mesocycle_id
-  blocked_reason: Optional[str]   -- e.g. "INCOMPLETE_MICROCYCLE" | "AWAITING_NEXT_MESOCYCLE"
+  blocked_reason: Optional[str]   -- "AWAITING_NEXT_MESOCYCLE" | "INCOMPLETE_MICROCYCLE"
 ```
+
+### 3a. What "blocked" actually means for callers (fix #3, blocker)
+
+Revision 2 persisted `blocked_reason` but never said what happens next. Explicit now:
+
+```
+if reconcile_result.blocked_reason is not None:
+    # session generation:
+    do NOT call resolve_envelope() against a stale/absent microcycle
+    do NOT generate a normally-planned Session
+    do NOT fall back to legacy PhasePolicy-driven generation silently
+    return a typed BlockedPlanError (or equivalent) explaining which
+      blocked_reason applies -- the caller (API layer) surfaces this,
+      it does not swallow it into a degraded-but-successful response
+
+    # GET /training/plan/current:
+    still returns 200 -- reports the blocked state explicitly
+      (blocked_reason, last valid microcycle/mesocycle) rather than
+      erroring or silently showing stale "current" state
+```
+
+**Explicit escape hatch, not a silent fallback:** if a caller genuinely wants to generate a workout despite a blocked plan (e.g. the athlete wants to train today regardless of an `AWAITING_NEXT_MESOCYCLE` gap), that requires an explicit opt-in parameter on the generation call (e.g. `allow_unplanned=True`) — which produces a `Session` with `plan_status=UNPLANNED` (§1), no slot-binding attempt at all, and generation falls back to the pre-existing additive no-op path from the original periodization design (`ctx.resolved_envelope=None`, legacy `PhasePolicy`-driven resolution — the exact same path that already runs today for any session generated with no active Microcycle). This is not new machinery; it's the already-built fallback, deliberately reused rather than inventing a second one, now reached via an explicit flag instead of implicitly.
 
 ## 4. Microcycle lifecycle
 
-**Lifecycle status and schedule drift are separate axes** (fix #3 — this design's revision 1 accidentally recombined them; the *original* periodization design doc already established this split correctly and it must not regress here):
-
 ```
 lifecycle_status:  NOT_STARTED | ACTIVE | COMPLETE | INCOMPLETE
-schedule_state:    ON_TIME | EXTENDED | DRIFT_FLAGGED       (independent of lifecycle_status)
+schedule_state:    ON_TIME | EXTENDED | DRIFT_FLAGGED       (independent axis)
 ```
 
-A late-but-still-open week is `lifecycle_status=ACTIVE, schedule_state=EXTENDED, drift_days=2` — never `lifecycle_status=EXTENDED`.
+**Drift bands, corrected (fix #2, blocker — revision 2 defined `EXTENDED` but its transition rules never produced it, an unreachable state):**
+
+```
+drift_days = max(0, local_today - planned_end_date)   -- explicit formula, fix #2
+
+drift_days == 0  (on or before planned_end_date):  schedule_state = ON_TIME
+drift_days 1-2:                                     schedule_state = EXTENDED
+drift_days 3-4:                                     schedule_state = DRIFT_FLAGGED
+drift_days > 4:   remaining PENDING TRAINING slots -> SKIPPED / INFERRED_BOUNDARY,
+                   then re-check completion (below). Ordinary missed-workout drift
+                   does NOT produce INCOMPLETE -- one forgotten session must never
+                   freeze the whole periodization system.
+```
+
+`local_today` uses the timezone from §8, not server UTC.
 
 **Transitions:**
 - **`NOT_STARTED → ACTIVE`**: on materialization/activation. Sets `actual_start_date`.
-- **Drift progression while `ACTIVE`** (fix #1 — resolves a direct contradiction in revision 1 between "slots become SKIPPED at boundary expiry" and "INCOMPLETE at outer-bound drift," which were competing outcomes for the same event):
-  ```
-  planned_end_date passes
-    0–2 days late:  schedule_state stays ON_TIME (tolerated silently)
-    3–4 days late:  schedule_state = DRIFT_FLAGGED
-    >4 days late:   remaining PENDING TRAINING slots -> SKIPPED / INFERRED_BOUNDARY,
-                     then re-check completion (below) -- ordinary missed-workout drift
-                     does NOT produce INCOMPLETE. One forgotten session must never freeze
-                     the whole periodization system until someone touches the database.
-  ```
-- **`ACTIVE → COMPLETE`**: whenever every `TRAINING` slot's `resolution != PENDING` (`COMPLETED` or `SKIPPED`), checked after every relevant slot resolution *and* after the `>4 days late` inferred-skip pass above. Reason logged: `ALL_SESSIONS_RESOLVED` (or `DRIFT_INFERRED_SKIP` when the completion was triggered by the inferred-skip pass specifically — captured in `AdvancementLog.details_json`, fix #9).
-- **`ACTIVE → INCOMPLETE`**: **only** on an explicit, operator-declared interruption/abandonment/replan action — never automatically from drift alone. Out of scope for a write endpoint in this pass, so reachable only via direct operator action for now (same precedent as the cutover script). **Terminal and fully blocking**: an `INCOMPLETE` Microcycle does not trigger advancement to the next ordinal or Mesocycle rollover — the reconciler's fixed-point loop (§3) stops here, same as it stops at `AWAITING_NEXT_MESOCYCLE` (§5). "Terminal" describes this Microcycle's own state machine (it can never become `COMPLETE` after `INCOMPLETE`); it does not mean the *plan* is unrecoverable — a future write path can materialize a replacement, which is a distinct, not-yet-designed operation, not an automatic "un-terminal-ing" of the same row.
+- **`ACTIVE → COMPLETE`**: whenever every `TRAINING` slot's `resolution != PENDING`, checked after every relevant slot resolution and after the `>4 days` inferred-skip pass. Reason logged: `ALL_SESSIONS_RESOLVED` or `DRIFT_INFERRED_SKIP`. Sets `actual_completion_date` (the field already on the `Microcycle` model from spec 01 — see §7 for why this design does not add a second, redundant timestamp field alongside it).
+- **`ACTIVE → INCOMPLETE`**: only on an explicit, operator-declared interruption/abandonment/replan action — never automatically from drift. Out of scope for a write endpoint in this pass (direct operator action only, same precedent as the cutover script). **Terminal and fully blocking**: does not trigger next-Microcycle advancement or Mesocycle rollover; the reconciler's fixed-point loop stops here.
 
-`planned_posture` is never touched by any of these transitions — set once at materialization, immutable for the Microcycle's lifetime. `effective_posture` is what a future deload override touches, not `planned_posture`.
-
-Set `completed_at` (fix #12, alongside the existing `actual_start_date`/`actual_completion_date` already on the model) whenever `lifecycle_status` reaches `COMPLETE` or `INCOMPLETE`.
+`planned_posture` is never touched by any transition.
 
 ## 5. Mesocycle lifecycle + rollover
 
 ```
 PLANNED → ACTIVE → COMPLETE
 ```
-(+ `CANCELLED`/`ABORTED` as escape hatches for a future manual-intervention path — no transition into them defined here.)
 
-**Rollover, evaluated inside the reconciler's fixed-point loop (§3), when the current Mesocycle's final Microcycle reaches `COMPLETE`** (not `INCOMPLETE` — an `INCOMPLETE` Microcycle blocks the loop before rollover is ever considered, §4):
-1. Close the current Mesocycle (`ACTIVE → COMPLETE`), set `completed_at`.
-2. Query the owning Macrocycle for the next ordered `Mesocycle` with `status=PLANNED` (`ordinal` = current + 1).
-3. **If found**: activate it (`PLANNED → ACTIVE`, `actual_start_date` set), materialize its first `Microcycle` (ordinal 1, slots per §2, `planned_posture = MesocycleTemplate.postures[microcycle.ordinal - 1]` — **explicitly 0-indexing off a 1-based ordinal, fix #7**: Microcycle ordinal 1 → `postures[0]`, ordinal 2 → `postures[1]`, etc; a dedicated test asserts all four index mappings for a 4-week template), activate that Microcycle. Set `Macrocycle.planning_state = ACTIVE` if it wasn't already. Reason logged: `MESOCYCLE_ADVANCED`. The loop continues (a freshly-activated Microcycle doesn't itself need another pass, but the loop re-checks for due-ness rather than assuming this is the end).
-4. **If not found**: set `Macrocycle.planning_state = AWAITING_NEXT_MESOCYCLE` (fix #8 — see §5a) if it isn't already in that state; log `PLAN_EXHAUSTED` **only on the transition into that state**, not on every subsequent call that finds it already there (idempotent logging, matching the reconciler's general idempotency contract). The loop stops here (`blocked_reason="AWAITING_NEXT_MESOCYCLE"`).
+**Rollover** (evaluated inside the fixed-point loop, when the current Mesocycle's final Microcycle reaches `COMPLETE`, not `INCOMPLETE`):
+1. Close the current Mesocycle (`ACTIVE → COMPLETE`, sets `actual_end_date` — the field already on `Mesocycle`).
+2. Query the Macrocycle for the next ordered `Mesocycle` with `status=PLANNED`.
+3. **If found**: validate template cardinality (§5d) before activating. Activate it, materialize its first `Microcycle` (`planned_posture = MesocycleTemplate.postures[microcycle.ordinal - 1]`, 0-indexed off a 1-based ordinal — a dedicated test asserts all four index mappings for a 4-week template), activate that Microcycle. Set `Macrocycle.planning_state = ACTIVE`. Reason logged: `MESOCYCLE_ADVANCED`. **The entire step (close old Mesocycle, activate new Mesocycle, materialize+activate its first Microcycle) is one transaction** (fix #6) — a validation/index failure partway through must roll back everything, never leaving the old Mesocycle `COMPLETE` with the new one half-activated.
+4. **If not found**: `Macrocycle.planning_state = AWAITING_NEXT_MESOCYCLE` if not already; log `PLAN_EXHAUSTED` only on the transition into that state. Loop stops (`blocked_reason="AWAITING_NEXT_MESOCYCLE"`).
 
-**Within an active Mesocycle, Microcycle-to-Microcycle advancement** (the normal weekly case, not a rollover): when the current Microcycle reaches `COMPLETE` and it is *not* the Mesocycle's last, materialize and activate the next ordinal's Microcycle the same way. **Planned dates are never slid**: the next Microcycle's `planned_start_date`/`planned_end_date` are computed from the Mesocycle's own schedule (start + N weeks), not from whenever the previous one actually finished — if Microcycle 1 ran two days late, Microcycle 2 still gets its original planned window; only its `actual_start_date` reflects when it really began.
+**Within an active Mesocycle, Microcycle-to-Microcycle advancement**: unchanged from revision 2 — next Microcycle materializes with dates computed from the Mesocycle's own schedule, never slid from when the previous one actually finished.
 
-### 5a. Plan-exhaustion state (fix #8)
+### 5a. Session generation transaction race (fix #4, tighten)
 
-`PLAN_EXHAUSTED` in revision 1 was a transient reconciler-call result with no persisted representation — leaving "is it logged every GET, or once?" and "how does the next call know it's already been surfaced?" both undefined, and `AdvancementLog.entity_type` (microcycle/mesocycle only) had no way to represent an exhausted *plan* at all. Fixed with a new field:
+A gap exists between "the reconciler determined slot X is the target" and "the Session insert actually happens" — another concurrent request could advance state in between. Session generation must not trust a reconciled `microcycle_id`/slot identity from a moment ago; it re-verifies inside its own insert transaction:
 
 ```
-Macrocycle.planning_state: ACTIVE | AWAITING_NEXT_MESOCYCLE | COMPLETE
+lock target MicrocycleSlot
+verify:
+    owning Microcycle still lifecycle_status=ACTIVE
+    slot.slot_type == TRAINING
+    slot.resolution == PENDING
+    slot.session_id IS NULL
+create Session
+bind slot.session_id = session.id  (resolution stays PENDING per §2a)
+commit
 ```
-Lifecycle/planning metadata, not engine-prescription behavior — does not violate the original design's "Macrocycle has no engine behavior" non-goal. `AWAITING_NEXT_MESOCYCLE → ACTIVE` transitions cleanly and idempotently once `scripts/plan_next_mesocycle.py` (§5b) adds the next block and rollover finds it on a subsequent reconcile call.
 
-### 5b. Mesocycle materialization mechanism (minimal, non-UI)
+If verification fails (lost the race), the generation falls through to `plan_status=UNPLANNED` (§1) rather than force-attaching to a different slot.
 
-**Rollover consumes a plan, it does not author one** — building a full write API/authoring UI stays explicitly out of scope. A script, following the cutover script's precedent: `scripts/plan_next_mesocycle.py`, taking a `MesocycleTemplate` (existing or newly named, with its posture list), the target Macrocycle, **an explicit `program_id`** (fix #4, see §5c), and planned dates; inserts one `PLANNED`-status `Mesocycle` row. No `Microcycle`/`MicrocycleSlot` materialization happens at this stage — that's rollover's job when the mesocycle actually activates.
+### 5b. Plan-exhaustion state
 
-### 5c. `Mesocycle.program_id` — binding to a specific Program, not ambient state (fix #4)
+Unchanged from revision 2: `Macrocycle.planning_state: ACTIVE | AWAITING_NEXT_MESOCYCLE | COMPLETE`. Lifecycle/planning metadata, not engine-prescription behavior.
 
-Revision 1 had each Microcycle snapshot "the then-active `Program`" with no mechanism pinning *which* `Program` a *planned* future Mesocycle was meant to use — meaning rollover's slot materialization would depend on whatever `Program` happened to be active at the moment rollover actually fired, not what was intended when the Mesocycle was planned. This matters specifically because deliberate exercise/stimulus rotation across mesocycles (different Belle Mere grip widths, different row variants, etc. — see the CORE-memory-captured rotation-strategy discussion from this session) is the entire reason Mesocycle rollover refuses to auto-clone.
+### 5c. `Mesocycle.program_id` + corruption detection (fix #4 from rev-2-review, elevated with a new addition)
 
-Fix: add `Mesocycle.program_id` (FK to `Program`, required), set by `plan_next_mesocycle.py` at planning time. Rollover's slot materialization (§2) reads the day-role rotation from **that specific `program_id`**, not "whatever's active."
+`Mesocycle.program_id` (FK, required) — set by `plan_next_mesocycle.py` at planning time, read by rollover's slot materialization instead of "whatever `Program` is active." Unchanged from revision 2.
 
-**Caveat, explicitly not solved by this design:** `ironlog/models/program.py`'s `Program` is a single mutable row today (confirmed directly against the live model) — nothing prevents `program_seed.py`/direct edits from changing a `Program`'s `ProgramDay`/`Tier`/`TierExercise` structure in place after a `Mesocycle` has already been bound to its `id`. `Mesocycle.program_id` is strictly better than the current ambient-mutable-state default (it at least records *intent*), but it does not achieve true immutability. Making `Program` genuinely versioned/immutable (e.g. a new `Program` row per meaningful revision, an append-only edit model) is a real, separate architectural change and is an explicit non-goal of this pass.
+**New: `Mesocycle.program_structure_hash`** — a hash computed at planning time over the bound `Program`'s relevant `ProgramDay`/`Tier`/`TierExercise` structure. At activation (rollover step 3), recompute the hash against the live `Program` state and compare:
+```
+current hash == planned hash  → proceed
+current hash != planned hash  → fail loudly, require explicit operator
+                                  acknowledgment before proceeding
+```
+This does not achieve `Program` immutability (still an explicit non-goal — see below), but it turns a silent, dangerous failure mode into a loud one: without it, planning "Mesocycle 3 = 28\" Belle Mere + T-bar emphasis" and then editing that `Program` in place four weeks later would let rollover silently materialize something the athlete never actually planned. The hash is cheap now and becomes redundant-but-harmless audit metadata once real `Program` versioning exists.
+
+**Caveat, still explicitly not solved by this design:** `Program` remains a single mutable row (confirmed against the live model). `program_id` + `program_structure_hash` together record and *detect drift from* intent; they do not *prevent* the underlying row from being edited. True `Program` versioning/immutability is a real, separate architectural change and stays a non-goal here.
+
+### 5d. Template cardinality validation (fix #6)
+
+`plan_next_mesocycle.py` validates `len(template.postures)` matches the planned Mesocycle's microcycle count (e.g. a 4-week block needs exactly 4 posture entries — implementer decides exact-match vs. at-least, but it must be validated, never allowed to silently index out of range) at planning time. **Re-validated defensively at rollover/materialization time too** (§5, step 3), inside the same all-or-nothing transaction — an index error during rollover must never leave the old Mesocycle `COMPLETE` and the new one partially activated.
 
 ## 6. Deload: explicitly out of scope, orchestration seam only
 
-Unchanged from revision 1. Advancement answers "where am I in the plan?" Deload evaluation answers "how should I train given current fatigue?" — different state machine, not built here. This design:
-- Treats current `DeloadState` as **read-only input** to policy resolution (already true today).
-- **Never** triggers, resolves, or clears a `DeloadState` as a side effect of any transition.
-- **Never** lets an active deload rewrite `planned_posture`.
-- Reserves reconciler step 2 (§3) as a defined no-op seam for a future deload evidence-evaluator.
+Unchanged from revision 1/2. Advancement never triggers, resolves, or clears `DeloadState`, and never lets it rewrite `planned_posture`. Reconciler step 2 stays a defined no-op seam.
 
 ## 7. Audit trail: `AdvancementLog`
 
-```
-AdvancementLog
-  id
-  reconcile_run_id        -- shared across every row produced by one reconciler invocation (fix #9)
-  entity_type              -- "microcycle" | "mesocycle" | "macrocycle"  (macrocycle added for
-                               PLAN_EXHAUSTED/AWAITING_NEXT_MESOCYCLE, fix #8)
-  entity_id
-  event_type                -- from_state/to_state pair, or a named event
-  from_state
-  to_state
-  reason                    -- ALL_SESSIONS_RESOLVED | DRIFT_INFERRED_SKIP | EXPLICIT_ABANDON |
-                               MICROCYCLE_ADVANCED | MESOCYCLE_ADVANCED | PLAN_EXHAUSTED
-  details_json               -- e.g. {"skipped_day_codes": ["D5"], "drift_days": 5} (fix #9)
-  occurred_at
-```
+Unchanged from revision 2: `reconcile_run_id` groups every row one fixed-point loop produces; `entity_type` includes `"macrocycle"` for plan-exhaustion events; `details_json` carries free-form context (`skipped_day_codes`, `drift_days`, etc).
 
-One `reconcile_run_id` groups every row a single fixed-point loop (§3) produces — e.g. a two-week-absence catch-up producing `MICROCYCLE_COMPLETED` → `MESOCYCLE_COMPLETED` → `MESOCYCLE_ADVANCED` → `MICROCYCLE_ADVANCED` all share one `reconcile_run_id`, reconstructable as one atomic operation.
+**Timestamp field cleanup (fix #7a):** revision 2 introduced a new `completed_at` field "alongside the existing `actual_completion_date`/`actual_end_date`" — two independently-writable representations of the same event is exactly the kind of thing that drifts apart in practice. **This revision drops the new field entirely** and uses only the timestamps already on the `Microcycle`/`Mesocycle` models from spec 01 (`actual_start_date`, `actual_completion_date`, `actual_end_date` — all `date`, not `datetime`). If sub-day precision is ever needed, add it deliberately later; don't carry two clocks for the same event now.
 
-## 8. Timezone (fix #12)
+## 8. Timezone
 
-All date/drift comparisons (`planned_end_date` vs. "today," slot resolution timing) are computed in the athlete/program's local timezone, not server UTC — a server-UTC comparison would shift day boundaries by hours depending on time of day/season, causing exactly the kind of "works in tests, breaks at midnight in production" bug this session's two live-caught cutover bugs already exemplify. Implementer's call whether this is a fixed configured timezone or read from existing athlete-profile data if any exists; must not default to naive `date.today()` server-local behavior without an explicit decision either way.
+Unchanged from revision 2: all date/drift comparisons use the athlete/program's local timezone, never naive server-UTC `date.today()`. Timezone source (fixed config vs. profile data) left to implementation.
 
-## 9. Regression tests for the two live-caught cutover bugs
+## 9. Regression tests
 
-- A test asserting `_compute_recovery_status`'s data-sufficiency pre-check window uses the exact same cutoff formula as `readiness.py`'s own `_trailing_rows` (already fixed in commit `6af5440`; re-assert at the advancement-engine level if any new code path re-derives a similar window).
-- A test asserting that **any** Microcycle produced by this design's own materialization paths (bootstrap, Microcycle-to-Microcycle advancement, Mesocycle rollover's first-Microcycle materialization) is never left in `NOT_STARTED` after the operation that was supposed to activate it completes.
-- **New, from this revision's own fixes:** a test asserting a Microcycle with zero `MicrocycleSlot` rows can never reach `COMPLETE` (fix #2's core invariant) — the exact bug this revision caught before it could ship.
-- A test asserting posture indexing for all four ordinals of a 4-week template (fix #7).
+- `_compute_recovery_status` window-formula match (already fixed in `6af5440`; re-assert if any new code re-derives a similar window).
+- Any Microcycle produced by this design's materialization paths is never left `NOT_STARTED` after the operation meant to activate it.
+- A Microcycle with zero `MicrocycleSlot` rows can never reach `COMPLETE`.
+- Posture indexing for all four ordinals of a 4-week template.
+- **New (from this revision):** generating a `Session` alone (status still `PLANNED`) must leave its bound slot at `resolution=PENDING`, not `COMPLETED` — the core regression guard for this revision's headline fix. A companion test: that same slot resolves to `COMPLETED` only after `Session.status` actually transitions to `COMPLETED`.
+- **New:** a second `Session` generated for a `day_code` whose slot is already bound (`session_id != NULL`) produces `plan_status=UNPLANNED` and does not touch the already-bound slot.
+- **New:** `program_structure_hash` mismatch at rollover activation blocks and requires acknowledgment rather than silently materializing against the changed `Program`.
 
 ## Non-goals (this design pass)
 
 - DeloadState trigger/evidence logic (§6).
-- A scheduled/background job (the reconciler's lazy-invocation design makes one unnecessary for correctness; a future one would call the same service, not add new logic).
-- An explicit user-facing "skip this session" endpoint or client UI change — skip stays boundary-inferred in this pass; `resolution_source=USER_EXPLICIT` is reserved in the schema for when that's built.
-- A full Mesocycle-authoring write API/UI — §5b's script is a deliberately minimal bridge.
-- Auto-replanning an `INCOMPLETE` Microcycle, or any mechanism that un-terminal-izes one automatically.
-- True `Program` immutability/versioning (§5c's caveat) — `Mesocycle.program_id` records intent but doesn't yet enforce it.
-- Movement constraint-type classification / exercise-rotation strategy (captured in CORE memory, orthogonal to advancement).
+- A scheduled/background job.
+- An explicit user-facing "skip this session" endpoint/client UI change — the `Session.status=SKIPPED` → slot resolution path is defined (§2a) but nothing produces it yet.
+- A full Mesocycle-authoring write API/UI.
+- Auto-replanning an `INCOMPLETE` Microcycle.
+- True `Program` immutability/versioning (§5c) — `program_id` + `program_structure_hash` detect drift, they don't prevent it.
+- Movement constraint-type classification / exercise-rotation strategy.
 
 ## Open questions carried forward
 
-- Exact drift-tolerance day-counts (0–2/3–4/>4) are reused from the original design doc's placeholders, still pending real-data tuning.
-- Whether `INCOMPLETE`'s explicit-abandonment path needs a real API before it's usable day-to-day, or whether direct operator action remains acceptable long-term, is deferred to whenever it's first actually needed.
-- Athlete/program timezone source (§8) — fixed config vs. profile data — left to implementation.
+- Exact drift-tolerance day-counts (now 0/1–2/3–4/>4) are still reused placeholders pending real-data tuning.
+- Whether `INCOMPLETE`'s explicit-abandonment path needs a real API before it's usable day-to-day is deferred.
+- Athlete/program timezone source (§8) left to implementation.
+- Exact vs. at-least semantics for template-cardinality validation (§5d) left to implementation.
