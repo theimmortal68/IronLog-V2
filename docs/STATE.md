@@ -902,3 +902,69 @@ now).
 1. Nothing blocking -- the athlete's 3 requested edits are live and verified.
 2. Whenever convenient: the two Low nits above, and the `IronLog-V2-wt-incline-handoff`
    worktree.
+
+---
+
+# State — 2026-09-04
+
+## Current task
+Designed and implemented long-range periodization (macrocycle/mesocycle/microcycle) end
+to end: brainstorming-skill architectural design (with codex+gemini `consensus_multi_query`
+review), 6-spec `/spec`->`/verify-plan`->`/route-plan` delegated build, all merged to `main`.
+Full report: `project-ops/reports/2026-09-04-0015-ironlog-v2-long-range-periodization.md`.
+Design doc: `docs/superpowers/specs/2026-09-03-long-range-periodization-design.md`.
+
+## Decisions made and why
+- Decomposed the old `Phase` enum into 4 orthogonal axes (Mesocycle/BodyCompState/
+  RecoveryStatus/DeloadState) rather than replacing it with a mesocycle-phase vocabulary --
+  see the design doc and the CORE memory ingest from this session for the full reasoning
+  (BodyCompState modifies what a posture prescribes rather than the deload threshold, so
+  CUT doesn't structurally cause constant deloads).
+- Fixed a real pre-existing bug found during design: `WeekParityRotation` was keyed off
+  calendar-date parity, which the new drift-tolerant Microcycle model could silently break
+  mid-week. Renamed to `MicrocycleParityRotation`, re-keyed off `Microcycle.ordinal`
+  (`ironlog/generation/skeleton.py`'s new `microcycle_parity()`), done additively.
+- Macrocycle kept as a pure metadata/planning container despite both codex and gemini
+  independently flagging it as the design's biggest YAGNI risk -- athlete's call, logged in
+  the design doc.
+- Merged 6 commits to `main` serially: `37c5120` (schema), `fe95f7a` (parity rekey),
+  `9225b55` (resolver), `cef97f8` (cutover tooling), `d2b5814` (generation wiring),
+  `2f3f59a` (read API). Every commit passed `pytest -q` independently verified by Tier A
+  (not trusted from worker claims) before merging; final `main` state: 809 passed.
+
+## Verified
+- `pytest -q` on `main` post-merge: 809 passed, run independently.
+- `tests/test_migrations.py::test_chain_matches_create_all` (schema/model DDL parity)
+  green throughout.
+- 6 Fable review passes (1 per spec except spec 05, which was logged review-exempt --
+  additive DTO/endpoint work over already-reviewed logic). Findings: spec 01 3 Medium
+  (fixed), spec 02 1 High (fixed), spec 03 1 Medium (filed forward, spec-conformant), spec
+  04 1 High (fixed + re-reviewed PASS), spec 06 1 Critical + 3 High (fixed by the generator
+  in a full fix-round, re-verified by Tier A line-by-line).
+
+## Open questions
+- Design doc's own carried-forward items: exact posture-to-knob policy-table numbers and
+  DeloadPolicy evidence thresholds are placeholder values pending real training data.
+- Spec 03's filed-forward Medium: the deload override can loosen an already-low envelope in
+  5/63 axis combinations -- spec-conformant (design doc's own state-agnostic-override
+  requirement), not a bug, but a real future tuning question if it turns out to matter in
+  practice.
+- Same carried-forward item as every recent session: `IronLog-V2-wt-incline-handoff`
+  worktree still exists, still unmerged, still not touched.
+
+## Next step
+1. **Production cutover not run.** `scripts/migrate_phase_to_periodization.py --apply`
+   against the live `ironlog.db` is the deliberate next step whenever the athlete wants
+   this live -- run `--dry-run` first (the default), review its shadow-validation output
+   against real recent sessions, then `--apply` only with explicit user confirmation (same
+   production-data standing rule as every other live-DB change in this project). Needs real
+   `--current-mesocycle-ordinal`/`--current-microcycle-ordinal`/`--seed-posture` values
+   reflecting the athlete's actual current block, not defaults.
+2. Whenever convenient (carried forward): `IronLog-V2-wt-incline-handoff` worktree.
+
+## Session notes
+- CORE memory ingested this session (design decisions, the parity-bug fix, the process note
+  about corroborating `kill -0` with `/proc/<pid>` before a second dispatch into a worktree).
+- This session's own commits (this STATE.md append included) are on
+  `session/2026-09-04-periodization-close`, per the standing session-branch rule -- merge to
+  `main` at close.
