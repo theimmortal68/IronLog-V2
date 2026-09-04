@@ -23,17 +23,22 @@ NO from __future__ import annotations (project-wide constraint).
 """
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Callable, Dict, List, Set
+from typing import Callable, Dict, List, Optional, Set
 
 from sqlalchemy import or_
 from sqlmodel import Session, col, select
 
 from ..engine.ledger import compute_tallies
 from ..engine.stall import detect_stall
+from ..engine.periodization_resolver import ResolvedEnvelope, resolve_envelope
 from ..engine.validator import WeeklyTallies
 from ..models.enums import NoteClass, Objective, Status
 from ..models.library import (
     E1rmHistory, EngineState, Movement, MovementState, PhasePolicy,
+)
+from ..models.periodization import (
+    BodyCompState, DeloadState, Microcycle, MicrocycleLifecycleStatus,
+    RecoveryStatus,
 )
 from ..models.session import Note, SetLog
 from ..persistence.run_analysis import select_progress_window
@@ -97,6 +102,75 @@ class GenerationContext:
     movements: Dict[int, "Movement"] = field(default_factory=dict)
     # Task 5: per-slot rep scheme from TierExercise (informational only)
     slot_rep_schemes: Dict[str, dict] = field(default_factory=dict)
+    current_microcycle: Optional[Microcycle] = None
+    current_body_comp_state: Optional[BodyCompState] = None
+    current_recovery_status: Optional[RecoveryStatus] = None
+    current_deload_state: Optional[DeloadState] = None
+    resolved_envelope: Optional[ResolvedEnvelope] = None
+
+
+def resolve_current_microcycle(db: Session, as_of: Optional[date] = None) -> Optional[Microcycle]:
+    """Return the current ACTIVE microcycle, tolerating an active week drifting past plan."""
+    effective_date = as_of if as_of is not None else date.today()
+    current = db.exec(
+        select(Microcycle)
+        .where(
+            Microcycle.lifecycle_status == MicrocycleLifecycleStatus.ACTIVE,
+            Microcycle.planned_start_date <= effective_date,
+            Microcycle.planned_end_date >= effective_date,
+        )
+        .order_by(Microcycle.planned_start_date.desc(), Microcycle.ordinal.desc())
+    ).first()
+    if current is not None:
+        return current
+
+    return db.exec(
+        select(Microcycle)
+        .where(
+            Microcycle.lifecycle_status == MicrocycleLifecycleStatus.ACTIVE,
+            Microcycle.planned_start_date <= effective_date,
+            Microcycle.planned_end_date < effective_date,
+        )
+        .order_by(
+            Microcycle.planned_end_date.desc(),
+            Microcycle.planned_start_date.desc(),
+            Microcycle.ordinal.desc(),
+        )
+    ).first()
+
+
+def _active_body_comp_state(db: Session, as_of: date) -> Optional[BodyCompState]:
+    return db.exec(
+        select(BodyCompState)
+        .where(
+            BodyCompState.effective_from <= as_of,
+            or_(col(BodyCompState.effective_to).is_(None), BodyCompState.effective_to >= as_of),
+        )
+        .order_by(BodyCompState.effective_from.desc(), BodyCompState.id.desc())
+    ).first()
+
+
+def _current_recovery_status(db: Session, as_of: date) -> Optional[RecoveryStatus]:
+    return db.exec(
+        select(RecoveryStatus)
+        .where(RecoveryStatus.as_of_date <= as_of)
+        .order_by(RecoveryStatus.as_of_date.desc(), RecoveryStatus.id.desc())
+    ).first()
+
+
+def _active_deload_state(db: Session, microcycle: Microcycle) -> Optional[DeloadState]:
+    return db.exec(
+        select(DeloadState)
+        .where(
+            DeloadState.active == True,  # noqa: E712
+            col(DeloadState.resolved_at).is_(None),
+            or_(
+                DeloadState.microcycle_id == microcycle.id,
+                col(DeloadState.microcycle_id).is_(None),
+            ),
+        )
+        .order_by(DeloadState.triggered_at.desc(), DeloadState.id.desc())
+    ).first()
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +458,31 @@ def resolve_context(
     }
 
     owed = compute_owed_requirements(tallies)
+    today = date.today()
+    current_microcycle = resolve_current_microcycle(db, today)
+    current_body_comp_state = None
+    current_recovery_status = None
+    current_deload_state = None
+    resolved = None
+    if current_microcycle is not None:
+        current_body_comp_state = _active_body_comp_state(db, today)
+        current_recovery_status = _current_recovery_status(db, today)
+        current_deload_state = _active_deload_state(db, current_microcycle)
+        if current_body_comp_state is not None and current_recovery_status is not None:
+            resolved = resolve_envelope(
+                planned_posture=current_microcycle.planned_posture,
+                body_comp_state=current_body_comp_state.state,
+                recovery_status=current_recovery_status.status,
+                deload_active=(
+                    current_deload_state is not None
+                    and current_deload_state.active
+                ),
+                deload_trigger_reason=(
+                    current_deload_state.trigger_reason
+                    if current_deload_state is not None
+                    else None
+                ),
+            )
 
     # Task 5: build per-slot rep schemes from TierExercise records (informational).
     # Key on the slot's stable identity (slot_id), NOT the movement_id: an active
@@ -418,6 +517,11 @@ def resolve_context(
         note_flagged_movement_ids=note_flagged,
         movements=movements,
         slot_rep_schemes=slot_rep_schemes,
+        current_microcycle=current_microcycle,
+        current_body_comp_state=current_body_comp_state,
+        current_recovery_status=current_recovery_status,
+        current_deload_state=current_deload_state,
+        resolved_envelope=resolved,
     )
 
 
@@ -459,6 +563,49 @@ def _candidate_descriptor(mid: int, slot: SlotSpec, ctx: "GenerationContext") ->
     }
 
 
+def _enum_value(value):
+    return value.value if hasattr(value, "value") else value
+
+
+def _resolved_envelope_payload(resolved: ResolvedEnvelope) -> dict:
+    return {
+        "rpe_cap": resolved.rpe_cap,
+        "volume_multiplier": resolved.volume_multiplier,
+        "progression_mode": resolved.progression_mode,
+        "optional_work_eligible": resolved.optional_work_eligible,
+        "trace": [
+            {
+                "axis": step.axis,
+                "before": dict(step.before),
+                "after": dict(step.after),
+            }
+            for step in resolved.trace
+        ],
+    }
+
+
+def _training_posture_payload(ctx: GenerationContext) -> Optional[dict]:
+    if (
+        ctx.resolved_envelope is None
+        or ctx.current_microcycle is None
+        or ctx.current_body_comp_state is None
+        or ctx.current_recovery_status is None
+    ):
+        return None
+    deload = ctx.current_deload_state
+    return {
+        "microcycle_id": ctx.current_microcycle.id,
+        "planned_posture": ctx.current_microcycle.planned_posture,
+        "body_comp_state": _enum_value(ctx.current_body_comp_state.state),
+        "recovery_status": _enum_value(ctx.current_recovery_status.status),
+        "deload_state": {
+            "active": bool(deload is not None and deload.active),
+            "trigger_reason": deload.trigger_reason if deload is not None else None,
+        },
+        "resolved_envelope": _resolved_envelope_payload(ctx.resolved_envelope),
+    }
+
+
 # ---------------------------------------------------------------------------
 # build_context_payload
 # ---------------------------------------------------------------------------
@@ -469,7 +616,7 @@ def build_context_payload(ctx: GenerationContext, skeleton: Skeleton) -> dict:
     Pure data — the Gemini adapter (Task 11) serializes this.
     Includes per-slot menus, owed reqs, recent signatures, weak-point hints.
     """
-    return {
+    payload = {
         "day_role": skeleton.day_role,
         "phase": ctx.phase,
         "phase_intent": {
@@ -497,3 +644,7 @@ def build_context_payload(ctx: GenerationContext, skeleton: Skeleton) -> dict:
         "recent_signatures": ctx.recent_signatures,
         "weak_point_hints": ctx.weak_point_hints,
     }
+    training_posture = _training_posture_payload(ctx)
+    if training_posture is not None:
+        payload["training_posture"] = training_posture
+    return payload

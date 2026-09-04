@@ -22,9 +22,12 @@ from ..engine.band_composite import (
     Band, config_peak, ht_performed_floor, resolved_band_config,
 )
 from ..engine.loading import clamp_to_cap, round_to_achievable, round_up_to_step
+from ..engine.periodization_resolver import (
+    PROGRESSION_ACTIVE, PROGRESSION_SUPPRESSED,
+)
 from ..engine.progression import resolve_objective
 from ..models.enums import (
-    GroupType, LiftCategory, ProgressionMode, ProgressionRule, Scheme,
+    GroupType, LiftCategory, Objective, ProgressionMode, ProgressionRule, Scheme,
     SessionStatus, SetRole,
 )
 from ..models.library import (
@@ -32,6 +35,7 @@ from ..models.library import (
     MovementState,
 )
 from ..models.program import DayFinisher, FinisherLog, ProgramDay, Tier, TierExercise
+from ..models.periodization import Mesocycle
 from ..models.session import ExerciseGroup, PlannedExercise, PlannedSet, SetLog
 from ..models.session import Session as WorkoutSession
 from .context import GenerationContext
@@ -40,6 +44,8 @@ from .proposer import Selections
 from .skeleton import Skeleton
 
 logger = logging.getLogger(__name__)
+
+RESOLVER_POLICY_VERSION = "periodization_resolver.v1"
 
 
 @dataclass
@@ -235,6 +241,96 @@ def _step_and_floor(movement: Movement, db: DBSession):
     return step, floor
 
 
+def _rpe_target_from_envelope(
+    ctx: GenerationContext,
+    slot_rpe_cap: Optional[float],
+    legacy_default: float,
+) -> float:
+    if ctx.resolved_envelope is None:
+        return slot_rpe_cap if slot_rpe_cap is not None else legacy_default
+    envelope_cap = ctx.resolved_envelope.rpe_cap
+    if slot_rpe_cap is not None:
+        return min(slot_rpe_cap, envelope_cap)
+    return envelope_cap
+
+
+def _legacy_rpe_capped_by_envelope(ctx: GenerationContext, legacy_target: float) -> float:
+    if ctx.resolved_envelope is None:
+        return legacy_target
+    return min(legacy_target, ctx.resolved_envelope.rpe_cap)
+
+
+def _working_set_count(ctx: GenerationContext, base_count: int = 3) -> int:
+    if ctx.resolved_envelope is None:
+        return base_count
+    return max(1, round(base_count * ctx.resolved_envelope.volume_multiplier))
+
+
+def _effective_objective(movement: Movement, ctx: GenerationContext) -> Objective:
+    if ctx.resolved_envelope is None:
+        return resolve_objective(
+            movement.objective_override,
+            ctx.phase_policy.default_objective,
+        )
+    if ctx.resolved_envelope.progression_mode == PROGRESSION_SUPPRESSED:
+        return Objective.MAINTAIN
+    phase_default = (
+        Objective.PROGRESS
+        if ctx.resolved_envelope.progression_mode == PROGRESSION_ACTIVE
+        else Objective.MAINTAIN
+    )
+    return resolve_objective(movement.objective_override, phase_default)
+
+
+def _progression_carry_forward_allowed(ctx: GenerationContext) -> bool:
+    return (
+        ctx.resolved_envelope is None
+        or ctx.resolved_envelope.progression_mode != PROGRESSION_SUPPRESSED
+    )
+
+
+def _resolved_envelope_snapshot(ctx: GenerationContext) -> Optional[dict]:
+    if ctx.resolved_envelope is None:
+        return None
+    return {
+        "rpe_cap": ctx.resolved_envelope.rpe_cap,
+        "volume_multiplier": ctx.resolved_envelope.volume_multiplier,
+        "progression_mode": ctx.resolved_envelope.progression_mode,
+        "optional_work_eligible": ctx.resolved_envelope.optional_work_eligible,
+    }
+
+
+def _enum_value(value):
+    return value.value if hasattr(value, "value") else value
+
+
+def _prescription_snapshot(ctx: GenerationContext, db: DBSession) -> Optional[dict]:
+    if (
+        ctx.resolved_envelope is None
+        or ctx.current_microcycle is None
+        or ctx.current_body_comp_state is None
+        or ctx.current_recovery_status is None
+    ):
+        return None
+
+    mesocycle = db.get(Mesocycle, ctx.current_microcycle.mesocycle_id)
+    deload = ctx.current_deload_state
+    return {
+        "macrocycle_id": mesocycle.macrocycle_id if mesocycle is not None else None,
+        "mesocycle_id": ctx.current_microcycle.mesocycle_id,
+        "microcycle_id": ctx.current_microcycle.id,
+        "planned_posture": ctx.current_microcycle.planned_posture,
+        "body_comp_state": _enum_value(ctx.current_body_comp_state.state),
+        "recovery_status": _enum_value(ctx.current_recovery_status.status),
+        "deload_state": {
+            "active": bool(deload is not None and deload.active),
+            "trigger_reason": deload.trigger_reason if deload is not None else None,
+        },
+        "resolved_envelope": _resolved_envelope_snapshot(ctx),
+        "resolver_policy_version": RESOLVER_POLICY_VERSION,
+    }
+
+
 def _sets_for_scheme(scheme: Scheme, load: Optional[float],
                      ctx: GenerationContext,
                      rep_low: Optional[int] = None, rep_high: Optional[int] = None,
@@ -259,6 +355,12 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
     backoff_load = round(load * 0.9, 1) if load is not None else None
     has_duration = duration_low_seconds is not None or duration_high_seconds is not None
     if scheme == Scheme.TOPSET_BACKOFF:
+        top_rpe = (
+            _rpe_target_from_envelope(ctx, rpe_cap, pol.top_set_rpe)
+            if ctx.resolved_envelope is not None
+            else pol.top_set_rpe
+        )
+        backoff_rpe = _legacy_rpe_capped_by_envelope(ctx, pol.rpe_band_low)
         if has_duration:
             return [
                 PlannedSet(
@@ -266,14 +368,14 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
                     target_load=load,
                     target_duration_low_seconds=duration_low_seconds,
                     target_duration_high_seconds=duration_high_seconds,
-                    target_rpe=pol.top_set_rpe,
+                    target_rpe=top_rpe,
                 ),
                 PlannedSet(
                     set_index=1, set_role=SetRole.BACKOFF,
                     target_load=backoff_load,
                     target_duration_low_seconds=duration_low_seconds,
                     target_duration_high_seconds=duration_high_seconds,
-                    target_rpe=pol.rpe_band_low,
+                    target_rpe=backoff_rpe,
                 ),
             ]
         return [
@@ -281,21 +383,23 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
                 set_index=0, set_role=SetRole.TOP,
                 target_load=load,
                 target_reps_low=3, target_reps_high=5,
-                target_rpe=pol.top_set_rpe,
+                target_rpe=top_rpe,
             ),
             PlannedSet(
                 set_index=1, set_role=SetRole.BACKOFF,
                 target_load=backoff_load,
                 target_reps_low=5, target_reps_high=8,
-                target_rpe=pol.rpe_band_low,
+                target_rpe=backoff_rpe,
             ),
         ]
-    # Default: 3 WORKING sets — reps/RPE sourced from the seeded TierExercise.
+    # Default: working sets, with active periodization allowed to scale volume.
     lo = rep_low if rep_low is not None else (None if has_duration else 8)
     hi = rep_high if rep_high is not None else (None if has_duration else 12)
-    rpe = rpe_cap if rpe_cap is not None else (
+    legacy_rpe = (
         pol.rpe_band_high if pol.rpe_band_high is not None else 8.0
     )
+    rpe = _rpe_target_from_envelope(ctx, rpe_cap, legacy_rpe)
+    set_count = _working_set_count(ctx)
     return [
         PlannedSet(
             set_index=i, set_role=SetRole.WORKING,
@@ -305,7 +409,7 @@ def _sets_for_scheme(scheme: Scheme, load: Optional[float],
             target_duration_high_seconds=duration_high_seconds,
             target_rpe=rpe,
         )
-        for i in range(3)
+        for i in range(set_count)
     ]
 
 
@@ -478,8 +582,7 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
                     tier_exercise_id: Optional[int] = None) -> PlannedExercise:
     """Resolve load, compute sets, collect prospective load. Does NOT write DB."""
     state = ctx.movement_states.get(movement.id)
-    objective = resolve_objective(movement.objective_override,
-                                  ctx.phase_policy.default_objective)
+    objective = _effective_objective(movement, ctx)
     step, floor = _step_and_floor(movement, db)
     base = resolve_start_load(movement, state, db)
     if base is None:
@@ -491,7 +594,11 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
         # load step on the state (pending_load_delta). Fold it into the base BEFORE
         # rounding/clamping so THIS session prescribes the earned load. commit_session
         # writes the result to current_load and clears the marker (apply-once).
-        if state is not None and state.pending_load_delta is not None:
+        if (
+            state is not None
+            and state.pending_load_delta is not None
+            and _progression_carry_forward_allowed(ctx)
+        ):
             base = base + state.pending_load_delta
         load = clamp_to_cap(round_to_achievable(base, floor, step), movement.cap)
         # Collect prospective load — caller must NOT write this to MovementState.
@@ -721,6 +828,7 @@ def assemble(selections: Selections, skeleton: Skeleton,
         date=date.today(),
         day_role=skeleton.day_role,
         phase=ctx.phase,
+        prescription_snapshot=_prescription_snapshot(ctx, db),
         status=SessionStatus.PLANNED,
         rationale=selections.rationale,
     )

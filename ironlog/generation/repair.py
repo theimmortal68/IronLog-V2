@@ -70,10 +70,15 @@ def build_validation_context(ctx: GenerationContext, db: DBSession) -> Validatio
     # satisfy a weekly target.  Weekly frequency is guaranteed at program-design
     # time (test_knee_frequencies_are_satisfiable) and soft-biased via owed
     # requirements (Fork 3); it is not a per-session structural hard reject.
+    phase_hard_cap = (
+        ctx.resolved_envelope.rpe_cap
+        if ctx.resolved_envelope is not None
+        else ctx.phase_policy.hard_cap
+    )
     return ValidationContext(
         movements=infos,
         manifest_equipment_ids=set(ctx.manifest_equipment_ids),
-        phase_hard_cap=ctx.phase_policy.hard_cap,
+        phase_hard_cap=phase_hard_cap,
         band_bottom_lb=band_bottom_lb,
         ht_bottom_clamp=225.0,
         tallies=None,

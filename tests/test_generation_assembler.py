@@ -13,15 +13,22 @@ RPE-adaptive rest.
 NO from __future__ import annotations (project-wide constraint).
 gen_db fixture auto-discovered from conftest.py.
 """
-from datetime import date
+from datetime import date, timedelta
 
+from ironlog.engine.periodization_resolver import resolve_envelope
 from ironlog.generation.assembler import assemble
 from ironlog.generation.context import resolve_context
 from ironlog.generation.proposer import Selections, SlotSelection
+from ironlog.generation.repair import build_validation_context
 from ironlog.generation.skeleton import lay_skeleton
-from ironlog.models.enums import GroupType
+from ironlog.models.enums import GroupType, Objective, SetRole
 from ironlog.models.library import Movement
 from ironlog.models.library import MovementState
+from ironlog.models.periodization import (
+    BodyCompState, BodyCompStateValue, DeloadState, Macrocycle, Mesocycle,
+    MesocycleTemplate, Microcycle, MicrocycleLifecycleStatus, PlanStatus,
+    RecoveryStatus, RecoveryStatusValue,
+)
 from sqlmodel import select
 
 
@@ -51,6 +58,77 @@ def _giant_group_by_label(session, label):
     return matches[0]
 
 
+def _seed_active_deload_periodization(db):
+    today = date.today()
+    macrocycle = Macrocycle(
+        goal="test deload",
+        planned_start_date=today - timedelta(days=14),
+        planned_end_date=today + timedelta(days=70),
+        status=PlanStatus.ACTIVE,
+    )
+    template = MesocycleTemplate(name="test deload template", postures=["PUSH"])
+    db.add_all([macrocycle, template])
+    db.flush()
+    mesocycle = Mesocycle(
+        template_id=template.id,
+        macrocycle_id=macrocycle.id,
+        ordinal=1,
+        planned_start_date=today - timedelta(days=7),
+        planned_end_date=today + timedelta(days=21),
+        status=PlanStatus.ACTIVE,
+    )
+    db.add(mesocycle)
+    db.flush()
+    microcycle = Microcycle(
+        mesocycle_id=mesocycle.id,
+        ordinal=1,
+        planned_start_date=today - timedelta(days=2),
+        planned_end_date=today + timedelta(days=4),
+        expected_sessions=5,
+        lifecycle_status=MicrocycleLifecycleStatus.ACTIVE,
+        planned_posture="PUSH",
+    )
+    db.add(microcycle)
+    db.flush()
+    db.add_all([
+        BodyCompState(
+            state=BodyCompStateValue.CUT,
+            effective_from=today - timedelta(days=30),
+        ),
+        RecoveryStatus(
+            as_of_date=today,
+            status=RecoveryStatusValue.POOR,
+        ),
+        DeloadState(
+            microcycle_id=microcycle.id,
+            active=True,
+            triggered_at=today,
+            trigger_reason="test deload",
+        ),
+    ])
+    db.commit()
+    return {
+        "macrocycle_id": macrocycle.id,
+        "mesocycle_id": mesocycle.id,
+        "microcycle_id": microcycle.id,
+        "planned_posture": "PUSH",
+        "body_comp_state": BodyCompStateValue.CUT,
+        "recovery_status": RecoveryStatusValue.POOR,
+        "deload_active": True,
+        "deload_trigger_reason": "test deload",
+    }
+
+
+def _expected_envelope(ids):
+    return resolve_envelope(
+        planned_posture=ids["planned_posture"],
+        body_comp_state=ids["body_comp_state"],
+        recovery_status=ids["recovery_status"],
+        deload_active=ids["deload_active"],
+        deload_trigger_reason=ids["deload_trigger_reason"],
+    )
+
+
 def test_assembler_is_deterministic(gen_db_calibrated):
     # Reconciled for Task 3: loads configured (gen_db_calibrated) so the assembled
     # numbers are real prescriptions, not floor fabrications.  Bodyweight movements
@@ -66,6 +144,96 @@ def test_assembler_is_deterministic(gen_db_calibrated):
     lb = [ps.target_load for g in b.session.groups for e in g.exercises for ps in e.planned_sets]
     assert la == lb and la, "fixed selections must yield fixed, non-empty results"
     assert any(v is not None for v in la), "configured loads must yield real numbers"
+
+
+def test_active_periodization_snapshot_and_knobs_drive_generated_session(gen_db_calibrated):
+    gen_db = gen_db_calibrated
+    ids = _seed_active_deload_periodization(gen_db)
+    bench = gen_db.exec(
+        select(Movement).where(Movement.name == "Bench Press [PB]")
+    ).one()
+    progress_pullup = gen_db.exec(
+        select(Movement).where(Movement.name == "Pull-up [TOWER + TUBES]")
+    ).one()
+    assert progress_pullup.objective_override == Objective.PROGRESS
+    bench_state = gen_db.exec(
+        select(MovementState).where(MovementState.movement_id == bench.id)
+    ).first()
+    bench_state.pending_load_delta = 5.0
+    gen_db.add(bench_state)
+    gen_db.commit()
+
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+    expected = _expected_envelope(ids)
+    assert ctx.resolved_envelope == expected
+    validation_context = build_validation_context(ctx, gen_db)
+    assert validation_context.phase_hard_cap == expected.rpe_cap
+    selections = _canned_for(sk, ctx)
+    for slot in selections.slots:
+        if slot.slot_id == "d1_t3a":
+            slot.movement_id = progress_pullup.id
+            break
+    assembled = assemble(selections, sk, ctx, gen_db)
+
+    snapshot = assembled.session.prescription_snapshot
+    assert snapshot == {
+        "macrocycle_id": ids["macrocycle_id"],
+        "mesocycle_id": ids["mesocycle_id"],
+        "microcycle_id": ids["microcycle_id"],
+        "planned_posture": ids["planned_posture"],
+        "body_comp_state": ids["body_comp_state"].value,
+        "recovery_status": ids["recovery_status"].value,
+        "deload_state": {
+            "active": ids["deload_active"],
+            "trigger_reason": ids["deload_trigger_reason"],
+        },
+        "resolved_envelope": {
+            "rpe_cap": expected.rpe_cap,
+            "volume_multiplier": expected.volume_multiplier,
+            "progression_mode": expected.progression_mode,
+            "optional_work_eligible": expected.optional_work_eligible,
+        },
+        "resolver_policy_version": "periodization_resolver.v1",
+    }
+
+    exercises = [
+        exercise
+        for group in assembled.session.groups
+        for exercise in group.exercises
+    ]
+    bench_exercise = next(ex for ex in exercises if ex.movement_id == bench.id)
+    bench_work = [ps for ps in bench_exercise.planned_sets if not ps.is_warmup]
+    bench_meta = next(meta for meta in sk.anchor_meta if meta.tier_label == "T1")
+    assert expected.rpe_cap < ctx.phase_policy.rpe_band_high
+    assert expected.rpe_cap < bench_meta.rpe_cap
+    assert len([ps for ps in bench_work if ps.set_role == SetRole.WORKING]) == max(
+        1,
+        round(3 * expected.volume_multiplier),
+    )
+    assert {ps.target_rpe for ps in bench_work} == {expected.rpe_cap}
+    assert {ps.target_load for ps in bench_work} == {100.0}
+    assert assembled.prospective_current_loads[bench.id] == 100.0
+
+    pullup_exercise = next(ex for ex in exercises if ex.movement_id == progress_pullup.id)
+    assert pullup_exercise.objective == Objective.MAINTAIN
+
+
+def test_assemble_prescription_snapshot_none_without_current_periodization(gen_db_calibrated):
+    gen_db = gen_db_calibrated
+    wk = lambda d: (d.year, d.isocalendar()[1])  # noqa: E731
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, wk)
+
+    assert ctx.current_microcycle is None
+    assert ctx.current_body_comp_state is None
+    assert ctx.current_recovery_status is None
+    assert ctx.resolved_envelope is None
+
+    res = assemble(_canned_for(sk, ctx), sk, ctx, gen_db)
+
+    assert res.session.prescription_snapshot is None
 
 
 def test_assemble_does_not_write_current_load(gen_db_calibrated):

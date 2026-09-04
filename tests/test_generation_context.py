@@ -11,17 +11,137 @@ Brief reconciliations applied here:
 
 NO from __future__ import annotations (project-wide constraint).
 """
+from datetime import date, timedelta
+
+from ironlog.engine.periodization_resolver import resolve_envelope
 from ironlog.generation.context import (
+    build_context_payload,
     build_candidate_menu,
+    resolve_current_microcycle,
     resolve_context,
     should_invoke_llm,
 )
 from ironlog.generation.skeleton import SlotSpec, lay_skeleton
 from ironlog.models.enums import NoteClass, Status
 from ironlog.models.library import Movement, MovementState
+from ironlog.models.periodization import (
+    BodyCompState, BodyCompStateValue, DeloadState, Macrocycle, Mesocycle,
+    MesocycleTemplate, Microcycle, MicrocycleLifecycleStatus, PlanStatus,
+    RecoveryStatus, RecoveryStatusValue,
+)
 from ironlog.models.program import MesoRotation, TierExercise
 from ironlog.models.session import Note
 from sqlmodel import select
+
+
+def _seed_active_periodization(
+    db,
+    *,
+    planned_posture="PUSH",
+    body_comp_state=BodyCompStateValue.CUT,
+    recovery_status=RecoveryStatusValue.CAUTION,
+    deload_active=False,
+):
+    today = date.today()
+    macrocycle = Macrocycle(
+        goal="test periodization",
+        planned_start_date=today - timedelta(days=14),
+        planned_end_date=today + timedelta(days=70),
+        status=PlanStatus.ACTIVE,
+    )
+    template = MesocycleTemplate(
+        name="test periodization template",
+        postures=[planned_posture],
+    )
+    db.add_all([macrocycle, template])
+    db.flush()
+    mesocycle = Mesocycle(
+        template_id=template.id,
+        macrocycle_id=macrocycle.id,
+        ordinal=1,
+        planned_start_date=today - timedelta(days=7),
+        planned_end_date=today + timedelta(days=21),
+        status=PlanStatus.ACTIVE,
+    )
+    db.add(mesocycle)
+    db.flush()
+    microcycle = Microcycle(
+        mesocycle_id=mesocycle.id,
+        ordinal=1,
+        planned_start_date=today - timedelta(days=2),
+        planned_end_date=today + timedelta(days=4),
+        expected_sessions=5,
+        lifecycle_status=MicrocycleLifecycleStatus.ACTIVE,
+        planned_posture=planned_posture,
+    )
+    db.add(microcycle)
+    db.flush()
+    rows = [
+        BodyCompState(
+            state=body_comp_state,
+            effective_from=today - timedelta(days=30),
+        ),
+        RecoveryStatus(
+            as_of_date=today,
+            status=recovery_status,
+        ),
+    ]
+    if deload_active:
+        rows.append(DeloadState(
+            microcycle_id=microcycle.id,
+            active=True,
+            triggered_at=today,
+            trigger_reason="test deload",
+        ))
+    db.add_all(rows)
+    db.commit()
+    return {
+        "macrocycle_id": macrocycle.id,
+        "mesocycle_id": mesocycle.id,
+        "microcycle_id": microcycle.id,
+        "planned_posture": planned_posture,
+        "body_comp_state": body_comp_state,
+        "recovery_status": recovery_status,
+        "deload_active": deload_active,
+        "deload_trigger_reason": "test deload" if deload_active else None,
+    }
+
+
+def _expected_envelope(ids):
+    return resolve_envelope(
+        planned_posture=ids["planned_posture"],
+        body_comp_state=ids["body_comp_state"],
+        recovery_status=ids["recovery_status"],
+        deload_active=ids["deload_active"],
+        deload_trigger_reason=ids["deload_trigger_reason"],
+    )
+
+
+def _expected_training_posture_payload(ids, resolved):
+    return {
+        "microcycle_id": ids["microcycle_id"],
+        "planned_posture": ids["planned_posture"],
+        "body_comp_state": ids["body_comp_state"].value,
+        "recovery_status": ids["recovery_status"].value,
+        "deload_state": {
+            "active": ids["deload_active"],
+            "trigger_reason": ids["deload_trigger_reason"],
+        },
+        "resolved_envelope": {
+            "rpe_cap": resolved.rpe_cap,
+            "volume_multiplier": resolved.volume_multiplier,
+            "progression_mode": resolved.progression_mode,
+            "optional_work_eligible": resolved.optional_work_eligible,
+            "trace": [
+                {
+                    "axis": step.axis,
+                    "before": dict(step.before),
+                    "after": dict(step.after),
+                }
+                for step in resolved.trace
+            ],
+        },
+    }
 
 
 def test_menu_hard_filters_inactive_and_wrong_pattern(gen_db):
@@ -52,6 +172,97 @@ def test_resolve_context_builds_per_slot_menus_and_tallies(gen_db):
         if slot.kind in ("giant", "knee"):
             assert slot.slot_id in ctx.candidate_menus, (
                 f"slot {slot.slot_id!r} (kind={slot.kind!r}) missing from candidate_menus")
+
+
+def test_resolve_current_microcycle_tolerates_drifted_active_week(gen_db):
+    today = date.today()
+    template = MesocycleTemplate(name="drift lookup template", postures=["BUILD"])
+    gen_db.add(template)
+    gen_db.flush()
+    mesocycle = Mesocycle(
+        template_id=template.id,
+        ordinal=1,
+        planned_start_date=today - timedelta(days=21),
+        planned_end_date=today - timedelta(days=1),
+        status=PlanStatus.ACTIVE,
+    )
+    gen_db.add(mesocycle)
+    gen_db.flush()
+    drifted = Microcycle(
+        mesocycle_id=mesocycle.id,
+        ordinal=3,
+        planned_start_date=today - timedelta(days=9),
+        planned_end_date=today - timedelta(days=3),
+        expected_sessions=5,
+        lifecycle_status=MicrocycleLifecycleStatus.ACTIVE,
+        planned_posture="BUILD",
+    )
+    completed = Microcycle(
+        mesocycle_id=mesocycle.id,
+        ordinal=2,
+        planned_start_date=today - timedelta(days=16),
+        planned_end_date=today - timedelta(days=10),
+        expected_sessions=5,
+        lifecycle_status=MicrocycleLifecycleStatus.COMPLETE,
+        planned_posture="ESTABLISH",
+    )
+    gen_db.add_all([drifted, completed])
+    gen_db.commit()
+
+    assert resolve_current_microcycle(gen_db, today).id == drifted.id
+
+
+def test_payload_shape_is_legacy_when_no_active_microcycle(gen_db):
+    week_keyer = lambda d: (d.year, d.isocalendar()[1])
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, week_keyer)
+    payload = build_context_payload(ctx, sk)
+
+    assert ctx.current_microcycle is None
+    assert ctx.current_body_comp_state is None
+    assert ctx.current_recovery_status is None
+    assert ctx.resolved_envelope is None
+    assert "training_posture" not in payload
+    assert set(payload) == {
+        "day_role",
+        "phase",
+        "phase_intent",
+        "anchors",
+        "slots",
+        "owed",
+        "recent_signatures",
+        "weak_point_hints",
+    }
+
+
+def test_resolve_context_populates_current_periodization_envelope(gen_db):
+    ids = _seed_active_periodization(gen_db)
+    week_keyer = lambda d: (d.year, d.isocalendar()[1])
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, week_keyer)
+
+    expected = _expected_envelope(ids)
+
+    assert ctx.current_microcycle.id == ids["microcycle_id"]
+    assert ctx.current_body_comp_state.state == ids["body_comp_state"]
+    assert ctx.current_recovery_status.status == ids["recovery_status"]
+    assert ctx.current_deload_state is None
+    assert ctx.resolved_envelope == expected
+
+
+def test_context_payload_includes_training_posture_trace_when_microcycle_active(gen_db):
+    ids = _seed_active_periodization(gen_db)
+    week_keyer = lambda d: (d.year, d.isocalendar()[1])
+    sk = lay_skeleton("D1 Upper Push", gen_db)
+    ctx = resolve_context("D1 Upper Push", sk, gen_db, week_keyer)
+    payload = build_context_payload(ctx, sk)
+
+    expected = _expected_envelope(ids)
+
+    assert payload["training_posture"] == _expected_training_posture_payload(
+        ids,
+        expected,
+    )
 
 
 def test_menu_is_program_anchored(gen_db):
