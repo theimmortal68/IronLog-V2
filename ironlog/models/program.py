@@ -2,7 +2,7 @@
 program.py — the program definition layer (the evolving-seed prior).
 
 DEFINITION tables (static, what a program *is*):
-    Program, ProgramDay, Tier, TierExercise, MesoRotation, WeekParityRotation
+    Program, ProgramDay, Tier, TierExercise, MesoRotation, MicrocycleParityRotation
 
 These are seeded once per training block and read by the generation layer
 (skeleton.py) to provide the program prior for each generated session.
@@ -138,17 +138,17 @@ class MesoRotation(SQLModel, table=True):
     rep_high: Optional[int] = None
 
 
-class WeekParityRotation(SQLModel, table=True):
-    """Per-slot movement (+ optional rep-target) override keyed by fixed week
-    parity, resolved automatically from the current date at generation time
-    -- no manual toggle, no note-apply flow. Two rows per rotating slot: one
-    week_parity="A", one week_parity="B".
+class MicrocycleParityRotation(SQLModel, table=True):
+    """Per-slot movement (+ optional rep-target) override keyed by the
+    owning Microcycle's ordinal parity, resolved automatically at generation
+    time -- no manual toggle, no note-apply flow. Two rows per rotating slot:
+    one week_parity="A", one week_parity="B".
 
     Precedence in lay_skeleton's slot resolution: an active
     SlotMovementOverride still wins first (explicit live-state swap always
-    takes priority), then a matching WeekParityRotation row for the current
-    date's parity, then MesoRotation(meso_number), then te.movement_id
-    (unchanged fallback order, WeekParityRotation inserted as a new tier).
+    takes priority), then a matching MicrocycleParityRotation row for the current
+    parity, then MesoRotation(mesocycle_id/meso_number), then te.movement_id
+    (unchanged fallback order, MicrocycleParityRotation inserted as a new tier).
 
     rep_low/rep_high are optional: when set, they override the TierExercise's
     own rep_low/rep_high for the SlotSpec/AnchorSpec built for the matched
@@ -156,6 +156,7 @@ class WeekParityRotation(SQLModel, table=True):
     targets, not just different movement identities). When left None, the
     TierExercise's own rep_low/rep_high apply unchanged.
     """
+    __tablename__ = "weekparityrotation"
     __table_args__ = (UniqueConstraint("tier_exercise_id", "week_parity"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -194,3 +195,8 @@ class SlotMovementOverride(SQLModel, table=True):
     rep_low: Optional[int] = None
     rep_high: Optional[int] = None
     override_order: Optional[float] = Field(default=None, sa_column=Column(REAL))
+
+
+# Back-compat alias: pre-rename callers/tests import WeekParityRotation.
+WeekParityRotation = MicrocycleParityRotation
+

@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 from ironlog.models.enums import OverrideType
 from ironlog.models.program import (
     MesoRotation, ProgramDay, SlotMovementOverride, Tier, TierExercise, TierKind,
-    WeekParityRotation,
+    MicrocycleParityRotation,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,6 +114,11 @@ class _ResolvedSlot:
     duration_high_seconds: Optional[int] = None
 
 
+def microcycle_parity(microcycle_ordinal: int) -> str:
+    """"A" or "B" from a Microcycle ordinal."""
+    return "A" if microcycle_ordinal % 2 == 0 else "B"
+
+
 def week_parity(as_of: date) -> str:
     """"A" or "B" from a fixed Monday-anchored week count.
 
@@ -129,7 +134,9 @@ def week_parity(as_of: date) -> str:
 
 def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
                  program_id: Optional[int] = None,
-                 as_of: Optional[date] = None) -> Skeleton:
+                 as_of: Optional[date] = None,
+                 microcycle_ordinal: Optional[int] = None,
+                 mesocycle_id: Optional[int] = None) -> Skeleton:
     """Read the program and return a Skeleton for the given day_role and meso.
 
     program_id (Fork 3 scoping): when given, the ProgramDay is filtered to that
@@ -138,14 +145,14 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
     day_role alone (back-compat for existing single-program callers/tests).
 
     as_of:
-        Calendar date used for WeekParityRotation resolution. When None,
+        Calendar date used for MicrocycleParityRotation resolution. When None,
         defaults once per call to date.today().
 
     anchor_movement_ids:
         Movement ids for TierExercises with tier_role=="anchor" outside
         GIANT_SET tiers.
         Resolved via _resolve_slot: an active SlotMovementOverride takes
-        precedence, then the matching WeekParityRotation row for as_of's
+        precedence, then the matching MicrocycleParityRotation row for as_of's
         parity, then the matching MesoRotation row for meso_number, then
         te.movement_id.
 
@@ -153,7 +160,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         SlotSpec for every non-anchor TierExercise, plus anchor exercises
         inside GIANT_SET tiers, with
         program_movement_id resolved via the same _resolve_slot precedence
-        (SlotMovementOverride > WeekParityRotation(as_of) >
+        (SlotMovementOverride > MicrocycleParityRotation(as_of) >
         MesoRotation(meso_number) > te.movement_id).
         kind = "knee" if knee_modality set,
                "giant" if tier is GIANT_SET and tier_role is not anchor,
@@ -196,7 +203,7 @@ def lay_skeleton(day_role: str, db: Session, meso_number: int = 1,
         pair_key = _pair_key_for_tier(db, tier, exercises)
 
         for te in exercises:
-            resolved = _resolve_slot(db, te, meso_number, effective_as_of)
+            resolved = _resolve_slot(db, te, meso_number, effective_as_of, microcycle_ordinal, mesocycle_id)
             rep_low = resolved.rep_low if resolved.rep_low is not None else te.rep_low
             rep_high = resolved.rep_high if resolved.rep_high is not None else te.rep_high
             duration_low_seconds = (
@@ -255,10 +262,10 @@ def _effective_exercise_order(db: Session, te: TierExercise) -> float:
     return float(te.exercise_order)
 
 
-def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date) -> _ResolvedSlot:
+def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date, microcycle_ordinal: Optional[int] = None, mesocycle_id: Optional[int] = None) -> _ResolvedSlot:
     """Resolve the movement id and optional rep overrides for a TierExercise slot.
 
-    Precedence: active SlotMovementOverride > WeekParityRotation(as_of) >
+    Precedence: active SlotMovementOverride > MicrocycleParityRotation(as_of) >
     MesoRotation(meso_number) > te.movement_id.
     Base program (te.movement_id) is never mutated by this resolution.
 
@@ -276,9 +283,10 @@ def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date) 
     if ov is not None:
         return _ResolvedSlot(movement_id=ov.override_movement_id)
 
-    wpr = db.exec(select(WeekParityRotation).where(
-        WeekParityRotation.tier_exercise_id == te.id,
-        WeekParityRotation.week_parity == week_parity(as_of))).first()
+    parity_val = microcycle_parity(microcycle_ordinal) if microcycle_ordinal is not None else week_parity(as_of)
+    wpr = db.exec(select(MicrocycleParityRotation).where(
+        MicrocycleParityRotation.tier_exercise_id == te.id,
+        MicrocycleParityRotation.week_parity == parity_val)).first()
     if wpr is not None:
         return _ResolvedSlot(
             movement_id=wpr.movement_id,
@@ -286,9 +294,14 @@ def _resolve_slot(db: Session, te: TierExercise, meso_number: int, as_of: date) 
             rep_high=wpr.rep_high,
         )
 
-    mr = db.exec(select(MesoRotation).where(
-        MesoRotation.tier_exercise_id == te.id,
-        MesoRotation.meso_number == meso_number)).first()
+    if mesocycle_id is not None:
+        mr = db.exec(select(MesoRotation).where(
+            MesoRotation.tier_exercise_id == te.id,
+            MesoRotation.mesocycle_id == mesocycle_id)).first()
+    else:
+        mr = db.exec(select(MesoRotation).where(
+            MesoRotation.tier_exercise_id == te.id,
+            MesoRotation.meso_number == meso_number)).first()
     if mr is not None:
         return _ResolvedSlot(movement_id=mr.movement_id)
 
@@ -353,11 +366,11 @@ def _pair_key_for_tier(db: Session, tier: Tier, exercises: List[TierExercise]) -
     return f"pair:{min(tier.id, partner.id)}:{max(tier.id, partner.id)}"
 
 
-def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> int:
+def _effective_movement_id(db: Session, te: TierExercise, meso_number: int, mesocycle_id: Optional[int] = None) -> int:
     """Resolve the movement id for a TierExercise slot.
 
     Compatibility wrapper for imports outside skeleton.py. This intentionally
-    preserves the pre-WeekParityRotation behavior used by notes/resolver.py:
+    preserves the pre-MicrocycleParityRotation behavior used by notes/resolver.py:
     active SlotMovementOverride > MesoRotation(meso_number) > te.movement_id.
     """
     ov = db.exec(select(SlotMovementOverride).where(
@@ -366,9 +379,14 @@ def _effective_movement_id(db: Session, te: TierExercise, meso_number: int) -> i
         SlotMovementOverride.active == True)).first()  # noqa: E712
     if ov is not None:
         return ov.override_movement_id
-    mr = db.exec(select(MesoRotation).where(
-        MesoRotation.tier_exercise_id == te.id,
-        MesoRotation.meso_number == meso_number)).first()
+    if mesocycle_id is not None:
+        mr = db.exec(select(MesoRotation).where(
+            MesoRotation.tier_exercise_id == te.id,
+            MesoRotation.mesocycle_id == mesocycle_id)).first()
+    else:
+        mr = db.exec(select(MesoRotation).where(
+            MesoRotation.tier_exercise_id == te.id,
+            MesoRotation.meso_number == meso_number)).first()
     return mr.movement_id if mr is not None else te.movement_id
 
 

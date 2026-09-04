@@ -11,6 +11,9 @@ from ironlog.generation.skeleton import lay_skeleton
 from ironlog.models.library import Movement
 from sqlmodel import select
 
+from ironlog.models.program import MicrocycleParityRotation, MesoRotation, TierExercise, Tier, ProgramDay
+from datetime import date
+
 
 def _movement_id(db, name):
     return db.exec(select(Movement.id).where(Movement.name == name)).one()
@@ -157,3 +160,97 @@ def test_d6_gs1_slot_order_preserves_pullup_first(gen_db):
     gs1_slots = [s.slot_id for s in sk.adaptive_slots if s.group_key == "GS1"]
 
     assert gs1_slots == ["d6_g1a", "d6_g1h", "d6_g2f"]
+
+
+def test_lay_skeleton_microcycle_ordinal_parity_resolution(gen_db):
+    """
+    Assert lay_skeleton(..., microcycle_ordinal=<ordinal>) resolves the correct A/B movement,
+    and two dates in different calendar weeks resolve to the same movement if microcycle_ordinal is the same.
+    """
+    # Find a TierExercise to use
+    prog_day = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == "D1 Upper Push")).first()
+    tier = gen_db.exec(select(Tier).where(Tier.program_day_id == prog_day.id)).first()
+    te = gen_db.exec(select(TierExercise).where(TierExercise.tier_id == tier.id)).first()
+
+    movement_a = 9991
+    movement_b = 9992
+
+    # Insert MicrocycleParityRotation
+    gen_db.add(MicrocycleParityRotation(
+        tier_exercise_id=te.id,
+        week_parity="A",
+        movement_id=movement_a
+    ))
+    gen_db.add(MicrocycleParityRotation(
+        tier_exercise_id=te.id,
+        week_parity="B",
+        movement_id=movement_b
+    ))
+    gen_db.commit()
+
+    # Even ordinal -> A
+    sk_even = lay_skeleton("D1 Upper Push", gen_db, microcycle_ordinal=2)
+    sk_even_slots = {s.slot_id: s for s in sk_even.adaptive_slots}
+    # T1 might be anchor, check anchor or adaptive
+    resolved_a = False
+    if movement_a in sk_even.anchor_movement_ids:
+        resolved_a = True
+    elif te.slot_id in sk_even_slots and sk_even_slots[te.slot_id].program_movement_id == movement_a:
+        resolved_a = True
+    assert resolved_a, "Even ordinal should resolve to A"
+
+    # Odd ordinal -> B
+    sk_odd = lay_skeleton("D1 Upper Push", gen_db, microcycle_ordinal=3)
+    sk_odd_slots = {s.slot_id: s for s in sk_odd.adaptive_slots}
+    resolved_b = False
+    if movement_b in sk_odd.anchor_movement_ids:
+        resolved_b = True
+    elif te.slot_id in sk_odd_slots and sk_odd_slots[te.slot_id].program_movement_id == movement_b:
+        resolved_b = True
+    assert resolved_b, "Odd ordinal should resolve to B"
+
+    # Assert different dates but same ordinal resolve identically
+    date1 = date(2026, 1, 1)
+    date2 = date(2026, 1, 15)  # Definitely a different calendar week
+    sk_date1 = lay_skeleton("D1 Upper Push", gen_db, microcycle_ordinal=4, as_of=date1)
+    sk_date2 = lay_skeleton("D1 Upper Push", gen_db, microcycle_ordinal=4, as_of=date2)
+    assert sk_date1.anchor_movement_ids == sk_date2.anchor_movement_ids
+    assert [s.program_movement_id for s in sk_date1.adaptive_slots] == [s.program_movement_id for s in sk_date2.adaptive_slots]
+
+
+def test_meso_rotation_mesocycle_id_lookup(gen_db):
+    """
+    Assert MesoRotation resolution via mesocycle_id returns the same result
+    as the equivalent legacy meso_number lookup.
+    """
+    prog_day = gen_db.exec(select(ProgramDay).where(ProgramDay.day_role == "D1 Upper Push")).first()
+    tier = gen_db.exec(select(Tier).where(Tier.program_day_id == prog_day.id)).first()
+    te = gen_db.exec(select(TierExercise).where(TierExercise.tier_id == tier.id)).first()
+    
+    mesocycle_id = 99
+    movement_override = 9993
+    
+    # We will insert a MesoRotation with BOTH mesocycle_id and meso_number
+    gen_db.add(MesoRotation(
+        tier_exercise_id=te.id,
+        meso_number=7,
+        mesocycle_id=mesocycle_id,
+        movement_id=movement_override
+    ))
+    gen_db.commit()
+
+    sk_legacy = lay_skeleton("D1 Upper Push", gen_db, meso_number=7)
+    sk_new = lay_skeleton("D1 Upper Push", gen_db, mesocycle_id=mesocycle_id)
+
+    assert sk_legacy.anchor_movement_ids == sk_new.anchor_movement_ids
+    assert [s.program_movement_id for s in sk_legacy.adaptive_slots] == [s.program_movement_id for s in sk_new.adaptive_slots]
+    
+    # And check the movement actually overrode
+    resolved_override = False
+    sk_new_slots = {s.slot_id: s for s in sk_new.adaptive_slots}
+    if movement_override in sk_new.anchor_movement_ids:
+        resolved_override = True
+    elif te.slot_id in sk_new_slots and sk_new_slots[te.slot_id].program_movement_id == movement_override:
+        resolved_override = True
+    assert resolved_override, "MesoRotation should override the movement"
+
