@@ -38,7 +38,10 @@ class ResolverTraceStepOut(BaseModel):
 class CurrentPlanOut(BaseModel):
     macrocycle: Optional[MacrocycleSummaryOut] = None
     mesocycle: Optional[MesocycleSummaryOut] = None
-    microcycle: Optional[MicrocycleSummaryOut] = None
+    current_active_microcycle: Optional[MicrocycleSummaryOut] = None
+    next_microcycle: Optional[MicrocycleSummaryOut] = None
+    starts_on: Optional[date] = None
+    blocked_reason: Optional[str] = None
     body_comp_state: Optional[str] = None
     recovery_status: Optional[str] = None
     deload_state: Optional[DeloadStateOut] = None
@@ -61,4 +64,5 @@ class MacrocycleDetailOut(BaseModel):
     planned_start_date: Optional[date]
     planned_end_date: Optional[date]
     status: str
+    planning_state: str
     mesocycles: List[MesocycleInstanceOut]

@@ -35,7 +35,7 @@ def test_get_current_plan_empty(client):
     data = response.json()
     assert data["macrocycle"] is None
     assert data["mesocycle"] is None
-    assert data["microcycle"] is None
+    assert data["current_active_microcycle"] is None
     assert data["body_comp_state"] is None
     assert data["recovery_status"] is None
     assert data["deload_state"] is None
@@ -107,7 +107,7 @@ def test_get_current_plan_populated(client, engine):
     data = response.json()
     assert data["macrocycle"]["id"] == macro_id
     assert data["mesocycle"]["id"] == meso_id
-    assert data["microcycle"]["id"] == micro_id
+    assert data["current_active_microcycle"]["id"] == micro_id
     assert data["body_comp_state"] == "CUT"
     assert data["recovery_status"] == "CAUTION"
     assert data["deload_state"] is None
@@ -170,3 +170,78 @@ def test_get_macrocycle_happy(client, engine):
     assert data["mesocycles"][1]["template_name"] == "Block 2"
     assert data["mesocycles"][0]["ordinal"] == 1
     assert data["mesocycles"][1]["ordinal"] == 2
+
+def test_get_current_plan_blocked_nullifies_deload_and_resolver_trace(client, engine):
+    """Design doc: resolve_envelope() (and therefore deload_state/resolver_trace)
+    must NEVER be computed when blocked_reason is set -- even if a `micro` object
+    with real BodyCompState/RecoveryStatus data is available. Reuses the same
+    monkeypatch-at-source pattern as test_get_current_plan_waiting_for_microcycle_start
+    (get_current_plan imports reconcile_current_training_state locally, so the
+    patch target is ironlog.engine.advancement, not ironlog.api.app)."""
+    from ironlog.models.periodization import (
+        Macrocycle, Mesocycle, MesocycleTemplate, Microcycle, MicrocycleLifecycleStatus,
+        MacroPlanningState, PlanStatus, BodyCompState, BodyCompStateValue, RecoveryStatus,
+        RecoveryStatusValue,
+    )
+    import ironlog.engine.advancement
+    from ironlog.engine.advancement import ReconcileResult
+    from sqlmodel import Session
+
+    with Session(engine) as db:
+        mac = Macrocycle(goal="Test", planned_start_date=date(2026, 1, 1),
+                         planning_state=MacroPlanningState.ACTIVE, status=PlanStatus.ACTIVE)
+        db.add(mac)
+        db.commit()
+        db.refresh(mac)
+
+        tmpl = MesocycleTemplate(name="Temp Blocked", postures=["PUSH"])
+        db.add(tmpl)
+        db.commit()
+        db.refresh(tmpl)
+
+        meso = Mesocycle(macrocycle_id=mac.id, template_id=tmpl.id, ordinal=1,
+                         planned_start_date=date(2026, 1, 1), planned_end_date=date(2026, 1, 31))
+        db.add(meso)
+        db.commit()
+        db.refresh(meso)
+
+        micro = Microcycle(mesocycle_id=meso.id, ordinal=1,
+                           planned_start_date=date(2026, 1, 1),
+                           planned_end_date=date(2026, 1, 7),
+                           expected_sessions=4,
+                           lifecycle_status=MicrocycleLifecycleStatus.INCOMPLETE,
+                           planned_posture="PUSH")
+        db.add(micro)
+        db.commit()
+        db.refresh(micro)
+
+        # Real BodyCompState/RecoveryStatus rows exist -- if the blocked_reason
+        # guard were missing, resolve_envelope() would have real inputs to run
+        # against and would NOT naturally return None on its own.
+        bc = BodyCompState(state=BodyCompStateValue.MAINTENANCE, effective_from=date(2026, 1, 1))
+        rec = RecoveryStatus(as_of_date=date.today(), status=RecoveryStatusValue.NORMAL)
+        db.add(bc)
+        db.add(rec)
+        db.commit()
+
+        micro_id = micro.id
+        meso_id = meso.id
+
+    original = ironlog.engine.advancement.reconcile_current_training_state
+    try:
+        def mock_reconcile(db):
+            return ReconcileResult(
+                blocked_reason="INCOMPLETE_MICROCYCLE",
+                final_microcycle_id=micro_id,
+                final_mesocycle_id=meso_id,
+            )
+        ironlog.engine.advancement.reconcile_current_training_state = mock_reconcile
+
+        response = client.get("/training/plan/current")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["blocked_reason"] == "INCOMPLETE_MICROCYCLE"
+        assert data["resolver_trace"] is None
+        assert data["deload_state"] is None
+    finally:
+        ironlog.engine.advancement.reconcile_current_training_state = original

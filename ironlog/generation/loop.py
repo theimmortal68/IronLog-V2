@@ -17,7 +17,7 @@ NO from __future__ import annotations (project-wide constraint).
 from datetime import datetime
 from typing import Callable, List
 
-from sqlmodel import Session as DBSession, select
+from sqlmodel import Session as DBSession, select, update
 
 from ..engine.band_composite import Band, config_peak, ht_scaled_setup
 from ..models.enums import SessionStatus
@@ -35,6 +35,23 @@ from .repair import (
 )
 from .skeleton import Skeleton, lay_skeleton
 from ..engine.validator import validate
+from ..engine.advancement import reconcile_current_training_state
+from ..engine.program_hash import compute_program_prescription_hash
+from ..models.periodization import (
+    Microcycle, Mesocycle, MicrocycleSlot, MicrocycleLifecycleStatus, MicrocycleSlotResolution
+)
+from ..models.program import Program
+from ..models.enums import SessionPlanStatus
+
+
+class BlockedPlanError(Exception):
+    def __init__(self, blocked_reason: str):
+        self.blocked_reason = blocked_reason
+        super().__init__(blocked_reason)
+
+
+class SlotConflictError(Exception):
+    pass
 
 
 def is_clean(outcome: RepairOutcome) -> bool:
@@ -82,8 +99,62 @@ def commit_session(
     session = assembled.session
     session.status = SessionStatus.PLANNED
     session.approved_at = datetime.utcnow()
+
+    microcycle_id = session.prescription_snapshot.get('microcycle_id') if session.prescription_snapshot else None
+
+    slot = None
+    if microcycle_id is not None:
+        microcycle = db.get(Microcycle, microcycle_id)
+        if microcycle is None:
+            raise SlotConflictError()
+        if microcycle.mesocycle_id is None:
+            raise SlotConflictError()
+        mesocycle = db.get(Mesocycle, microcycle.mesocycle_id)
+        if mesocycle is None or mesocycle.program_id is None:
+            raise SlotConflictError()
+        program = db.get(Program, mesocycle.program_id)
+        if program is None:
+            raise SlotConflictError()
+            
+        current_hash = compute_program_prescription_hash(program)
+        if current_hash != mesocycle.program_prescription_hash:
+            raise BlockedPlanError(blocked_reason='PROGRAM_DRIFT')
+
+        slot = db.exec(select(MicrocycleSlot).where(
+            MicrocycleSlot.microcycle_id == microcycle_id,
+            MicrocycleSlot.day_label == session.day_role,
+        )).first()
+
+        if slot is None:
+            raise SlotConflictError()
+
+        if slot.session_id is not None:
+            existing = db.get(Session, slot.session_id)
+            return existing
+        if microcycle.lifecycle_status != MicrocycleLifecycleStatus.ACTIVE or slot.resolution != MicrocycleSlotResolution.PENDING:
+            raise SlotConflictError()
+        session.plan_status = SessionPlanStatus.PLANNED
+        session.microcycle_id = microcycle_id
+
     # Cascade via save-update default: adds groups → exercises → sets
     db.add(session)
+    db.flush()
+
+    if microcycle_id is not None and slot is not None:
+        # Conditional update to protect against double-approval race (Fix 2)
+        res = db.exec(update(MicrocycleSlot).where(
+            MicrocycleSlot.id == slot.id,
+            MicrocycleSlot.session_id.is_(None)
+        ).values(session_id=session.id))
+        
+        if res.rowcount == 0:
+            db.rollback()
+            slot_curr = db.get(MicrocycleSlot, slot.id)
+            if slot_curr and slot_curr.session_id is not None:
+                existing = db.get(Session, slot_curr.session_id)
+                return existing
+            raise SlotConflictError()
+    
     db.commit()
     db.refresh(session)
 
@@ -207,6 +278,10 @@ def generate_session(
     caller (approve endpoint / commit_session) writes it to the DB on approval.
     Regenerate = call generate_session again; no DB state is written until approve.
     """
+    result = reconcile_current_training_state(db)
+    if result.blocked_reason is not None:
+        raise BlockedPlanError(blocked_reason=result.blocked_reason)
+
     sk = lay_skeleton(day_role, db)
     ctx = resolve_context(day_role, sk, db, week_keyer)
 
