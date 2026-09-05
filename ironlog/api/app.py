@@ -57,7 +57,6 @@ from ..models.periodization import (
     Macrocycle, Mesocycle, Microcycle, MesocycleTemplate, BodyCompState, RecoveryStatus, DeloadState
 )
 from ..generation.context import (
-    resolve_current_microcycle,
     _active_body_comp_state,
     _current_recovery_status,
     _active_deload_state,
@@ -87,7 +86,7 @@ from ..generation.assembler import (
     build_warmup_payload,
     planned_sets_in_group_order,
 )
-from ..generation.loop import commit_session, generate_session
+from ..generation.loop import commit_session, generate_session, BlockedPlanError, SlotConflictError
 from ..generation.load_trust import compute_load_trust, load_field_for_mode
 from ..generation.skeleton import lay_skeleton
 from ..generation.fallback import program_selections
@@ -382,7 +381,13 @@ def generate(req: GenerateRequest, db: Session = Depends(get_session)):
     """
     sk = lay_skeleton(req.day_role, db)
     proposer = _make_proposer(sk)
-    outcome = generate_session(req.day_role, db, proposer, _week_keyer)
+    try:
+        outcome = generate_session(req.day_role, db, proposer, _week_keyer)
+    except BlockedPlanError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"blocked_reason": e.blocked_reason}
+        )
     candidate_id = str(_uuid.uuid4())
     _candidates[candidate_id] = outcome
     preview = None
@@ -417,16 +422,27 @@ def approve_session(candidate_id: str, db: Session = Depends(get_session)):
         raise HTTPException(404, "candidate not found — call /generate first")
     if outcome.assembled is None:
         raise HTTPException(422, "candidate is exhausted — no valid session assembled")
-    committed = commit_session(
-        outcome.assembled,
-        db,
-        approval_mode="human",
-        prompt=outcome.prompt or {},
-        selections_dict=outcome.selections_dict or {},
-        clamps=outcome.clamps or [],
-        repairs=outcome.rejections,
-        fallback_used=outcome.exhausted,
-    )
+    try:
+        committed = commit_session(
+            outcome.assembled,
+            db,
+            approval_mode="human",
+            prompt=outcome.prompt or {},
+            selections_dict=outcome.selections_dict or {},
+            clamps=outcome.clamps or [],
+            repairs=outcome.rejections,
+            fallback_used=outcome.exhausted,
+        )
+    except BlockedPlanError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"blocked_reason": e.blocked_reason}
+        )
+    except SlotConflictError:
+        raise HTTPException(
+            status_code=409,
+            detail="Slot conflict or microcycle no longer active"
+        )
     return ApproveResponse(session_id=committed.id)
 
 
@@ -552,6 +568,17 @@ def submit_session(session_id: int, req: SubmitRequest, background_tasks: Backgr
 
     ws.status = SessionStatus.COMPLETED
     db.add(ws)
+
+    if ws.microcycle_id is not None:
+        from ..models.periodization import MicrocycleSlot, MicrocycleSlotResolution, MicrocycleSlotResolutionSource
+        slot = db.exec(select(MicrocycleSlot).where(MicrocycleSlot.session_id == ws.id)).first()
+        if slot:
+            if slot.resolution == MicrocycleSlotResolution.PENDING:
+                slot.resolution = MicrocycleSlotResolution.COMPLETED
+                slot.resolution_source = MicrocycleSlotResolutionSource.SESSION
+                slot.resolved_at = datetime.utcnow()
+                db.add(slot)
+
     db.commit()
 
     # Single-band HT felt-peak refinement (Task 5): a logged HT set that used
@@ -1707,14 +1734,23 @@ def confirm_phase(req: ConfirmPhaseRequest, db: Session = Depends(get_session)):
 
 @app.get("/training/plan/current", response_model=CurrentPlanOut)
 def get_current_plan(db: Session = Depends(get_session)):
+    from ..engine.advancement import reconcile_current_training_state
     today = date.today()
-    micro = resolve_current_microcycle(db, today)
-    if micro is None:
-        return CurrentPlanOut()
+    result = reconcile_current_training_state(db)
     
-    meso = db.get(Mesocycle, micro.mesocycle_id)
-    macro = db.get(Macrocycle, meso.macrocycle_id) if meso and meso.macrocycle_id else None
+    macro = None
+    meso = None
+    micro = None
     
+    if result.final_microcycle_id:
+        micro = db.get(Microcycle, result.final_microcycle_id)
+        meso = db.get(Mesocycle, micro.mesocycle_id)
+    elif result.final_mesocycle_id:
+        meso = db.get(Mesocycle, result.final_mesocycle_id)
+
+    if meso:
+        macro = db.get(Macrocycle, meso.macrocycle_id) if meso.macrocycle_id else None
+
     macro_out = None
     if macro:
         macro_out = MacrocycleSummaryOut(
@@ -1732,23 +1768,34 @@ def get_current_plan(db: Session = Depends(get_session)):
             status=meso.status.value,
         )
         
-    micro_out = MicrocycleSummaryOut(
-        id=micro.id,
-        ordinal=micro.ordinal,
-        planned_posture=micro.planned_posture,
-        effective_posture=micro.effective_posture,
-        lifecycle_status=micro.lifecycle_status.value,
-        drift_status=micro.drift_status.value,
-        drift_days=micro.drift_days,
-        planned_start_date=micro.planned_start_date,
-        planned_end_date=micro.planned_end_date,
-        actual_start_date=micro.actual_start_date,
-        actual_completion_date=micro.actual_completion_date,
-    )
+    current_active = None
+    next_micro = None
+    starts_on = None
+
+    if micro:
+        micro_out = MicrocycleSummaryOut(
+            id=micro.id,
+            ordinal=micro.ordinal,
+            planned_posture=micro.planned_posture,
+            effective_posture=micro.effective_posture,
+            lifecycle_status=micro.lifecycle_status.value,
+            drift_status=micro.drift_status.value,
+            drift_days=micro.drift_days,
+            planned_start_date=micro.planned_start_date,
+            planned_end_date=micro.planned_end_date,
+            actual_start_date=micro.actual_start_date,
+            actual_completion_date=micro.actual_completion_date,
+        )
+        if result.blocked_reason is not None:
+            if micro.lifecycle_status.value == "NOT_STARTED":
+                next_micro = micro_out
+                starts_on = micro.planned_start_date
+        else:
+            current_active = micro_out
     
     body_comp = _active_body_comp_state(db, today)
     recovery = _current_recovery_status(db, today)
-    deload = _active_deload_state(db, micro)
+    deload = _active_deload_state(db, micro) if micro and result.blocked_reason is None else None
     
     body_comp_str = body_comp.state.value if body_comp else None
     recovery_str = recovery.status.value if recovery else None
@@ -1761,7 +1808,7 @@ def get_current_plan(db: Session = Depends(get_session)):
         )
         
     resolver_trace = None
-    if body_comp and recovery:
+    if body_comp and recovery and micro and result.blocked_reason is None:
         resolved = resolve_envelope(
             planned_posture=micro.planned_posture,
             body_comp_state=body_comp.state,
@@ -1781,7 +1828,10 @@ def get_current_plan(db: Session = Depends(get_session)):
     return CurrentPlanOut(
         macrocycle=macro_out,
         mesocycle=meso_out,
-        microcycle=micro_out,
+        current_active_microcycle=current_active,
+        next_microcycle=next_micro,
+        starts_on=starts_on,
+        blocked_reason=result.blocked_reason,
         body_comp_state=body_comp_str,
         recovery_status=recovery_str,
         deload_state=deload_out,
@@ -1821,5 +1871,6 @@ def get_macrocycle(macrocycle_id: int, db: Session = Depends(get_session)):
         planned_start_date=macro.planned_start_date,
         planned_end_date=macro.planned_end_date,
         status=macro.status.value,
+        planning_state=macro.planning_state.value,
         mesocycles=meso_outs,
     )
