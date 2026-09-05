@@ -1,5 +1,7 @@
 # Microcycle/Mesocycle Advancement — Design
 
+**Revision 9** — incorporates 5 corrections from an eighth review pass on revision 8, 2 flagged as blockers (both localized edge cases in the new revision-8 machinery, not new architectural surface) — after which the reviewer again considers the design implementation-ready, this time without qualification. (1) `plan_next_mesocycle.py` (revision 8) instantiated a successor Mesocycle's Microcycle 1 *immediately* on creation — but that can happen while the *current* Mesocycle is still mid-run (e.g. planning Mesocycle 2 during Mesocycle 1's week 1). §3b's pending-activation branch (revision 8) would then find that far-future pending Microcycle before checking anything about the actually-active one, see it's not yet due, and set `blocked_reason="WAITING_FOR_MICROCYCLE_START"` — incorrectly blocking the *currently active* Mesocycle, which has nothing wrong with it. Fixed two ways: `plan_next_mesocycle.py` now only instantiates the successor's Microcycle 1 immediately if the predecessor Mesocycle is *already* `COMPLETE` (i.e. the Macrocycle is genuinely `AWAITING_NEXT_MESOCYCLE` when the script runs) — otherwise it creates the successor Mesocycle as `PLANNED` with no Microcycle yet, leaving instantiation to rollover once the predecessor actually finishes; and §3b's `pending` selection now requires the candidate's predecessor (Microcycle or Mesocycle, as applicable) be genuinely `COMPLETE`, as defense in depth. (2) The same revision-8 change also created a double-instantiation risk: if the operator plans a successor during `AWAITING_NEXT_MESOCYCLE` (script instantiates Microcycle 1) and rollover later independently tries to instantiate the same Microcycle 1, only the DB's `UNIQUE(mesocycle_id, ordinal)` constraint stood between that and a hard failure on an otherwise-normal lifecycle event. Fixed by extracting a shared, idempotent `ensure_first_microcycle_instantiated(mesocycle)` operation — reused by both `plan_next_mesocycle.py` and rollover — that creates the row if absent, or verifies-and-reuses it if already present, rather than each caller assuming it's the only one who could have created it. Also folded in, cheap and worth doing now: (3) §3b's activation transaction boundary is corrected to actually enclose the hash verification (revision 8's pseudocode verified the hash *before* `BEGIN TRANSACTION`, contradicting its own "one atomic transaction" claim) — the hash check, slot snapshot, `slot_topology_hash` computation, slot-count validation, and both status transitions are now all inside one lock-verify-mutate-commit block. (4) The Microcycle #1 bootstrap (§2b) now also computes and stores `slot_topology_hash` at bootstrap time — an omission that would have left the one bootstrapped `ACTIVE` Microcycle as the sole Microcycle missing a field `acknowledge_program_drift.py` (§5c) depends on. (5) A zero-`TRAINING`-slot activation failure is now explicitly specified as a distinct `InvalidPlanConfigurationError` surface, not a `blocked_reason` — "your `Program`/template configuration is invalid" and "the plan is fine but temporarily blocked" are different failure classes and should stay visibly different to callers.
+
 **Revision 8** — incorporates 6 corrections from a seventh review pass on revision 7, 2 flagged as blockers, after which the reviewer considers the architecture implementation-ready. (1) The fixed-point reconciler never actually specified the branch that *notices* an instantiated-but-not-yet-active Microcycle and retries its activation — revision 7's prose said "the reconciler retries activation on a later run," but the pseudocode across §4a, §5's rollover step 3, and §5's resume branch each only handled the moment of *creating* that pending state, not the moment of *resuming* it. This mattered acutely at a Mesocycle boundary: after revision 7, `Macrocycle.planning_state` is `ACTIVE` as soon as a successor exists, so the old `AWAITING_NEXT_MESOCYCLE` resume branch's trigger condition no longer fires to pick the pending Microcycle back up. Fixed by introducing a single, generalized **pending-activation branch** (new §3b) that every fixed-point iteration checks first: it finds the one Microcycle sitting `NOT_STARTED` with zero slots (instantiated but not yet activated, from any of the three call sites that can produce that state, or left there by an earlier `PROGRAM_DRIFT` block) and either activates it or re-blocks it. §4a and §5 now describe *instantiation* only; all activation logic lives in §3b, described once. (2) Revision 7 solved drift acknowledgment invalidating slots *before* a Microcycle activates, but not *after*: an acknowledged `Program` edit that changes prescription only (exercises, sets, RPE) is fine to accept against an already-`ACTIVE` Microcycle, but one that changes slot topology (a day flips `TRAINING`↔`REST`, a day is added/removed, day ordering changes) would leave the already-snapshotted `MicrocycleSlot`s describing a `Program` state the newly-accepted hash no longer matches. Fixed with a second, narrower hash — `Microcycle.slot_topology_hash`, covering only what determines the slot snapshot — checked by `acknowledge_program_drift.py` before it will accept a `Program` revision against an `ACTIVE` Microcycle; a topology change is refused (routed to the explicit interruption/replan path, §4) while a prescription-only change is accepted normally. Also folded in, cheap and worth doing now: (3) Microcycle activation (§3b) is stated as one explicit transaction covering hash check, slot snapshot, slot-count validation, and both status transitions. (4) Zero-`TRAINING`-slot Microcycles are now rejected *at activation*, not just prevented from reaching `COMPLETE` — an invalid configuration fails loudly instead of producing a Microcycle that can activate but never finish. (5) The bootstrap (§2b) now hard-fails for operator resolution on any post-cutover `Session` that can't be deterministically mapped to a Microcycle/slot, rather than silently backfilling it as `plan_status=PLANNED`/`microcycle_id=NULL` — a handful of cutover-era edge cases deserve deterministic reconciliation, not a permanent historical exception to what `PLANNED` means. (6) `plan_next_mesocycle.py` itself now sets `Macrocycle.planning_state=ACTIVE` transactionally at the moment it creates a successor Mesocycle, closing the last sliver of "successor exists, but `planning_state` hasn't caught up yet" that could otherwise exist between the script's commit and the reconciler's next run; logged as a distinct `SUCCESSOR_PLANNED` audit event, kept separate from `MESOCYCLE_ADVANCED` (plan continuation becoming available and training actually entering that Mesocycle are different events).
 
 **Revision 7** — incorporates 6 corrections from a sixth review pass on revision 6, 2 flagged as blockers. (1) `Macrocycle.planning_state` and `blocked_reason` could contradict each other: once an operator planned a successor Mesocycle via `plan_next_mesocycle.py`, the plan genuinely had continuation, but revision 6 left `planning_state=AWAITING_NEXT_MESOCYCLE` untouched until the successor actually *activated* — so a state read during the `WAITING_FOR_MICROCYCLE_START` window could show "awaiting a successor" and "the successor is materialized and just waiting to start" at the same time. Fixed by redefining `AWAITING_NEXT_MESOCYCLE` to mean strictly *no successor plan exists* — `planning_state` moves to `ACTIVE` the moment a successor is found/materialized, independent of whether it has actually started training yet. (2) Revision 6's "materialize slots early, activate later" design for the no-early-start fix created a new correctness gap: if a `Program` drift is acknowledged (accepting revision B) *after* a future Microcycle's slots were already snapshotted from revision A, the accepted hash and the actual snapshotted slots could describe two different `Program` revisions. Fixed by splitting what revision 6 called "materialization" into three distinct steps — **instantiate** (create the `Microcycle` row, `NOT_STARTED`, no slots yet), **activate** (hash check, then snapshot `MicrocycleSlot`s from the *now-verified* `Program`, then `NOT_STARTED → ACTIVE`) — so slots are only ever snapshotted from a `Program` state that was hash-verified at that exact moment, never from a state that might later be superseded by a drift acknowledgment. Also folded in, not blockers but cheap and worth doing now: (3) `Session.status → COMPLETED`/`SKIPPED` and the corresponding `MicrocycleSlot.resolution` transition are now specified as one atomic transaction, closing a crash-window where a `Session` could commit as completed while its slot stayed `PENDING` forever. (4) The reconciler's stopping-condition prose (§3) now lists all four `blocked_reason` values instead of the two from revision 4. (5) `Macrocycle.planning_state=COMPLETE` is explicitly documented as operator-declared/future — nothing in this design transitions to it, and that's intentional, not an oversight. (6) Added an explicit statement of the residual concurrency assumption this design still rests on: `Program`-mutating writes are assumed administrative/low-frequency and not yet required to serialize against planned generation; a future `Program.revision` counter is named as the eventual hardening path, not built here.
@@ -103,7 +105,7 @@ The resulting historical record is legitimate and informative, not a bug: `Sessi
 ### 2b. Bootstrap: `MicrocycleSlot` for the already-live Microcycle #1 (production-critical)
 
 Unchanged from revision 2 — still required, still blocking, still must run before the reconciler is ever invoked against live data. The §5c hash re-check (fix #1) applies here too, trivially: since the bootstrap runs once, immediately, against whatever `Program` state exists at the moment it's executed, there is nothing to have drifted from yet — the hash is simply computed and stored on the bound Mesocycle at this point, not compared against an earlier value.
-1. Snapshot Microcycle #1's expected `TRAINING`/`REST` slots from the `Program` its (now-bound, §5c) Mesocycle uses.
+1. Snapshot Microcycle #1's expected `TRAINING`/`REST` slots from the `Program` its (now-bound, §5c) Mesocycle uses. **Also compute and store `Microcycle.slot_topology_hash` from that exact snapshot (fix #4, revision 9)** — omitted in revision 8 when `slot_topology_hash` was introduced, which would have left Microcycle #1 (bootstrapped `ACTIVE` outside §3b's normal activation path) as the one Microcycle missing a field `acknowledge_program_drift.py` (§5c) depends on for every subsequent Microcycle.
 2. Backfill `Session.microcycle_id`/`plan_status` for sessions already generated since 2026-09-04.
 3. For each, resolve its matching `day_code` slot per the binding/resolution split in §2a (i.e., check the real `Session.status`, not just "a Session exists" — a session generated but never completed binds the slot without resolving it, exactly as live behavior should be).
 4. **Verify** the resulting slot count matches the expected `TRAINING` count before considering the bootstrap successful — a silent zero-slot result hard-fails the bootstrap.
@@ -186,45 +188,61 @@ A blocked plan (`blocked_reason` set) simply **cannot generate a normally-planne
 
 The fix: **one generalized branch, checked at the start of every fixed-point iteration (§3, step 3), before any other transition check:**
 ```
-pending = the Microcycle (at most one can exist at a time, per the
-  extended uniqueness invariant below) with:
-    lifecycle_status == NOT_STARTED
-    zero MicrocycleSlot rows
+pending = the Microcycle, if any, that is BOTH:
+    lifecycle_status == NOT_STARTED, zero MicrocycleSlot rows
+    AND activation-eligible (fix #1/#2, blocker, revision 9 -- see below):
+        same Mesocycle:      its predecessor Microcycle (ordinal - 1) is
+                              lifecycle_status == COMPLETE
+        first of a Mesocycle: the owning Mesocycle's predecessor
+                              Mesocycle (ordinal - 1) is status == COMPLETE
 
 if pending exists:
     if local_today < pending.planned_start_date:
         blocked_reason = "WAITING_FOR_MICROCYCLE_START"
         stop this iteration (retried on the next reconciler invocation)
     else:
-        verify pending's owning Mesocycle.program_prescription_hash
-          against the LIVE Program, right now (§5c)
-        if mismatch:
-            blocked_reason = "PROGRAM_DRIFT"
-            stop this iteration (pending stays NOT_STARTED, no slots;
-              retried automatically the next time this branch runs,
-              which happens as soon as an operator acknowledges the
-              drift via scripts/acknowledge_program_drift.py)
-        else:
-            BEGIN TRANSACTION
+        BEGIN TRANSACTION   -- fix #3, revision 9: the hash verification
+                            -- below is now INSIDE the transaction; revision
+                            -- 8's pseudocode verified it before BEGIN,
+                            -- contradicting its own atomicity claim
+            lock pending Microcycle row and its owning Mesocycle row
+            verify owning Mesocycle.program_prescription_hash against
+              the LIVE Program, right now (§5c)
+            if mismatch:
+                ROLLBACK
+                blocked_reason = "PROGRAM_DRIFT"
+                stop this iteration (pending stays NOT_STARTED, no slots;
+                  retried automatically the next time this branch runs,
+                  which happens as soon as an operator acknowledges the
+                  drift via scripts/acknowledge_program_drift.py)
+            else:
                 snapshot MicrocycleSlots from the now-verified Program
-                validate: at least one TRAINING slot resulted
-                  (fix #4, revision 8 -- see below; a zero-TRAINING-slot
-                  snapshot fails activation outright, it does not produce
-                  an ACTIVE Microcycle that can never reach COMPLETE)
-                if owning Mesocycle.status == PLANNED:
-                    Mesocycle: PLANNED -> ACTIVE, actual_start_date = today
-                    log MESOCYCLE_ADVANCED
-                Microcycle: NOT_STARTED -> ACTIVE, actual_start_date = today
-            COMMIT
-            continue the fixed-point loop (this Microcycle may itself
-              already be due for further transitions, e.g. if it was
-              stuck blocked for a long time before being resumed)
+                compute + store Microcycle.slot_topology_hash from that
+                  exact snapshot (§5c, fix #2, revision 8)
+                if training_slot_count == 0:
+                    ROLLBACK
+                    raise InvalidPlanConfigurationError (fix #5, revision 9
+                      -- see below; this is NOT a blocked_reason, it is a
+                      distinct configuration-error surface)
+                    log the configuration failure; stop entirely for this
+                      Mesocycle/template until an operator fixes it
+                else:
+                    if owning Mesocycle.status == PLANNED:
+                        Mesocycle: PLANNED -> ACTIVE, actual_start_date = today
+                        log MESOCYCLE_ADVANCED
+                    Microcycle: NOT_STARTED -> ACTIVE, actual_start_date = today
+        COMMIT
+        continue the fixed-point loop (this Microcycle may itself
+          already be due for further transitions, e.g. if it was
+          stuck blocked for a long time before being resumed)
 else:
     no pending Microcycle -- proceed to whichever other transition this
       iteration would otherwise check (completion, drift, rollover
       discovery, etc.)
 ```
-This one branch is what makes activation actually resumable, and it is now the *only* place activation happens — normal advancement (§4a) and a Mesocycle-boundary successor (§5, instantiated either by rollover discovery or by `plan_next_mesocycle.py` directly) both just instantiate and then rely on this branch to pick the pending Microcycle up, whether that's on the same iteration (already due) or a later one (retried after `WAITING_FOR_MICROCYCLE_START` or an acknowledged `PROGRAM_DRIFT`). **Extended uniqueness invariant (revision 8):** at most one Microcycle across the whole Macrocycle may be `NOT_STARTED` with zero slots at a time — instantiation never runs again while a pending one already exists, which is guaranteed structurally since nothing instantiates a successor before its predecessor is `ACTIVE`.
+**Eligibility check added (fix #1/#2, blocker, revision 9).** Revision 8's `pending` selection was just "`NOT_STARTED` with zero slots" — with no requirement that the pending Microcycle's predecessor had actually finished. That was fine as long as only one instantiate-then-wait Microcycle could ever exist at a time, but revision 8 broke that assumption itself: `plan_next_mesocycle.py` instantiates a successor Mesocycle's Microcycle 1 *immediately* on creation, which can happen while the *current* Mesocycle is still mid-run (e.g. planning Mesocycle 2 during Mesocycle 1's week 1). Without an eligibility check, §3b would find that far-future pending Microcycle, see its `planned_start_date` is not yet due, and set `blocked_reason="WAITING_FOR_MICROCYCLE_START"` — incorrectly blocking the *currently active* Mesocycle 1, which has nothing wrong with it. The eligibility check (defense in depth, paired with fix #1's `plan_next_mesocycle.py` change below) guarantees §3b only ever considers a pending Microcycle whose predecessor has genuinely completed — never a preplanned future one still waiting on current training to finish.
+
+This one branch is what makes activation actually resumable, and it is now the *only* place activation happens — normal advancement (§4a) and a Mesocycle-boundary successor (§5) both just instantiate and then rely on this branch to pick the pending Microcycle up, whether that's on the same iteration (already due) or a later one (retried after `WAITING_FOR_MICROCYCLE_START` or an acknowledged `PROGRAM_DRIFT`). **Extended uniqueness invariant, corrected (revision 9):** at most one Microcycle across the whole Macrocycle may be `NOT_STARTED` with zero slots **and be activation-eligible** at a time. (Revision 8 claimed this held unconditionally; it didn't, once `plan_next_mesocycle.py` could instantiate a future Microcycle 1 early — see fix #1 below, which restores it by construction rather than relying on the eligibility check alone to paper over a genuine second pending row.)
 
 ## 4. Microcycle lifecycle
 
@@ -282,25 +300,55 @@ PLANNED → ACTIVE → COMPLETE
 **Rollover** (evaluated inside the fixed-point loop, when the current Mesocycle's final Microcycle reaches `COMPLETE`, not `INCOMPLETE`):
 1. Close the current Mesocycle (`ACTIVE → COMPLETE`, sets `actual_end_date` — the field already on `Mesocycle`).
 2. Query the Macrocycle for the next ordered `Mesocycle` with `status=PLANNED`.
-3. **If found**: validate template cardinality (§5d). **`Macrocycle.planning_state = ACTIVE` immediately here (fix #1, revision 7) — a successor plan exists, full stop; this does not wait for the successor to actually start training.** Instantiate its first `Microcycle` as `NOT_STARTED`, no slots yet (`planned_posture = MesocycleTemplate.postures[microcycle.ordinal - 1]`, 0-indexed off a 1-based ordinal — a dedicated test asserts all four index mappings for a 4-week template). **The Mesocycle itself stays `PLANNED` at this point — it does not activate just because its predecessor closed; activation (of both the Mesocycle and its Microcycle 1 together) is entirely §3b's job (revision 8), triggered on this same iteration if already due, or on a later one otherwise.** **This step (close old Mesocycle, update `Macrocycle.planning_state`, instantiate the new Mesocycle's first Microcycle) is one transaction** (fix #6, revision 4) — a validation/index failure partway through must roll back everything, never leaving the old Mesocycle `COMPLETE` with the new Mesocycle/Microcycle half-instantiated.
+3. **If found**: validate template cardinality (§5d). **`Macrocycle.planning_state = ACTIVE` immediately here (fix #1, revision 7) — a successor plan exists, full stop; this does not wait for the successor to actually start training.** Call `ensure_first_microcycle_instantiated(successor_mesocycle)` (fix #2, revision 9 — see below) to instantiate its first `Microcycle` as `NOT_STARTED`, no slots yet, if it doesn't already exist (`planned_posture = MesocycleTemplate.postures[microcycle.ordinal - 1]`, 0-indexed off a 1-based ordinal — a dedicated test asserts all four index mappings for a 4-week template). **The Mesocycle itself stays `PLANNED` at this point — it does not activate just because its predecessor closed; activation (of both the Mesocycle and its Microcycle 1 together) is entirely §3b's job, triggered on this same iteration if already due, or on a later one otherwise.** **This step (close old Mesocycle, update `Macrocycle.planning_state`, instantiate the new Mesocycle's first Microcycle) is one transaction** (fix #6, revision 4) — a validation/index failure partway through must roll back everything, never leaving the old Mesocycle `COMPLETE` with the new Mesocycle/Microcycle half-instantiated.
 4. **If not found**: `Macrocycle.planning_state = AWAITING_NEXT_MESOCYCLE` if not already; log `PLAN_EXHAUSTED` only on the transition into that state. Loop stops (`blocked_reason="AWAITING_NEXT_MESOCYCLE"`). **This is the only way `planning_state` becomes or stays `AWAITING_NEXT_MESOCYCLE` (fix #1, revision 7) — see §5b.**
 
-**Resume branch retired as a distinct concept — folded into `plan_next_mesocycle.py` itself and §3b (fix #6, revision 8).** Revisions 4–7 handled "an operator plans a successor after the Macrocycle already went `AWAITING_NEXT_MESOCYCLE`" as a special reconciler-side trigger, checked alongside "final Microcycle just completed." That trigger depended on reading `Macrocycle.planning_state == AWAITING_NEXT_MESOCYCLE` — which revision 7 made stop being true the instant a successor exists, since `planning_state` now moves to `ACTIVE` immediately on discovery. A reconciler-side trigger keyed on a state that's true for zero time between "successor created" and "reconciler next runs" doesn't reliably fire. **Revision 8's fix: `plan_next_mesocycle.py` does the discovery-time work itself, transactionally, at creation time — not the reconciler:**
+**Resume branch retired as a distinct concept — folded into `plan_next_mesocycle.py` itself and §3b (fix #6, revision 8).** Revisions 4–7 handled "an operator plans a successor after the Macrocycle already went `AWAITING_NEXT_MESOCYCLE`" as a special reconciler-side trigger, checked alongside "final Microcycle just completed." That trigger depended on reading `Macrocycle.planning_state == AWAITING_NEXT_MESOCYCLE` — which revision 7 made stop being true the instant a successor exists, since `planning_state` now moves to `ACTIVE` immediately on discovery. A reconciler-side trigger keyed on a state that's true for zero time between "successor created" and "reconciler next runs" doesn't reliably fire. **Revision 8's fix: `plan_next_mesocycle.py` does the discovery-time work itself, transactionally, at creation time — not the reconciler.** **Revision 9 tightens exactly what "the discovery-time work" instantiates, because revision 8's version could create a second pending Microcycle while the current one was still legitimately active:**
 ```
 plan_next_mesocycle.py, when creating a successor Mesocycle:
 BEGIN TRANSACTION
     create the successor Mesocycle row, status=PLANNED
     validate template cardinality (§5d)
-    instantiate its first Microcycle as NOT_STARTED, no slots yet
+    if predecessor Mesocycle.status == COMPLETE:
+        # the Macrocycle is genuinely AWAITING_NEXT_MESOCYCLE right now --
+        # nothing is currently active for this Microcycle to collide with
+        ensure_first_microcycle_instantiated(successor)   -- fix #2, below
+    else:
+        # predecessor is still ACTIVE (or PLANNED, mid-earlier-gap) --
+        # do NOT instantiate yet (fix #1, blocker, revision 9). Instantiation
+        # happens later, from rollover step 3, once the predecessor
+        # actually completes -- exactly the same call, just deferred to
+        # the moment it's actually safe
     if Macrocycle.planning_state == AWAITING_NEXT_MESOCYCLE:
         Macrocycle.planning_state = ACTIVE
-        log SUCCESSOR_PLANNED   -- distinct from MESOCYCLE_ADVANCED (fix #6):
-          plan continuation becoming available and training actually
-          entering that Mesocycle are different events, and conflating
-          their audit reasons would make the log harder to read later
+        log SUCCESSOR_PLANNED   -- distinct from MESOCYCLE_ADVANCED (fix #6,
+          revision 8): plan continuation becoming available and training
+          actually entering that Mesocycle are different events, and
+          conflating their audit reasons would make the log harder to
+          read later
 COMMIT
 ```
-There is now never a database interval where a successor exists but `planning_state` still reads `AWAITING_NEXT_MESOCYCLE` — the transition happens in the same transaction as the row's creation, regardless of which caller creates it (this same block runs whether the successor is planned promptly or long after the gap opened). **§3b's pending-activation branch is what picks this newly-instantiated Microcycle up and actually activates it** — the reconciler no longer needs a special-cased "resume" trigger at all, because §3b already scans for exactly this shape of pending state on every iteration, independent of how or when it was created.
+**Why this matters (fix #1, blocker, revision 9):** revision 8's version instantiated the successor's Microcycle 1 unconditionally, immediately. If the athlete plans two Mesocycles ahead — a perfectly normal thing to do, e.g. planning Mesocycle 2 during Mesocycle 1's first week — that meant a `NOT_STARTED`, zero-slot Microcycle for Mesocycle 2 existed *while Mesocycle 1 was still legitimately training*. §3b's pending-activation branch (revision 8) had no way to know that Microcycle wasn't relevant yet, would find it, see its `planned_start_date` wasn't due, and set `blocked_reason="WAITING_FOR_MICROCYCLE_START"` — incorrectly blocking Mesocycle 1's perfectly healthy, currently-`ACTIVE` week. Revision 9's fix removes the premature instantiation at the source: **the successor Mesocycle can exist in `PLANNED` status with zero Microcycles for an arbitrary length of time** (as long as the athlete is training ahead of it) — its Microcycle 1 is instantiated only once the predecessor genuinely reaches `COMPLETE`, whether that happens via rollover step 3 discovering it promptly, or via this same script being invoked again later while the Macrocycle is already `AWAITING_NEXT_MESOCYCLE`.
+
+**`ensure_first_microcycle_instantiated(mesocycle)` — a shared, idempotent operation (fix #2, blocker, revision 9).** Even with fix #1 above making the premature case rare, both `plan_next_mesocycle.py` (when the predecessor is already `COMPLETE` at planning time) and rollover step 3 (when the predecessor completes later) can each try to instantiate the same Mesocycle's Microcycle 1 — revision 8 would have let the DB's `UNIQUE(mesocycle_id, ordinal)` constraint turn that overlap into a hard failure on an otherwise-normal lifecycle event, rather than treating it as the harmless race it actually is. One shared operation, used by both call sites instead of each duplicating (and potentially colliding on) its own instantiation logic:
+```
+ensure_first_microcycle_instantiated(mesocycle):
+    existing = Microcycle where mesocycle_id=mesocycle.id, ordinal=1
+    if existing is None:
+        create it: NOT_STARTED, no slots,
+          planned_posture = MesocycleTemplate.postures[0],
+          dates computed from mesocycle's own schedule
+        return the new row
+    else:
+        verify existing.lifecycle_status == NOT_STARTED
+          and existing has zero MicrocycleSlot rows
+          and its planned dates/posture match what this Mesocycle's
+            template/schedule would produce
+        if verification passes: return existing (idempotent no-op)
+        else: raise -- inconsistent state, not a race; an operator
+          needs to look at this, do not silently paper over a mismatch
+```
+This is what makes fix #1's two call sites (an eager `plan_next_mesocycle.py` when the predecessor is already done, or a later rollover discovery) safe to both exist without needing to coordinate which one "wins" — whichever runs first creates the row, the other reuses it, and a genuine inconsistency (not a mere race) still surfaces loudly rather than being silently reused. **§3b's pending-activation branch is what picks this instantiated Microcycle up and actually activates it**, once it's both eligible (predecessor genuinely `COMPLETE`, per §3b's fix) and due — the reconciler no longer needs a special-cased "resume" trigger at all, because §3b already scans for exactly this shape of pending state on every iteration, independent of how or when it was created.
 
 **Within an active Mesocycle, Microcycle-to-Microcycle advancement**: next Microcycle's dates are computed from the Mesocycle's own schedule, never slid from when the previous one actually finished — unchanged from revision 2. **Instantiation timing follows §4a; activation is entirely §3b's job (revision 8).**
 
@@ -456,11 +504,17 @@ Unchanged from revision 2: `reconcile_run_id` groups every row one fixed-point l
 - **New (revision 7, fix #3):** a simulated crash between the `Session.status → COMPLETED` write and the `MicrocycleSlot.resolution → COMPLETED` write cannot occur — both happen in one transaction; a test asserts the transaction boundary covers both writes (e.g. by forcing a rollback and confirming neither side persisted).
 - **New (revision 8, fix #1):** a pending Microcycle blocked with `WAITING_FOR_MICROCYCLE_START` on one reconciler run activates automatically on a later run once `local_today >= planned_start_date`, with no additional trigger required — the general retry guarantee §3b provides, exercised independently of *how* the pending Microcycle was created (normal advancement vs. a Mesocycle boundary).
 - **New (revision 8, fix #1):** a pending Microcycle blocked with `PROGRAM_DRIFT` at activation-check time activates automatically on the reconciler run immediately following an `acknowledge_program_drift.py` acceptance — no separate "resume" trigger needed.
-- **New (revision 8, fix #1):** at any given time, at most one Microcycle across a Macrocycle sits `NOT_STARTED` with zero slots — asserting the extended uniqueness invariant §3b relies on.
+- **Revised (revision 9):** at any given time, at most one Microcycle across a Macrocycle is both `NOT_STARTED`-with-zero-slots *and* activation-eligible — the corrected uniqueness invariant §3b relies on (revision 8's version claimed this held unconditionally; revision 9's fix #1 test below shows the case where it didn't, and this test now asserts the eligibility-scoped version instead).
 - **New (revision 8, fix #2):** `acknowledge_program_drift.py` refuses acknowledgment against an `ACTIVE` Microcycle when `slot_topology_hash` no longer matches the live `Program`, even with `--accept-current-program-revision` passed — a companion test confirms the same script *does* accept a prescription-only change (topology hash unchanged) against that same `ACTIVE` Microcycle.
 - **New (revision 8, fix #4):** a `Program`/template combination that would produce zero `TRAINING` slots fails Microcycle activation outright — the Microcycle never reaches `ACTIVE`, rather than activating and being permanently unable to reach `COMPLETE`.
 - **New (revision 8, fix #5):** a post-cutover `Session` that cannot be deterministically mapped to a `day_code`/slot halts the bootstrap for operator resolution — asserting it does *not* silently backfill as `plan_status=PLANNED`/`microcycle_id=NULL`.
 - **New (revision 8, fix #6):** `plan_next_mesocycle.py` sets `Macrocycle.planning_state=ACTIVE` in the same transaction that creates a successor Mesocycle — asserting there is no observable moment (even under concurrent reads) where the successor row exists but `planning_state` still reads `AWAITING_NEXT_MESOCYCLE`; a companion test confirms the audit log records `SUCCESSOR_PLANNED` at this point, distinct from `MESOCYCLE_ADVANCED` (logged later, at actual activation).
+- **New (revision 9, fix #1, blocker):** planning a successor Mesocycle while the current one's Microcycle is still `ACTIVE` does *not* produce `blocked_reason="WAITING_FOR_MICROCYCLE_START"` for the current Microcycle — asserting §3b's eligibility check correctly ignores a far-future pending Microcycle whose predecessor hasn't completed. This is the headline regression guard for this revision.
+- **New (revision 9, fix #1):** `plan_next_mesocycle.py`, when run while the predecessor Mesocycle is still `ACTIVE`, creates the successor as `PLANNED` with zero Microcycles — asserting no premature instantiation. A companion test confirms it *does* instantiate Microcycle 1 immediately when run while the predecessor is already `COMPLETE`.
+- **New (revision 9, fix #2, blocker):** `ensure_first_microcycle_instantiated` called twice for the same Mesocycle (once from `plan_next_mesocycle.py`, once from rollover) does not raise a uniqueness violation — the second call reuses the existing row idempotently. A companion test confirms it *does* raise if the existing row's stored posture/dates don't match what the Mesocycle's own template/schedule would produce (a genuine inconsistency, not a race).
+- **New (revision 9, fix #3):** the hash-mismatch branch of §3b's activation transaction rolls back cleanly with no partial writes — asserting the hash check genuinely runs inside the transaction boundary, not before it.
+- **New (revision 9, fix #4):** `Microcycle.slot_topology_hash` is present and correct immediately after the cutover bootstrap runs, not just after §3b's normal activation path — asserting `acknowledge_program_drift.py` can evaluate a topology-drift check against the bootstrapped Microcycle #1 without a missing-field error.
+- **New (revision 9, fix #5):** a zero-`TRAINING`-slot activation attempt raises `InvalidPlanConfigurationError`, distinct from any `blocked_reason` value — asserting callers can tell "your plan configuration is invalid" apart from "the plan is fine but temporarily blocked" (e.g. by catching a different exception type / checking a different response shape, not by string-matching a blocked_reason value).
 
 ## Non-goals (this design pass)
 
