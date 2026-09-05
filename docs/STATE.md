@@ -1037,3 +1037,34 @@ the live write.
   reasoning, the lifecycle-activation gap).
 - This session's own commits are on `session/2026-09-04-cutover-applied` -- merge to `main`
   at close.
+
+---
+
+# State — 2026-09-05
+
+## Current task
+Design + build the microcycle/mesocycle **advancement** state machine -- the gap flagged at
+the end of the 2026-09-04 session above ("No mechanism yet advances a Microcycle's
+lifecycle_status/ordinal week to week"). This closes it.
+
+## Decisions made and why
+- **Design went through 9 review revisions** (`docs/superpowers/specs/2026-09-04-microcycle-mesocycle-advancement-design.md`) before implementation started -- each revision caught a real state-machine bug via the athlete's own review, not a rubber-stamp. Headline fixes across revisions: Session *generation* != Session *completion* (binding vs. resolution split); a unified §3b "pending-activation branch" replacing three duplicated per-site activation blocks; `Microcycle.slot_topology_hash` as a second, narrower hash protecting an already-`ACTIVE` Microcycle from a topology-changing replan disguised as an ordinary `PROGRAM_DRIFT` acknowledgment; and a revision-9 fix closing the case where planning a successor Mesocycle while the current one is still training could incorrectly block healthy, active training with `WAITING_FOR_MICROCYCLE_START`.
+- **Full completion report**: `~/project-ops/reports/2026-09-05-0345-ironlog-v2-microcycle-mesocycle-advancement.md` -- read that for the full delegation/review/build-verification detail, not repeated here.
+- **7 specs built and merged to `main`** (schema, hash utilities, reconciler core, generation wiring, `plan_next_mesocycle.py`, `acknowledge_program_drift.py`, `bootstrap_microcycle_one.py`). 849 tests passing on `main` as of this session's close.
+- **`adv-04`'s spec needed a mid-dispatch correction**: the app does a two-phase generate->approve flow (`generate_session()` builds an unpersisted candidate; `commit_session()` is the sole DB writer, called later from a separate `/approve` endpoint), not single-phase generate-equals-insert as the original spec assumed. Corrected in place before dispatch.
+- **codex hit its usage quota mid-batch** (during `adv-03`'s fix-round) -- fell back to a Claude subagent per standing guidance, then routed the rest of the batch (`adv-04`-`adv-07`) to gemini.
+- **`CurrentPlanOut.microcycle` renamed** to `current_active_microcycle`/`next_microcycle`/`starts_on`/`blocked_reason` (a breaking rename, not additive) -- verified the Android client (`IronLog-V2-Client`) doesn't reference this field anywhere before proceeding; this endpoint is one day old and not yet wired into the client.
+
+## Open questions
+- **Filed-forward test-coverage gap (adv-04, Medium, not a functional defect):** a fix-round dispatch mid-batch regenerated `tests/test_generation_loop.py`/`tests/test_submit_endpoint.py` from a stale base, silently losing that round's own test additions for the crash-window fix, the concurrent-approval-race fix, the no-matching-slot case, and the missing-Microcycle/Program guards. The underlying production code for all four was independently re-verified correct by direct Tier A code reading (not just trusted) before merging, but the dedicated regression tests for those specific paths don't exist yet. Next session: add them using the `gen_db`/`gen_db_calibrated` fixture pattern already established in `tests/test_generation_commit.py`.
+- Design doc's own carried-forward open questions remain open (exact drift-tolerance day-counts, `INCOMPLETE`'s explicit-abandonment API, `UNPLANNED_WORKOUT`'s future explicit path, stale-`IN_PROGRESS`-session cleanup, a `Program.revision` counter for genuine write concurrency) -- all explicitly scoped as non-goals of this design pass, not oversights.
+- Same carried-forward item: `IronLog-V2-wt-incline-handoff` worktree still untouched.
+
+## Next step
+1. **Production cutover not yet applied.** Restart `ironlogv2.service` (applies migration `068_advancement_schema.sql`), then run `scripts/bootstrap_microcycle_one.py --dry-run` against a fresh NFS copy of `ironlog.db` for manual review, then `--apply` against live data whenever the athlete wants advancement live. Same precedent/caution level as the original periodization cutover.
+2. Add the filed-forward regression tests noted above (non-blocking, but should happen before this code sees heavy real-world exercise).
+3. Whenever convenient (carried forward): `IronLog-V2-wt-incline-handoff` worktree.
+
+## Session notes
+- CORE memory ingested this session (design revisions 1-9 as they landed, the equipment-inventory side-thread, the full build/review/merge sequence).
+- This session's commits are directly on `main` (each spec merged via its own `task/adv-NN-*` branch, no session branch used this time -- the design-doc-first merge to `main` happened via `session/2026-09-04-advancement-design`, then all 7 implementation specs merged as their own individual merge commits per the project's per-task-worktree convention).
