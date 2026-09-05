@@ -11,11 +11,12 @@ Implements the spec's two ideas:
 from datetime import date, datetime
 from typing import List, Optional
 
+from sqlalchemy import Boolean, Column, Enum as SAEnum, ForeignKey, Integer, JSON, literal_column
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy import Column, JSON, Boolean, literal_column
 
 from .enums import (
-    FeedbackTap, GroupType, NoteClass, Objective, Scheme, SessionStatus, SetRole,
+    FeedbackTap, GroupType, NoteClass, Objective, Scheme, SessionPlanStatus,
+    SessionStatus, SetRole,
 )
 
 
@@ -32,6 +33,19 @@ class Session(SQLModel, table=True):
     signature: dict = Field(default_factory=dict, sa_column=Column(JSON))
     rationale: Optional[str] = None
     notes: Optional[str] = None
+    microcycle_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("microcycle.id", ondelete="RESTRICT"),
+            nullable=True,
+            index=True,
+        ),
+    )
+    plan_status: SessionPlanStatus = Field(
+        default=SessionPlanStatus.LEGACY,
+        sa_column=Column(SAEnum(SessionPlanStatus), nullable=False),
+    )
 
     groups: List["ExerciseGroup"] = Relationship(back_populates="session")
 

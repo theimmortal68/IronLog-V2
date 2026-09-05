@@ -5,6 +5,7 @@ throwaway .sql, independent of the real 000/001/002/003 contents.
 Task 2 appends the parity test (real chain vs live create_all).
 """
 from pathlib import Path
+from shutil import copy2
 
 import pytest
 from sqlmodel import create_engine, text
@@ -153,6 +154,16 @@ def _diff(x: dict, y: dict) -> dict:
     return out
 
 
+def _real_migrations_through(tmp_path: Path, max_version_number: int) -> Path:
+    migrations_dir = tmp_path / f"migrations_through_{max_version_number:03d}"
+    migrations_dir.mkdir()
+    for version, path in migrate.discover():
+        version_number = int(version.split("_", 1)[0])
+        if version_number <= max_version_number:
+            copy2(path, migrations_dir / path.name)
+    return migrations_dir
+
+
 # ---------------------------------------------------------------------------
 # Task 3 — seed stamps the whole chain on a fresh DB
 # ---------------------------------------------------------------------------
@@ -229,3 +240,86 @@ def test_040_adds_is_skipped_and_tier_exercise_id():
         cols_pe = {row[1] for row in conn.execute(text("PRAGMA table_info(plannedexercise)"))}
     assert "is_skipped" in cols_ps
     assert "tier_exercise_id" in cols_pe
+
+
+def test_068_backfills_existing_advancement_rows(tmp_path):
+    """Pre-068 production singleton rows receive the required cutover values."""
+    engine = create_engine("sqlite://")
+    migrations_dir = _real_migrations_through(tmp_path, 67)
+
+    migrate.apply_pending(engine, migrations_dir)
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO program (id, name, phase, duration_weeks) "
+            "VALUES (1, 'Live Program', 'CUT', 16)"
+        ))
+        conn.execute(text(
+            "INSERT INTO macrocycle (id, goal, status) "
+            "VALUES (1, 'Live macrocycle', 'ACTIVE')"
+        ))
+        conn.execute(text(
+            "INSERT INTO mesocycletemplate (id, name, postures) "
+            "VALUES (1, 'Live template', '[\"BUILD\"]')"
+        ))
+        conn.execute(text(
+            "INSERT INTO mesocycle ("
+            "id, template_id, macrocycle_id, ordinal, planned_start_date, "
+            "planned_end_date, status"
+            ") VALUES (1, 1, 1, 1, '2026-09-01', '2026-09-28', 'ACTIVE')"
+        ))
+        conn.execute(text(
+            "INSERT INTO microcycle ("
+            "id, mesocycle_id, ordinal, planned_start_date, planned_end_date, "
+            "expected_sessions, completed_sessions, lifecycle_status, "
+            "drift_status, drift_days, planned_posture"
+            ") VALUES ("
+            "1, 1, 1, '2026-09-01', '2026-09-07', 6, 0, 'ACTIVE', "
+            "'ON_TIME', 0, 'BUILD'"
+            ")"
+        ))
+        conn.execute(
+            text(
+                "INSERT INTO session ("
+                "id, date, day_role, phase, status, generated_at, signature"
+                ") VALUES ("
+                ":id, :date, :day_role, 'CUT', :status, "
+                "'2026-09-01 12:00:00', '{}'"
+                ")"
+            ),
+            [
+                {
+                    "id": 1,
+                    "date": "2026-09-01",
+                    "day_role": "D1 Upper Push",
+                    "status": "COMPLETED",
+                },
+                {
+                    "id": 2,
+                    "date": "2026-09-02",
+                    "day_role": "D2 Lower A",
+                    "status": "PLANNED",
+                },
+            ],
+        )
+
+    copy2(migrate.MIGRATIONS_DIR / "068_advancement_schema.sql", migrations_dir)
+    assert migrate.apply_pending(engine, migrations_dir) == ["068_advancement_schema"]
+
+    with engine.connect() as conn:
+        session_cols = {
+            row[1]: row for row in conn.execute(text("PRAGMA table_info(session)"))
+        }
+        plan_statuses = [
+            row[0]
+            for row in conn.execute(text("SELECT plan_status FROM session ORDER BY id"))
+        ]
+
+        assert session_cols["plan_status"][3] == 1
+        assert plan_statuses == ["LEGACY", "LEGACY"]
+        assert conn.execute(text(
+            "SELECT planning_state FROM macrocycle WHERE id = 1"
+        )).scalar_one() == "ACTIVE"
+        assert conn.execute(text(
+            "SELECT program_id FROM mesocycle WHERE id = 1"
+        )).scalar_one() == 1
+        assert conn.execute(text("PRAGMA foreign_keys")).scalar_one() == 0

@@ -160,6 +160,12 @@ class SessionStatus(str, Enum):
     SKIPPED = "SKIPPED"
 
 
+class SessionPlanStatus(str, Enum):
+    PLANNED = "PLANNED"
+    UNPLANNED = "UNPLANNED"
+    LEGACY = "LEGACY"
+
+
 class GroupType(str, Enum):
     STRAIGHT = "STRAIGHT"        # T1 primary, one movement
     GIANT_SET = "GIANT_SET"      # 3 movements, 3 rounds
