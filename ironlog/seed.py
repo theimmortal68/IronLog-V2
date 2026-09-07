@@ -340,10 +340,12 @@ MOVEMENTS = [
     # LOW pulley (distinct attach point from Better Fly Lat Pulldown's high
     # pulley / Better Fly Cable Pullover's mid pulley), glute isolation, no
     # spinal load. Needs-calibration start, zero prior history.
+    # 2026-09-07: increment_ladder narrowed to a flat 2.5lb step (athlete
+    # directive, same fix class as Better Fly Hip Adduction) -- was [5, 2.5].
     dict(name="Better Fly Kickback [FT]", base_name="Better Fly Kickback",
          region=Region.LOWER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
-         increment_ladder=[5, 2.5], min_step=2.5, load_floor=10, unilateral=True,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
          primary_muscle="GLUTES", secondary_muscles=[]),
     # 2026-08-12: new D5 T3 GS movement (Task 4). Genuinely SEPARATE Movement
     # row from D2's "Hybrid Board Calf Raise [D2]" -- resolved per the real
