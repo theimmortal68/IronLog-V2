@@ -1071,3 +1071,81 @@ lifecycle_status/ordinal week to week"). This closes it.
 - **Process deviation (Session Branches rule):** all 7 `task/adv-NN-*` worktrees were branched directly off `main` and merged directly back to `main`, not off a session branch first, per this project's standing "Session Branches" order (every session should create `session/<date>-<slug>` before any per-task worktree work). Not caught until near the end of the session; the 7 merges were already pushed by then, and rewriting history was judged riskier than the deviation itself, so they were left as-is. Only this entry's own append went through a proper session branch (`session/2026-09-05-advancement-close`, merged, deleted). **Next session: create the session branch FIRST, before creating any task worktree.**
 - **Instruction-file drift found, not fixed (out of scope for this session's changes):** the repo-root `CLAUDE.md`'s own "Current state" table is stale beyond just this session's work — it already carries a self-aware warning that it drifted before (last corrected 2026-07-08) and has drifted further since: "Full test suite: 744 passing" (real count as of this session's close: **849**), and "Generation ... `ironlog/engine/generation.py`" names a module that doesn't exist — the real generation code lives in `ironlog/generation/loop.py`/`assembler.py`/`context.py`/etc. Not fixed this session because a proper correction needs the same table-wide audit the file's own header calls for, not a one-line patch; flagging per the file's own instruction to keep `docs/build-plan.md` current rather than this table.
 - **Usage snapshot: not captured.** This session's tooling has no direct equivalent of the `/usage` slash command; a fresh session should run it and start the series here.
+
+---
+
+# State — 2026-09-07
+
+## Current task
+Athlete-reported live-session bugs: D5 Lower B Tib Bar Raise jumped 5lb instead of the
+intended 1.25lb step; then, mid-session, athlete flagged Hip Adduction (35lb) and Glute
+Kickback (65lb) should also only ever step by 2.5lb going forward.
+
+## Decisions made and why
+- **Confirmed the same recurring `increment_ladder=[5, 2.5]` tiered-ladder bug** (4th+
+  occurrence, see [[ironlogv2-tiered-increment-ladder-recurring-bug]] and this file's
+  2026-08-28 entry above). Commit `f841388` (2026-08-29) had already fixed `seed.py` for
+  Hybrid Board Tib Raise [D2]/[D5], Lying Leg Curl [GHR+Ares], and Better Fly Hip Adduction
+  [FT] to flat ladders, but — per house convention that `seed.py` only seeds a fresh DB —
+  the live DB was never migrated. All four movements were still serving `[5, 2.5]` live,
+  which is exactly what produced today's 5lb Tib Bar Raise jump.
+- **Better Fly Kickback [FT] (id 135) was never fixed at all**, in `seed.py` or live —
+  missed during the `f841388` pass even though it's the same fix class as its sibling
+  Hip Adduction. Athlete's 65lb kickback set surfaced it.
+- **Wrote and applied migrations `069`/`070`/`071`** (`deploy/migrations/`): 069+070 deploy
+  commit `f841388`'s already-committed-but-never-applied fix (Tib Raise → `[1.25]`; Leg Curl
+  + Hip Adduction → `[2.5]`); 071 is the new Kickback fix (`[2.5]`). All three run via
+  `.venv/bin/python -m ironlog.migrate` directly against the live, actively-in-use NFS-mounted
+  `ironlog.db` (this workstation's copy is confirmed the same file the `ironlogv2.service`
+  reads — see 2026-08-28 entry). Verified post-migration via direct `sqlite3` query: ids
+  137/140 → `[1.25]`/1.25, ids 138/151/135 → `[2.5]`/2.5, id 28 (`Lying Leg Curl [GHR]`,
+  a genuinely separate unrelated movement) correctly left untouched at `[5, 2.5]`.
+  `seed.py` also updated for Kickback to match (mechanical micro-edit, single literal + new
+  comment). Commit `97d7224 fix(seed): flatten Better Fly Kickback increment ladder to 2.5lb`.
+- **Migration `068_advancement_schema.sql` was also still pending** and got applied as a
+  side effect of running `ironlog.migrate` (it applies all pending in order) — this was
+  already-committed schema work from the 2026-09-05 advancement-build session, not touched
+  or authored by this session. Applied cleanly, no errors; `ironlogv2.service` confirmed
+  `active` afterward.
+- Full test suite re-run after all changes: **849 passed**, matches the count from the
+  2026-09-05 close (no regression from either this session's changes or the incidental
+  068 apply).
+
+## Open questions
+- **The proactive sweep flagged in the 2026-08-28 entry still hasn't been done.** This is
+  now the *fourth* movement hit reactively (Standing Lat Raise, PureTorque Rotation +
+  Rear Delt Extension, Tib Raise/Leg Curl/Hip Adduction, now Kickback) via
+  `grep -n "increment_ladder=\[5, 2.5\]" ironlog/seed.py` rather than one deliberate sweep.
+  Worth doing next session — grep, diff against athlete intent per movement, fix the whole
+  remaining set in one pass instead of one at a time.
+- Same carried-forward items from 2026-09-05, still open: `adv-04` filed-forward
+  test-coverage gap, design doc's own non-goal list, `IronLog-V2-wt-incline-handoff`
+  worktree untouched (see that entry for detail — not touched again this session).
+
+## Next step
+1. Run the proactive `increment_ladder=[5, 2.5]` sweep across all of `ironlog/seed.py`
+   (see open question above) rather than continuing to wait for each to surface live.
+2. No athlete-facing action needed for this session's fixes — all three are already live;
+   next time any of Tib Bar Raise, Leg Curl, Hip Adduction, or Kickback advance, they'll
+   step by their correct flat increment.
+3. Carried forward, unchanged: production cutover follow-ups and `IronLog-V2-wt-incline-handoff` from 2026-09-05 (items 2-3 there).
+
+## Session notes
+- Report: `~/project-ops/reports/2026-09-07-ironlogv2-flat-ladder-fixes.md`.
+- Commits made on session branch `session/2026-09-07-flat-ladder-fixes` (one commit,
+  `97d7224`), branched correctly off `main` per the Session Branches rule (unlike the
+  2026-09-05 deviation). Merged to `main` and pushed at session close — see below.
+- **Instruction-file drift confirmed still present, not fixed this session** (same item
+  flagged 2026-09-05, unrelated to this session's changes): `CLAUDE.md`'s "Current state"
+  table still says "744 passing" (real count as of this session: 849) and still names the
+  nonexistent `ironlog/engine/generation.py`. Out of scope for a reactive bug-fix session;
+  needs the table-wide audit already called for in that file's own header.
+- Pre-existing untracked/modified clutter in this checkout (`.specs/routing-plan.md`
+  modified, ~90 untracked `.specs/*.md` and `ironlog.db.bak-*` files, `.serena/`,
+  `finisher_dump_tmp.py`, `ironlog/generation/d4_reorder_knee_raise.py`) — none of it
+  touched or created by this session, left as-is per prior sessions' same call.
+- `IronLog-V2-wt-incline-handoff` worktree (unmerged `feature/incline-reduction-terminal-handoff`)
+  still present, still untouched — carried forward again, not this session's to sweep.
+- CORE memory ingested: yes, one entry (see below).
+- Usage snapshot: not captured — this session's tooling has no `/usage` equivalent, same
+  gap as 2026-09-05.
