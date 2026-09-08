@@ -1149,3 +1149,70 @@ Kickback (65lb) should also only ever step by 2.5lb going forward.
 - CORE memory ingested: yes, one entry (see below).
 - Usage snapshot: not captured — this session's tooling has no `/usage` equivalent, same
   gap as 2026-09-05.
+
+## 2026-09-08 — Approve permanently blocked: mesocycle #1's hashes were never seeded (live data repair, no code change)
+
+**Task:** athlete reported "IronLog V2 is not generating workout." Investigated from
+`~/project-ops` (orchestration session, not this repo's own session branch). Full session
+narrative and the companion client-side fix (IronLog-V2-Client) are in
+`~/project-ops/reports/2026-09-08-1949-ironlog-generate-timeout-and-approve-fix.md`.
+
+**Root cause:** the active mesocycle (id=1, this week's block, planned 2026-09-04 to
+2026-09-10) was set up via the one-off `scripts/bootstrap_microcycle_one.py` path, not the
+normal `plan_next_mesocycle.py` flow — and was left with **zero `MicrocycleSlot` rows**
+and both `Microcycle.slot_topology_hash` and `Mesocycle.program_prescription_hash` unset
+(`NULL`). `commit_session`'s PROGRAM_DRIFT check (`loop.py`) can't distinguish "hash never
+set" from "program actually changed," so every `/generate` + `/approve` cycle was
+unconditionally rejected with 409 PROGRAM_DRIFT. **Confirmed one-time, not a recurring
+architectural bug**: `plan_next_mesocycle.py` already sets `program_prescription_hash`
+correctly at Mesocycle-creation time for any future mesocycle — only mesocycle #1's
+non-standard bootstrap had the gap.
+
+**Fix:** backed up `ironlog.db` first
+(`/home/jstout/ironlog-backup-20260908-191213.db`), then ran the repo's own existing
+recovery scripts against the live DB, in order:
+1. `scripts/bootstrap_microcycle_one.py --dry-run` then `--apply` — created the 7 missing
+   `MicrocycleSlot` rows from `ProgramDay`, correctly bound 3 already-completed sessions
+   from this week to their slots, set `Microcycle.slot_topology_hash`.
+2. `scripts/acknowledge_program_drift.py --mesocycle 1 --accept-current-program-revision`
+   — its own topology-safety check now passed (slots matched); set
+   `Mesocycle.program_prescription_hash`.
+
+No application code changed. Verified end-to-end live: generate → approve →
+`GET /sessions/today` → athlete logged today's D6 Weak Points workout through the actual
+app (session_id 62, confirmed via `GET /sessions/62/logs`).
+
+**A red herring during root-causing, for the record:** the first three live repro attempts
+(via `curl`) showed `sqlalchemy.exc.IntegrityError: NOT NULL constraint failed:
+session.plan_status` instead of the clean 409. An isolated fresh-process repro script
+against the same DB consistently got the clean 409. Root-caused via temporary debug
+`print()` statements added to `commit_session` (reverted before any commit — confirmed via
+`git diff`/`git checkout`) plus a service restart: the IntegrityError was an artifact
+specific to the old long-running server process (up since 2026-09-04); a fresh process
+reliably hits the real underlying condition (missing hashes → PROGRAM_DRIFT). Not expected
+to recur, not separately investigated further once the real root cause was fixed.
+
+**Open questions:** none new. Carried forward, unchanged, still open:
+- `IronLog-V2-wt-incline-handoff` worktree (`feature/incline-reduction-terminal-handoff`)
+  still exists, still untouched (2026-09-05, 2026-09-07, and now this session all left it
+  alone).
+- The proactive `increment_ladder=[5, 2.5]` sweep flagged 2026-09-07 — still not done.
+
+**Next:** nothing queued for this repo specifically. The companion client-side timeout fix
+(IronLog-V2-Client) still needs its APK rebuilt and installed on the athlete's phone to
+fully roll out — tracked in the cross-project report, not repeated here since it's a
+different repo's artifact.
+
+**Session notes:**
+- No commits to this repo — the fix was a live data repair via pre-existing scripts, not
+  a code change. `git status` confirms `loop.py` is clean (debug prints added and fully
+  reverted).
+- Same pre-existing untracked/modified clutter noted 2026-09-07 (`.specs/routing-plan.md`
+  modified, ~90 untracked `.specs/*.md` and `ironlog.db.bak-*` files, `.serena/`,
+  `finisher_dump_tmp.py`, `ironlog/generation/d4_reorder_knee_raise.py`) — still present,
+  still none of it touched this session.
+- Service restarted twice (debug instrumentation, then reverted) — confirmed `active`,
+  not `failed`, after each restart.
+- CORE memory ingested: yes (see cross-project report for what).
+- Usage snapshot: recorded in the `project-ops` STATE.md entry for this session, not
+  duplicated here (this repo has no independent `/usage` context).
