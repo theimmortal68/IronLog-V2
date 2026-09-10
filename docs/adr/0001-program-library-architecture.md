@@ -175,6 +175,32 @@ a much noisier question than it needs to be.
 **Decision: explicit publication**, detailed in
 [Revision Execution Model](#revision-execution-model).
 
+### Republishing unchanged content: dedup vs. always-new
+
+**Considered:** always create a new `ProgramRevision` on every publish call, even if
+nothing behaviorally relevant changed since the last one. **Rejected as the default.** A
+revision number is meant to be a meaningful signal — "r7" implies something changed
+since "r6." If publishing is called repeatedly (e.g. an author re-runs a publish action
+out of habit, or automation calls it idempotently) and each call minted a new revision
+number regardless of content, revision history would accumulate numbers that carry no
+information, and "which revision is this instance on" would stop reliably meaning "what
+was this athlete's block, semantically."
+
+**Decision:** publish is **idempotent by content**. If the newly computed
+`prescription_hash`/`topology_hash` (over every behaviorally-relevant field — see
+[Revision Execution Model](#revision-execution-model)'s materialization scope) exactly
+matches the `Program`'s current latest revision, publish returns that existing revision
+rather than minting a new one. A new `ProgramRevision` is created only when the content
+hash actually differs from the latest existing revision for that `Program`. This applies
+per-`Program` — two different programs producing the same hash by coincidence is not a
+dedup case; the comparison is always scoped to the same `Program`'s own revision history.
+
+If a concrete future need arises for revision numbers to carry meaning independent of
+content (e.g. an author wants to mark "I re-approved this exact program for a new
+cohort" as its own historical event even though nothing changed), that would need an
+explicit, separate mechanism — not a side effect of relaxing this dedup rule. No such
+need is known today; this is not implemented speculatively.
+
 ---
 
 ## Program / ProgramRevision / ProgramInstance semantics
@@ -604,6 +630,10 @@ fields, listed below). Still genuinely open:
 12. The production database is never reseeded as a shortcut for any part of this
     migration; migration follows the release-gate sequence in
     [Migration Implications](#migration-implications).
+13. Publish is idempotent by content: re-publishing a `Program` whose behaviorally
+    relevant hash is unchanged from its latest revision returns that existing revision,
+    never a new one with an identical hash. A new revision number always corresponds to
+    an actual content change.
 
 ### The definitive revision-authority test
 
