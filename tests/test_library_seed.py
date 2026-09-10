@@ -106,7 +106,11 @@ def test_total_count_103(seeded):
     # 2026-09-01: +1 "Suitcase Dreadmill Carry" (D2 T3 GS, fresh slot
     # d2_t3f, spec 59; unwired in the fresh-seed universe, live-only wiring
     # via migration 063): 149 -> 150.
-    assert len(_all(seeded)) == 150
+    # 2026-09-10: +2 "Better Fly Cross-Body Rear Delt Fly [FT]" (D4 T3 GS,
+    # fresh slot d4_t3h) and "Better Fly Rear Delt Raise [FT]" (D6 GS1,
+    # fresh slot d6_g2i) -- Rear Delt Extension split into two angles,
+    # athlete directive: 150 -> 152.
+    assert len(_all(seeded)) == 152
 
 
 def test_status_counts(seeded):
@@ -149,7 +153,10 @@ def test_status_counts(seeded):
     # Seated Leg Extension, athlete directive): 141 -> 142.
     # 2026-09-01: +1 ACTIVE Suitcase Dreadmill Carry (D2 T3 GS, spec 59):
     # 142 -> 143.
-    assert c[Status.ACTIVE] == 143
+    # 2026-09-10: +2 ACTIVE Better Fly Cross-Body Rear Delt Fly [FT] and
+    # Better Fly Rear Delt Raise [FT] (Rear Delt Extension split into two
+    # angles, athlete directive): 143 -> 145.
+    assert c[Status.ACTIVE] == 145
     assert c[Status.INACTIVE] == 6
     assert c[Status.PREP] == 1
 

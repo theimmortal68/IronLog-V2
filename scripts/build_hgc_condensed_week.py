@@ -77,6 +77,11 @@ RATIONALE = "HGC condensed week"
 # giant set, athlete directive), so the 7/29 D5 entry below is repointed to
 # "Matrix Machine Bulgarian Split Squat" (its direct replacement, same
 # role/slot).
+#
+# 2026-09-10: D6 GS1's "Better Fly Rear Delt Extension [FT]" split into two
+# angles (athlete directive) -- the 7/28 D6 entry below is repointed to
+# "Better Fly Rear Delt Raise [FT]" (its direct successor at that slot,
+# same role/equipment).
 MINI_SESSIONS = [
     (date(2026, 7, 27), "D1 Upper Push", ["Bench Press [PB]", "Pendlay Row - Narrow [OB]", "Stryker Pad Seated OHP [DB]"]),
     # 2026-08-19: briefly repointed "Hybrid Board Tib Raise [D2]" ->
@@ -113,7 +118,7 @@ MINI_SESSIONS = [
     # is not already referenced by the 7/27 D2 entry above, matching the
     # original selection rule.
     (date(2026, 7, 28), "D2 Lower A", ["Matrix Machine Sissy Squat"]),
-    (date(2026, 7, 28), "D6 Weak Points", ["Stryker Pad CSR Cables [FT]", "Better Fly Rear Delt Extension [FT]"]),
+    (date(2026, 7, 28), "D6 Weak Points", ["Stryker Pad CSR Cables [FT]", "Better Fly Rear Delt Raise [FT]"]),
     (date(2026, 7, 28), "D1 Upper Push", ["Ab Wheel [WHEEL]"]),
     (date(2026, 7, 29), "D4 Upper Pull", ["Seated BTN OHP [PB]", "Better Fly Lat Pulldown [FT]", "PureTorque Pro Rotation"]),
     (date(2026, 7, 29), "D6 Weak Points", ["Dips [TOWER + TUBES]", "Better Fly OH Tricep Extension [FT]", "AbMat Ab Bench Pad Cable Crunch [FT]"]),

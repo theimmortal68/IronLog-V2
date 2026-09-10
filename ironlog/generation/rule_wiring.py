@@ -105,7 +105,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "db_rear_delt_fly":                  "Rear Delt Fly [DB]",
     "andreoni_bar_cable_pullover":       "Andreoni Cable Pullover",
     "puretorque_pro_rotation_d4":        "PureTorque Pro Rotation",
-    "better_fly_rear_delt_ext_d4":       "Better Fly Rear Delt Extension [FT]",
+    "better_fly_cross_body_rear_delt_fly_d4": "Better Fly Cross-Body Rear Delt Fly [FT]",  # 2026-09-10: replaces better_fly_rear_delt_ext_d4 (athlete directive)
     "seated_btn_ohp_d4":                 "Seated BTN OHP [PB]",
     "better_fly_lat_pulldown_d4":        "Better Fly Lat Pulldown [FT]",
     "stryker_pad_csr_barbell_d4":        "Stryker Pad CSR Barbell [PB]",
@@ -168,7 +168,7 @@ YAML_M_TO_LIBRARY: Dict[str, str] = {
     "better_fly_cable_bicep_curl_d6":    "Better Fly Cable Bicep Curl [FT]",
     "d_handle_cable_bicep_curl_d6":       "D-Handle Cable Bicep Curl [FT]",
     "stryker_pad_csr_cables_d6":         "Stryker Pad CSR Cables [FT]",
-    "better_fly_rear_delt_ext_d6":       "Better Fly Rear Delt Extension [FT]",
+    "better_fly_rear_delt_raise_d6":     "Better Fly Rear Delt Raise [FT]",  # 2026-09-10: replaces better_fly_rear_delt_ext_d6 (athlete directive)
     "better_fly_oh_tricep_ext_d6":       "Better Fly OH Tricep Extension [FT]",
     "abmat_ab_bench_pad_cable_crunch_d6": "AbMat Ab Bench Pad Cable Crunch [FT]",
     "seated_leg_extension_d6":           "Seated Leg Extension [GHR + FT]",

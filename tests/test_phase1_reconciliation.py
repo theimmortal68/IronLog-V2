@@ -81,7 +81,10 @@ CHANGED_REP_TARGETS = {
     # 2026-08-20 (athlete directive): d4_t3a (DB Rear Delt Fly) VACATED --
     # replaced by fresh slot d4_t3f (Better Fly Rear Delt Extension [FT]),
     # same 10-15 rep target.
-    "d4_t3f": (10, 15),
+    # 2026-09-10 (athlete directive): d4_t3f (Better Fly Rear Delt
+    # Extension) VACATED -- replaced by fresh slot d4_t3h (Better Fly
+    # Cross-Body Rear Delt Fly [FT]), same 10-15 rep target.
+    "d4_t3h": (10, 15),
     # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 reconciled to
     # the FINAL doc's real D5 session. T1 RDL [PB] (was UNCHANGED_REP_TARGETS
     # "d5_t1") -> Kickstand RDL [DB] (fresh slot "d5_t1_kickstand_rdl"),
@@ -145,7 +148,10 @@ CHANGED_REP_TARGETS = {
     # rep target.
     "d6_g2h": (10, 15),
     "d6_g2e": (8, 12),
-    "d6_g2f": (10, 15),
+    # 2026-09-10 (athlete directive): d6_g2f (Better Fly Rear Delt
+    # Extension) VACATED -- replaced by fresh slot d6_g2i (Better Fly Rear
+    # Delt Raise [FT]), same 10-15 rep target.
+    "d6_g2i": (10, 15),
     "d6_g3a": (10, 15),
     "d6_g3d": (8, 12),
     "d6_g3e": (10, 15),

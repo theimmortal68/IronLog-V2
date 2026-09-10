@@ -105,7 +105,11 @@ EXPECTED_NEEDS_CAL = {
         # Wk1 baseline, calibrated) replaced by Better Fly Rear Delt
         # Extension [FT] (fresh slot d4_t3f) -- new movement at this slot,
         # zero prior D4 history, needs-calibration.
-        "Better Fly Rear Delt Extension [FT]",
+        # 2026-09-10 (athlete directive): Better Fly Rear Delt Extension
+        # [FT] (d4_t3f) replaced by Better Fly Cross-Body Rear Delt Fly
+        # [FT] (fresh slot d4_t3h) -- new movement, zero prior history,
+        # needs-calibration.
+        "Better Fly Cross-Body Rear Delt Fly [FT]",
     },
     # 2026-08-12 (STAB maintenance-block redesign, Task 4): D5 reconciled to
     # the FINAL doc's real D5 session -- 7 new movements, all needs-cal, zero
@@ -174,7 +178,10 @@ EXPECTED_NEEDS_CAL = {
         # Cable Bicep Curl [FT] at fresh slot d6_g2h -- needs-cal.
         "Better Fly Cable Bicep Curl [FT]",
         "Stryker Pad CSR Cables [FT]",
-        "Better Fly Rear Delt Extension [FT]",
+        # 2026-09-10 (athlete directive): Better Fly Rear Delt Extension
+        # [FT] (d6_g2f) replaced by Better Fly Rear Delt Raise [FT] (fresh
+        # slot d6_g2i) -- new movement, zero prior history, needs-cal.
+        "Better Fly Rear Delt Raise [FT]",
         "Better Fly OH Tricep Extension [FT]",
         "AbMat Ab Bench Pad Cable Crunch [FT]",
     },
