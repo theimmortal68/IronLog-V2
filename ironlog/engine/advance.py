@@ -211,7 +211,12 @@ def _ladder_step(state, perf, window, rule, ladder, current, result_field) -> Ad
 def _incline_reduction(state, perf, movement, window) -> AdvanceResult:
     rule = ProgressionRule.INCLINE_REDUCTION.value
     ladder = movement.assist_ladder or []
-    return _ladder_step(state, perf, window, rule, ladder, state.assist_level, "new_assist_level")
+    result = _ladder_step(state, perf, window, rule, ladder, state.assist_level, "new_assist_level")
+    if result.advanced and ladder and result.new_assist_level == ladder[-1]:
+        # Angle ladder maxed out -> hand off to loaded RPE-8 progression,
+        # mirrors _assistance_reduction's identical terminal-rung handoff.
+        result.active_rule = ProgressionRule.RPE_8_STANDARD.value
+    return result
 
 
 def _assistance_reduction(state, perf, movement, window) -> AdvanceResult:

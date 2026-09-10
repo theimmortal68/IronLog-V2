@@ -54,6 +54,22 @@ def test_body_position_terminal_rung_holds():
                 SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True), mv, 2)
     assert r.advanced is False and r.new_body_position == "full"
 
+def test_incline_reduction_reaches_terminal_and_hands_off_to_rpe8_standard():
+    mv = Movement(name="Ab Trainer Decline Sit-up", pattern="core", assist_ladder=[20,15,10,5,0])
+    perf = SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True)
+    st = MovementState(movement_id=1, day_id="d4", assist_level=5, consecutive_advance_count=1)
+    r = advance(ProgressionRule.INCLINE_REDUCTION, st, perf, mv, 2)
+    assert r.advanced is True and r.new_assist_level == 0
+    assert r.active_rule == ProgressionRule.RPE_8_STANDARD.value
+
+def test_incline_reduction_terminal_rung_holds():
+    mv = Movement(name="Ab Trainer Decline Sit-up", pattern="core", assist_ladder=[20,15,10,5,0])
+    perf = SessionPerf(hit_target=True, max_rpe=8.0, all_sides_cleared=True)
+    st = MovementState(movement_id=1, day_id="d4", assist_level=0, consecutive_advance_count=1)
+    r = advance(ProgressionRule.INCLINE_REDUCTION, st, perf, mv, 2)
+    assert r.advanced is False and r.new_assist_level == 0
+    assert r.active_rule == ProgressionRule.INCLINE_REDUCTION.value
+
 def test_incline_reduction_dirty_session_resets_streak():
     mv = Movement(name="Nordic", pattern="hinge", assist_ladder=[20,15,10,5,0])
     st = MovementState(movement_id=1, day_id="d2", assist_level=20, consecutive_advance_count=1)
