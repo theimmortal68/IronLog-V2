@@ -16,19 +16,20 @@ depends on it, `docs/` is the source of truth.
 
 ## Current state
 
-**This table was stale for 2+ weeks (last updated 2026-06-24, HEAD was 15+ commits ahead) — corrected 2026-07-08. See `docs/build-plan.md` for the live, current punch-list; keep THAT updated, not just this table, since this table has drifted before.**
+**This table was stale for 2+ weeks (last updated 2026-06-24, HEAD was 15+ commits ahead) — corrected 2026-07-08, then found stale again and corrected 2026-09-10 (test count and generation module path were both wrong; see `docs/build-plan.md`'s Open Items for the fuller "shipped since 2026-07-09" picture this table doesn't attempt to summarize). See `docs/build-plan.md` for the live, current punch-list; keep THAT updated, not just this table, since this table has drifted before — twice now.**
 
 | Layer | Status |
 |---|---|
 | Data model — library/state + session/set-log | **done** (SQLModel, `ironlog/models/`) |
 | Engine — e1RM, loading math, between-set autoregulation, tier logic | **done + tested** (`ironlog/engine/`) |
 | Validator — deterministic hard-rule checks | **done + live** (`ironlog/engine/validator.py`, `tests/test_validator.py` + `test_ht_validator_config.py`) |
-| Generation — LLM propose → validate → approve | **done + live** (`ironlog/engine/generation.py`), running on Gemini flash-lite behind a swappable proposer port |
+| Generation — LLM propose → validate → approve | **done + live** (`ironlog/generation/loop.py`/`assembler.py`/`context.py`, not `ironlog/engine/generation.py` which doesn't exist), running on Gemini flash-lite behind a swappable proposer port |
 | Library seed | **done** — full movement library + D1-D6 program reconciled to authoritative YAML, calibrated baselines seeded, live on server |
 | Progression engine | **done + live** (2026-07-06 go-live) — `progression_rule` wired from YAML, advance→load bridge ratchets `current_load` on a clean top-of-range RPE-8 session |
-| In-gym logging round-trip (client↔server) | **done + live**, athlete has trained real sessions on it (Day 1-2 feedback already being triaged) |
-| Full test suite | **744 passing** (`.venv/bin/pytest -q`; re-verified 2026-08-31) |
-| **Current focus** | Real-athlete feedback triage + client polish — see `docs/build-plan.md` "Queued", not a from-scratch build task |
+| Periodization/advancement engine | **done + live** (2026-09-04/05 go-live) — Macrocycle/Mesocycle/Microcycle hierarchy replacing the old `Phase` enum, plus the state machine that advances weeks/mesocycles over time. See `docs/build-plan.md` for open follow-up items. |
+| In-gym logging round-trip (client↔server) | **done + live**, athlete has trained real sessions on it |
+| Full test suite | **851 passing** (`.venv/bin/pytest -q`; re-verified 2026-09-10) |
+| **Current focus** | See `docs/build-plan.md`'s "Open items" — not a from-scratch build task |
 
 ## Commands
 
