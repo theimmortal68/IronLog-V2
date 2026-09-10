@@ -1216,3 +1216,119 @@ different repo's artifact.
 - CORE memory ingested: yes (see cross-project report for what).
 - Usage snapshot: recorded in the `project-ops` STATE.md entry for this session, not
   duplicated here (this repo has no independent `/usage` context).
+
+# State — 2026-09-10
+
+## Current task
+Athlete asked to review the current program's rear-delt exercises, then swap the
+duplicate D4/D6 "Better Fly Rear Delt Extension" giant-set slot for two distinct angles
+(cross-body fly on D4, bent-over raise on D6). Expanded into a full repo cleanup/review
+and a docs/build-plan.md refresh at the athlete's request, then pushed everything to
+GitHub.
+
+## Decisions made and why
+- **D4/D6 rear-delt split shipped as migration 072** (`Better Fly Cross-Body Rear Delt
+  Fly [FT]` at fresh slot `d4_t3h`, `Better Fly Rear Delt Raise [FT]` at fresh slot
+  `d6_g2i`). Why: both slots ran the identical extension movement, giving redundant
+  stimulus at one angle twice — athlete directive to differentiate. Same Better Fly
+  cable stack (load_equipment_id=6), same LADDER/DOUBLE_PROGRESSION/2.5lb/10lb-floor
+  specs, same 10-15 rep range as the movement they replace. Applied directly to the live
+  DB (backed up first), mesocycle #1's prescription hash re-acknowledged via
+  `acknowledge_program_drift.py` so this doesn't read as unplanned drift. Seed/wiring/
+  yaml/test sources all updated to match so a from-scratch reseed reproduces it. Old
+  "Better Fly Rear Delt Extension [FT]" stays ACTIVE, left unwired, per the
+  never-delete-orphans convention. Considered reusing the pre-existing unwired
+  "Cross-Body Cable Rear Delt Fly [FT]" (id 49) for the D4 slot but the athlete
+  confirmed it's a different physical cable setup, not the Better Fly — created a new
+  movement instead of retagging/renaming id 49.
+- **Committed ~two months of backlogged repo state instead of leaving it uncommitted.**
+  Why: `.specs/routing-plan.md` in the working tree had silently superseded the
+  committed July version (a real, newer periodization-epic routing plan that was never
+  `git add`-ed), and 54 other `.specs/*.md` files documenting genuinely completed/
+  in-flight work (periodization/advancement, Withings, goals, weak-points, missed-days,
+  HGC condensed-week) were sitting untracked. Left uncommitted, this history was one
+  accidental `git clean`/disk-loss event away from disappearing for good. Also committed
+  `ironlog/generation/d4_reorder_knee_raise.py` (matches the existing tracked
+  one-off-live-fix-script convention; its target slots no longer exist, kept for the
+  record like its siblings, not meant to be re-run).
+- **Deleted 69 accumulated `ironlog.db.bak-*`/`.pre-*` snapshots (June–September) and a
+  stale `.env.bak-20260630-102110`, kept only today's pre-migration backup.** Why (per
+  athlete direction when asked): the nightly `backup-appdata` snapshot on the server is
+  the real safety net; these were untracked disk clutter, and the `.env.bak` file sat
+  outside the `.gitignore`'s `.env`/`*.env` patterns — a real latent secret-exposure risk
+  via a future careless `git add -A`. Added `.gitignore` patterns
+  (`ironlog.db.bak-*`/`.pre-*`/`.predeploy-*`/`.stale-*`, `.env.bak*`, `.serena/`) so this
+  doesn't reaccumulate untracked. Deleted `finisher_dump_tmp.py` (ad-hoc debug script,
+  never meant to be committed).
+- **Found and merged a real, tested, 3-week-stale bug fix** sitting on an abandoned
+  worktree/branch (`IronLog-V2-wt-incline-handoff`, `feature/incline-reduction-terminal-
+  handoff`, commit `b57f222`, dated 2026-08-22) — this exact worktree had been flagged
+  and explicitly left untouched in the 2026-09-05, 09-07, and 09-08 STATE.md entries.
+  Confirmed via `git merge-base --is-ancestor` that it was genuinely never merged, and
+  via direct code inspection that `main`'s `_incline_reduction` still lacked the fix
+  (not superseded). Asked the athlete before merging since it was inherited context,
+  not this session's own work; athlete said yes. Merged via a disposable worktree with a
+  full test-gate pass (851 passing after), then removed the stale worktree and branch.
+  **Unlike a DB-only migration, this changed live Python engine code** (`ironlog/engine/
+  advance.py`), which the running `ironlogv2.service` process only picks up on restart —
+  asked the athlete, confirmed, restarted `ironlogv2.service` on myflix at 17:27:20 EDT,
+  confirmed `active` and serving (`GET /docs` → 200) immediately after.
+- **Refreshed `docs/build-plan.md`**, stale since 2026-07-09 (self-evidently: it stopped
+  before nearly every epic that shipped since). Rebuilt via a subagent that read the full
+  `docs/STATE.md` (1218 lines) and every `.specs/*.md` file, producing a structured
+  "shipped since 2026-07-09" section plus a consolidated 14-item "Open items" list. Why
+  delegate the read instead of doing it directly: avoided putting ~1200 lines + 75 files
+  into this session's own context for a synthesis task a subagent could do and report
+  back concisely.
+- **Pushed all resulting commits to `origin/main`** (`theimmortal68/IronLog-V2`) at the
+  athlete's explicit request — 7 commits: the rear-delt split, the repo-hygiene commit,
+  the incline-reduction merge, and the build-plan refresh (each as its own session
+  branch, merged to `main` via a disposable worktree per the repo's merge convention,
+  never by checking out `main` in the shared checkout).
+
+## Open questions
+None new this session. Everything found and actionable was resolved (rear-delt split
+shipped, repo cleanup done, incline-reduction fix merged, build-plan refreshed and
+pushed). See `docs/build-plan.md`'s "Open items" section (refreshed this session) for
+the full standing list of unresolved items carried from prior sessions — not repeated
+here to avoid the two lists drifting apart.
+
+One thing surfaced but deliberately NOT fixed this session: `ironlog/generation/
+rule_wiring.py`'s `YAML_M_TO_LIBRARY` map expects `"Stryker Pad Seated OHP [DB]"` but the
+live DB has `"Stryker Pad Seated OHP [PB]"` — breaks `wire_progression_rules()` entirely
+if ever re-run against the live DB. Confirmed pre-existing (via `git stash`), unrelated
+to this session's changes, out of scope for a rear-delt/cleanup session. Now also noted
+in `docs/build-plan.md`'s Open Items #7.
+
+## Next step
+1. Nothing blocking. `docs/build-plan.md` Open Items is the live punch-list for future
+   sessions — highest-value uncontested items are the proactive `increment_ladder=
+   [5, 2.5]` sweep (#5) and the `CLAUDE.md` current-state table audit (#12), both
+   small and unambiguous.
+2. `Stryker Pad Seated OHP [DB]` vs `[PB]` mismatch above needs a real fix (`rule_
+   wiring.py`'s map corrected to match the live DB name, or the live DB corrected to
+   match the map — needs a quick check of which name is actually intended) before
+   anyone next runs `wire_progression_rules()` against production.
+3. Matrix Machine Bulgarian Split Squat scheme conflict (build-plan Open Items #6)
+   still needs an explicit athlete decision, not a code call.
+
+## Session notes
+- Repos touched: `~/projects/IronLog-V2` only. `~/project-ops` had pre-existing
+  uncommitted state at session start (modified `logs/dispatch.tsv`, untracked plan docs/
+  reports under an unrelated `session/2026-09-08-comparator-v2-plateau-evidence` branch)
+  — none of it touched or created this session, left exactly as found.
+- Worktrees: started this session with 2 (`IronLog-V2` main + the stale
+  `IronLog-V2-wt-incline-handoff`); ended with 1 (`IronLog-V2` main only). All disposable
+  merge worktrees (`/tmp/merge-ironlog-*`) created and removed within this session, none
+  left behind.
+- 4 session branches created and merged+deleted this session:
+  `session/2026-09-10-rear-delt-split`, then the same commit also folded in a repo-
+  hygiene commit; `feature/incline-reduction-terminal-handoff` (inherited, not created
+  this session) merged and deleted; `session/2026-09-10-build-plan-refresh`. `main` is
+  clean, fully pushed, no open session branches.
+- Full test suite run repeatedly this session (after each merge): 849 → 851 passing
+  (the +2 is the incline-reduction fix's own new tests). Final state: 851 passing.
+- CORE memory ingested: yes (see below).
+- Usage snapshot: not captured — this session's tooling has no `/usage`-equivalent tool
+  exposed (checked via ToolSearch, confirmed absent), same gap noted in the 2026-09-08
+  entry.
