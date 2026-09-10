@@ -5,11 +5,19 @@ __pycache__/
 .venv/
 venv/
 ironlog.db
+ironlog.db.bak-*
+ironlog.db.pre-*
+ironlog.db.predeploy-*
+ironlog.db.stale-*
 .DS_Store
+
+# Serena LSP project cache/index — local tool state, not project content
+.serena/
 
 # secrets — never commit
 .env
 *.env
+.env.bak*
 gemini-api-key
 *-api-key
 *.key
