@@ -158,6 +158,15 @@ file:
 14. **UX hardening, explicitly deferred by the athlete**: a confirmation step before
     final Finish & Submit; a visible "Submitting..." loading state ("we will come back
     to that later").
+15. **Golden APEX baseline (`tests/test_golden_apex_baseline.py`, added 2026-09-10 for
+    the program-library migration) doesn't pin the LLM propose/validate/repair loop
+    itself** — only the quiet-week deterministic path and the LLM-invocation gate
+    decision are pinned. A migration could regress `attempts>=1`/clamp/reject/exhaustion
+    behavior invisibly to this suite (Fable review finding, filed not fixed — may be
+    covered by the pre-existing 851 tests, but as a *golden baseline* specifically it's a
+    named gap). Also noted in the same review: `conftest.py`'s docstring (lines 13, 159)
+    places movement 146 at slot `d1_t3e`; the actual seeded topology has it at `d1_t2h`
+    and no `d1_t3e` exists in D1 — stale comment, harmless, worth a cheap fix sometime.
 
 ## Queued (design needed before spec-ready)
 
