@@ -1,0 +1,37 @@
+# 02 — MicrocycleParityRotation rename/re-key + MesoRotation.mesocycle_id wiring
+
+## Objective
+Fix the calendar-week-vs-microcycle-ordinal parity bug (design doc §6) by re-keying the existing `WeekParityRotation` off `Microcycle.ordinal` instead of ISO calendar-week parity, and switch `_resolve_slot`/`_effective_movement_id` in `ironlog/generation/skeleton.py` to resolve `MesoRotation` via the new `mesocycle_id` FK (added in spec 01) instead of the arbitrary `meso_number` int — while both mechanisms stay in the same resolution precedence they already have.
+
+## File targets
+- `ironlog/models/program.py` — rename `WeekParityRotation` → `MicrocycleParityRotation` (or add a re-keyed replacement — see Changes), update its docstring/comment
+- `ironlog/generation/skeleton.py` — `week_parity()`, `_resolve_slot()`, `_effective_movement_id()`, `lay_skeleton()` signature/docstring
+- `ironlog/notes/resolver.py` — the 4 call sites hardcoding `meso_number=1`
+- `deploy/migrations/068_microcycle_parity_rekey.sql` (new) — schema rename/rekey if needed (see Changes)
+
+## Changes
+
+**Table-name stability (required, checked against live code):** `ironlog/models/program.py` has no `__tablename__` overrides anywhere in the file — SQLModel defaults a table's name to the lowercased class name. Renaming the class without addressing this would silently rename the live DB table from `weekparityrotation` to `microcycleparityrotation` on the next migration-parity check (`tests/test_migrations.py::test_chain_matches_create_all`), which is an uncaptured schema change no migration file in this spec accounts for. **Pin `__tablename__ = "weekparityrotation"` explicitly on the renamed `MicrocycleParityRotation` class** — this makes the rename a Python-only identifier change with zero DB impact, requires no migration file, and is the cheapest correct fix. Do not attempt an actual `ALTER TABLE ... RENAME` migration for this spec.
+
+**Current state** (`ironlog/generation/skeleton.py:117-371`): `week_parity(as_of: date) -> str` derives A/B from `as_of.isocalendar()[1] % 2`. `_resolve_slot` and `_effective_movement_id` query `WeekParityRotation.week_parity == week_parity(as_of)` and `MesoRotation.meso_number == meso_number`, in that precedence order (`SlotMovementOverride > WeekParityRotation(as_of) > MesoRotation(meso_number) > te.movement_id`). `lay_skeleton(day_role, db, meso_number=1, as_of=None)` is the entry point; `ironlog/notes/resolver.py` calls `_effective_movement_id` 4 times, always with `meso_number=1` hardcoded.
+
+**Target state:**
+1. Rename `WeekParityRotation` → `MicrocycleParityRotation` in `ironlog/models/program.py`. Keep its existing columns (`tier_exercise_id`, `week_parity` — the A/B value itself, still just a 2-way string) — **do not change what the table stores, only how its resolution key is computed**. Update its docstring to say it resolves against the owning `Microcycle.ordinal`'s parity, not calendar-ISO-week parity.
+2. Replace `week_parity(as_of: date)` with a new resolution helper that takes a `Microcycle` (or its `ordinal` int) instead of a `date`, e.g. `microcycle_parity(microcycle_ordinal: int) -> str` returning `"A"`/`"B"` off `microcycle_ordinal % 2`. `lay_skeleton` must be given (or must look up) the caller's current `Microcycle` to compute this — **this spec does NOT implement "how does lay_skeleton find the current Microcycle for today's date"** (that's a generation-loop integration concern, spec 04's territory); for this spec, extend `lay_skeleton`'s signature with an explicit optional `microcycle_ordinal: Optional[int] = None` parameter, defaulting to the exact pre-existing calendar-based `week_parity(as_of)` behavior **only** when `microcycle_ordinal` is not supplied (keeps every existing caller — tests, `notes/resolver.py` — working unchanged until spec 04 wires the real value through). Do not silently change existing callers' behavior in this spec.
+3. `_resolve_slot`/`_effective_movement_id`: change the `MesoRotation` lookup from `MesoRotation.meso_number == meso_number` to `MesoRotation.mesocycle_id == mesocycle_id` when a `mesocycle_id` is supplied, falling back to the existing `meso_number` lookup when it's not (same additive-parameter, non-breaking pattern as point 2 — do not remove `meso_number` support in this spec). Add a `mesocycle_id: Optional[int] = None` parameter alongside the existing `meso_number` parameter on `lay_skeleton`, `_resolve_slot`, `_effective_movement_id`.
+4. `ironlog/notes/resolver.py`'s 4 call sites: leave them exactly as `meso_number=1` in this spec — **do not touch this file's behavior**, it's out of scope until a later spec decides how notes/resolver should get a real mesocycle_id. (If the file target list above is misleading, only touch it if a rename import needs updating — e.g. if `WeekParityRotation` is imported there, update the import name only.)
+
+**Why additive, not a hard cutover, in this spec:** spec 01 just added the schema; the actual "what mesocycle/microcycle is active right now" lookup doesn't exist until spec 04 (generation wiring). This spec's job is narrowly the *rename correctness fix* (the parity bug) plus making the new resolution path *available*, without breaking any existing caller or test that still passes the old parameters. Full cutover (removing `meso_number`/calendar `week_parity` entirely) is out of scope — flag it as a follow-up in your commit message, don't do it here.
+
+## Edge cases
+- `microcycle_ordinal % 2` parity must match whatever convention the *existing* `week_parity()`'s `isocalendar()[1] % 2` produces for "A"/"B" labeling (check the existing function's exact string values — likely `"A"`/`"B"` or `"EVEN"`/`"ODD"`, grep `week_parity` usages and any seeded `WeekParityRotation` row's `week_parity` column values in `program_seed.py`/migrations to confirm) — do not invent new label strings, reuse the existing ones.
+- If `MicrocycleParityRotation` (post-rename) has zero rows in the current seed data (check `program_seed.py`/migrations for any `WeekParityRotation` inserts) that's fine — this spec must not break with an empty table, same as today.
+
+## Dependencies
+`.specs/01-periodization-data-model.md` (needs `MesoRotation.mesocycle_id` column and `Microcycle` table to exist).
+
+## Verification
+- All existing tests referencing `WeekParityRotation`, `week_parity`, `_resolve_slot`, `_effective_movement_id`, `lay_skeleton` (grep `tests/` for these names first) still pass unchanged — this is the hard constraint proving the rename/re-key didn't silently change default behavior.
+- New test(s) in `tests/test_generation_skeleton.py` (existing file, add to it): construct a `Microcycle` with a known `ordinal`, a `MicrocycleParityRotation` row, call `lay_skeleton(..., microcycle_ordinal=<that ordinal>)`, assert it resolves the parity-rotation movement — and assert a *different* `microcycle_ordinal` (crossing what would be a calendar-week boundary if it were date-based) still resolves consistently within the same microcycle (i.e., prove the bug is fixed: two calls with the same `microcycle_ordinal` but dates that would have produced different `isocalendar()` weeks under the old logic now resolve identically).
+- New test: `MesoRotation` resolution via `mesocycle_id` returns the same result as the equivalent legacy `meso_number` lookup for a row that has both set (proving the new path is a drop-in equivalent, not a behavior change).
+- `pytest -q` fully green.

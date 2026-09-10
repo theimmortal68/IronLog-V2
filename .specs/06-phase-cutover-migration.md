@@ -1,0 +1,38 @@
+# 06 — Phase → BodyCompState/RecoveryStatus cutover tooling
+
+## Objective
+Build the one-time migration/backfill tooling described in design doc §10: audit and convert `EngineState.current_phase` into an initial `BodyCompState`, compute an initial `RecoveryStatus` fresh from the existing readiness pipeline (never derived from the old `Phase` value), and seed an initial Macrocycle/Mesocycle/Microcycle representing the athlete's actual current position. **This spec builds and shadow-validates the tooling. It does NOT run it against the live production DB** — per this project's standing practice for production data changes (CLAUDE.md's Action Boundaries + this session's own precedent), actual execution against `ironlog.db` is a separate, explicitly human-gated step after this spec's tooling is reviewed, not part of this delegated task.
+
+## File targets
+- `scripts/migrate_phase_to_periodization.py` (new) — the audit/backfill script, dry-run by default
+- `deploy/migrations/069_periodization_cutover_columns.sql` (new, if any additive schema is needed beyond spec 01 — e.g. a `legacy_meso_number` preservation column; otherwise this file may be unnecessary, confirm against spec 01's schema first and don't create a no-op migration file)
+- `tests/test_phase_cutover.py` (new)
+
+## Changes
+
+**This is a script, not a generation-loop change** — it does not touch `ironlog/generation/`, `ironlog/api/app.py`, or any request-serving code path. It's an operator-run, one-time tool.
+
+1. **Dry-run mode is the default and the only mode this spec needs to fully support.** `python -m scripts.migrate_phase_to_periodization --dry-run` (or dry-run-by-default with an explicit `--apply` flag required to write) reads the current `EngineState.current_phase`, all `Session.phase` history (read-only, for reference/audit output — never written to), all `MesoRotation.meso_number` rows, and prints/returns a structured plan: proposed `BodyCompState` row, proposed initial `RecoveryStatus` computation (calling the existing functions in `ironlog/engine/readiness.py` — `compute_rhr_down`, `compute_sleep_ok`, etc. — do not reimplement readiness computation here), the proposed seed `Macrocycle`/`Mesocycle`/`Microcycle` rows representing "now," and a proposed `MesoRotation.meso_number → mesocycle_id` backfill mapping (every existing `MesoRotation` row's `meso_number` resolved against the seeded Mesocycle instances — design doc §10: "existing `MesoRotation.meso_number` values are migrated to the corresponding seeded `mesocycle_id`"; `--apply` writes this FK, `meso_number` itself is left in place unchanged per design doc's "may be kept temporarily as migration metadata").
+1a. **Shadow-validation pass (design doc §10, "pre-cutover shadow validation against recent historical sessions" — required, not optional):** dry-run output must also include, for a configurable N most-recent `Session` rows (default e.g. 10), what `.specs/03-policy-resolver.md`'s `resolve_envelope()` would have produced for each — given the proposed `BodyCompState`/computed `RecoveryStatus`/the seeded Microcycle's `planned_posture` — printed alongside (not replacing) that session's actual historical `phase`/outcome, so the operator can eyeball whether the new resolver's output looks sane against real training history before ever running `--apply`. This is the mechanism design doc §10 means by "rehearsed migration."
+2. **`CALIBRATION`/`REBUILD` audit, not blind mapping** (design doc §10, explicit): the script must NOT contain a hardcoded `{CUT: "CUT", STAB: "MAINTENANCE", CALIBRATION: ?, REBUILD: ?}` dict that silently maps all four. `CUT → BodyCompState.CUT` and `STAB → BodyCompState.MAINTENANCE` may be direct. For `CALIBRATION` and `REBUILD`, the script must either (a) require an explicit `--calibration-maps-to=<value>`/`--rebuild-maps-to=<value>` CLI argument with no default (forcing an operator decision at run time), or (b) if the current `EngineState.current_phase` isn't `CALIBRATION` or `REBUILD` at cutover time, skip that branch entirely and note in output that it wasn't exercised — **do not guess a default for either.**
+3. **Seed "now," not week 1**: the initial `Microcycle`'s `ordinal`/dates should reflect where the athlete actually is in their current block (e.g. derive from existing session history — how many D1-D6 rotations have actually happened recently — or accept an explicit `--current-microcycle-ordinal=N` argument) rather than always seeding ordinal 1. If real session history isn't a reliable enough signal to infer this automatically, requiring an explicit CLI argument is an acceptable, and probably safer, choice — state your reasoning in the script's docstring either way.
+4. **`--apply` mode**: only implement this as literally applying the already-printed dry-run plan (no new decision-making happens in apply mode that wasn't already shown in dry-run output) — this makes the dry-run output a real preview, not a lie.
+5. Do **not** modify or delete `PhasePolicy`/`EngineState`/`Phase` model code, and do not remove `Session.phase` — per design doc §10 those stay in place (read-only historical / compatibility-shim territory) even after this script runs; actually retiring them as a live source of truth is a follow-up (out of scope here, note as such).
+
+## Edge cases
+- Running the script twice in dry-run mode must be idempotent in its *output* (same input state → same proposed plan) — it must not, e.g., increment something on each dry-run invocation.
+- If `EngineState` has no row yet (very first ever run before any phase was ever set), the script must handle that gracefully (documented default assumption, not a crash) — check `ironlog/seed.py` for whether `EngineState` is always seeded.
+
+## Dependencies
+`.specs/01-periodization-data-model.md` (all new tables must exist) **and `.specs/03-policy-resolver.md`** (the shadow-validation pass in point 1a calls `resolve_envelope()` directly — this spec is NOT parallel with 03, it must merge after 03). Can be developed/dispatched concurrently with `.specs/04-generation-wiring-prescription-snapshot.md` once 03 is merged (04 and 06 touch disjoint files and don't depend on each other).
+
+## Verification
+- New `tests/test_phase_cutover.py`: dry-run against a fixture DB seeded with each of `CUT`/`STAB`/`CALIBRATION`/`REBUILD` as `current_phase` (4 separate test cases) — assert `CUT`/`STAB` produce the expected direct mapping, and `CALIBRATION`/`REBUILD` either require the explicit CLI argument (test that omitting it errors/prompts rather than silently guessing) or are correctly skipped-and-flagged per point 2 above.
+- Test proving `RecoveryStatus` computed by the script matches calling `ironlog/engine/readiness.py`'s functions directly on the same fixture data (proves it's not deriving from `Phase`).
+- Test proving dry-run output is idempotent (same fixture, two dry-run calls, same plan).
+- Test proving `--apply` only writes exactly what the preceding dry-run for the same input state showed, including the `MesoRotation.mesocycle_id` backfill.
+- Test proving the shadow-validation pass calls `resolve_envelope()` (from spec 03) against fixture historical sessions and includes its output in dry-run results, without writing anything.
+- `pytest -q` fully green.
+
+## Explicit non-goal for this spec
+Running this script against `ironlog.db` (the live production database). That is a follow-up action requiring direct user confirmation, same as any other production-data change in this project — do not attempt it as part of this delegated task, and do not add automation (a cron job, a startup hook, a CI step) that would run it unattended.

@@ -1200,6 +1200,22 @@ MOVEMENTS = [
          progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
          increment_ladder=[2.5], min_step=2.5, load_floor=10,
          primary_muscle="REAR_DELT", secondary_muscles=["SIDE_DELT"]),
+    # 2026-09-10 (athlete directive): splits the D4/D6 duplicate Rear Delt
+    # Extension into two distinct angles on the same Better Fly cable stack
+    # (load_equipment_id=6). Cross-body path -> D4 T3 GS (slot d4_t3h);
+    # bent-over path -> D6 GS1 (slot d6_g2i). Distinct from the pre-existing
+    # unwired "Cross-Body Cable Rear Delt Fly [FT]" (id 49, no BETTER_FLY tag)
+    # -- confirmed a different physical setup, not a rename.
+    dict(name="Better Fly Cross-Body Rear Delt Fly [FT]", base_name="Better Fly Cross-Body Rear Delt Fly",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10, unilateral=True,
+         primary_muscle="REAR_DELT", secondary_muscles=[]),
+    dict(name="Better Fly Rear Delt Raise [FT]", base_name="Better Fly Rear Delt Raise",
+         region=Region.UPPER, status=Status.ACTIVE, load_code="FT", tags=["FT", "BETTER_FLY"],
+         progression_mode=ProgressionMode.LADDER, scheme=Scheme.DOUBLE_PROGRESSION,
+         increment_ladder=[2.5], min_step=2.5, load_floor=10,
+         primary_muscle="REAR_DELT", secondary_muscles=["SIDE_DELT"]),
     # Overhead tricep extension, Better Fly cuff at the high pulley (FINAL
     # doc's `vertical_press_exposure: true` -- OH endurance/stability role).
     dict(name="Better Fly OH Tricep Extension [FT]", base_name="Better Fly OH Tricep Extension",

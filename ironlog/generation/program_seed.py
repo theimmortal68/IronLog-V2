@@ -149,6 +149,8 @@ PROGRAM_TO_LIBRARY: Dict[str, str] = {
     "D-Handle Cable Bicep Curl":                    "D-Handle Cable Bicep Curl [FT]",
     "Stryker Pad CSR Cables":                       "Stryker Pad CSR Cables [FT]",
     "Better Fly Rear Delt Extension":               "Better Fly Rear Delt Extension [FT]",
+    "Better Fly Cross-Body Rear Delt Fly":          "Better Fly Cross-Body Rear Delt Fly [FT]",
+    "Better Fly Rear Delt Raise":                   "Better Fly Rear Delt Raise [FT]",
     "Better Fly OH Tricep Extension":               "Better Fly OH Tricep Extension [FT]",
     "AbMat Ab Bench Pad Cable Crunch":              "AbMat Ab Bench Pad Cable Crunch [FT]",
     "Seated Leg Extension":                         "Seated Leg Extension [GHR + FT]",
@@ -862,7 +864,7 @@ def _seed_d4(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
             scheme="DOUBLE_PROGRESSION")
 
     t3 = _add_tier(db, pd.id, "T3 GS", 4, TierKind.GIANT_SET, rounds=3, rest_seconds=75, shoe="Metcon 9")
-    _add_te(db, t3.id, "d4_t3f", "Better Fly Rear Delt Extension", lib, 1, "free",
+    _add_te(db, t3.id, "d4_t3h", "Better Fly Cross-Body Rear Delt Fly", lib, 1, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
     _add_te(db, t3.id, "d4_t2e", "Ab Trainer Hanging Leg Raise", lib, 2, "free",
@@ -1050,7 +1052,7 @@ def _seed_d6(db: Session, pd: ProgramDay, lib: Dict[str, int]) -> None:
     _add_te(db, gs1.id, "d6_g1h", "Cable Serratus Punch/Reach [FT]", lib, 2, "free",
             pattern="serratus_protraction", rep_low=12, rep_high=20,
             scheme="DOUBLE_PROGRESSION")
-    _add_te(db, gs1.id, "d6_g2f", "Better Fly Rear Delt Extension", lib, 3, "free",
+    _add_te(db, gs1.id, "d6_g2i", "Better Fly Rear Delt Raise", lib, 3, "free",
             pattern="rear_delt", rep_low=10, rep_high=15,
             scheme="DOUBLE_PROGRESSION")
 

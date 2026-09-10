@@ -127,11 +127,15 @@ def test_d6_gs1_slots_share_giant_tier_group(gen_db):
     not CG Press). GS1's 3rd member is now Cable Serratus Punch/Reach [FT]
     (fresh slot "d6_g1h", migration 057) -- "d6_g1f" is VACATED. GS1 is now
     Pull-up / Cable Serratus Punch-Reach / Rear Delt Extension
-    (d6_g1a/d6_g1h/d6_g2f)."""
+    (d6_g1a/d6_g1h/d6_g2f).
+
+    2026-09-10 (athlete directive): Rear Delt Extension [FT] (d6_g2f)
+    splits into two angles; GS1's 3rd member becomes "Better Fly Rear Delt
+    Raise [FT]" at fresh slot "d6_g2i" -- "d6_g2f" is VACATED."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     slots = {s.slot_id: s for s in sk.adaptive_slots}
 
-    for slot_id in ("d6_g1a", "d6_g1h", "d6_g2f"):
+    for slot_id in ("d6_g1a", "d6_g1h", "d6_g2i"):
         assert slots[slot_id].is_giant_tier is True
         assert slots[slot_id].group_key == "GS1"
 
@@ -155,11 +159,15 @@ def test_d6_gs1_slot_order_preserves_pullup_first(gen_db):
 
     2026-09-03: code/yaml catch-up to already-live migrations 048-057 --
     CG Press (d6_g1f) drops out of D6 entirely; GS1 order is now
-    Pull-up / Cable Serratus Punch-Reach / Rear Delt Extension."""
+    Pull-up / Cable Serratus Punch-Reach / Rear Delt Extension.
+
+    2026-09-10 (athlete directive): Rear Delt Extension [FT] (d6_g2f)
+    splits into two angles; GS1 order is now Pull-up / Cable Serratus
+    Punch-Reach / Rear Delt Raise (fresh slot d6_g2i)."""
     sk = lay_skeleton("D6 Weak Points", gen_db, meso_number=1)
     gs1_slots = [s.slot_id for s in sk.adaptive_slots if s.group_key == "GS1"]
 
-    assert gs1_slots == ["d6_g1a", "d6_g1h", "d6_g2f"]
+    assert gs1_slots == ["d6_g1a", "d6_g1h", "d6_g2i"]
 
 
 def test_lay_skeleton_microcycle_ordinal_parity_resolution(gen_db):

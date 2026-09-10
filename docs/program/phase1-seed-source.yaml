@@ -116,7 +116,7 @@ days:
       {m: puretorque_pro_rotation_d4, reps: [8,12], rule: rpe_8_standard},
       {m: lying_tricep_extension_camber7_d4, reps: [8,12], rule: rpe_8_standard}]}
     T3_GIANT: {group_key: "T3 GS", rest: 75, rounds: 3, shoe: "Metcon 9", ex: [
-      {m: better_fly_rear_delt_ext_d4, reps: [10,15], rule: rpe_8_standard},
+      {m: better_fly_cross_body_rear_delt_fly_d4, reps: [10,15], rule: rpe_8_standard},  # 2026-09-10: replaces better_fly_rear_delt_ext_d4 (athlete directive)
       {m: ab_trainer_hanging_leg_raise_d4, reps: [8,12], rule: incline_reduction, assist_ladder: [0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85]},
       {m: better_fly_cable_pullover_d4, reps: [10,15], rule: rpe_8_standard}]}
 
@@ -179,7 +179,7 @@ days:
     GS1: {group_key: "GS1", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: pull_up_d6_wide_grip_assisted, reps: [5,8], rule: assistance_reduction, assist_level: 20, assist_ladder: [20, 0]},
       {m: cable_serratus_punch_reach_d6, reps: [12,20], rule: rpe_8_standard},
-      {m: better_fly_rear_delt_ext_d6, reps: [10,15], rule: rpe_8_standard}]}
+      {m: better_fly_rear_delt_raise_d6, reps: [10,15], rule: rpe_8_standard}]}  # 2026-09-10: replaces better_fly_rear_delt_ext_d6 (athlete directive)
     GS2: {group_key: "GS2", rest: 90, rounds: 3, shoe: "Metcon 9", ex: [
       {m: stryker_pad_csr_cables_d6, reps: [8,12], rule: rpe_8_standard},
       {m: better_fly_cable_bicep_curl_d6, reps: [10,15], rule: rpe_8_standard},
