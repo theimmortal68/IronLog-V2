@@ -40,80 +40,128 @@ roadmap. No code changed.
 
 **Tag:** NEW CAPABILITY (schema) + EXTEND EXISTING (lifecycle pattern)
 
-Implements ADR 0001's implementation-sequence steps 1–3:
+Implements ADR 0001's full implementation sequence (1–8) as one gated slice — **no AI
+behavior expansion and no additional production programs until this entire slice is
+proven**, per the ADR's revision history.
 
-1. Capture APEX Bridge golden/regression baseline: topology, session structure, loads,
-   progression, rotations, weak-point behavior, readiness behavior, missed-session
-   behavior, deload behavior. This baseline gates every later phase's "no behavior
-   change" acceptance criterion.
-2. Introduce `ProgramRevision` and the normalized revision-table family
-   (`ProgramRevisionDay`, `ProgramRevisionTier`, `ProgramRevisionExercise`,
-   `ProgramRevisionMesoRotation`, `ProgramRevisionParityRotation`,
-   `ProgramRevisionSlotMovementOverride`) plus the materialize-revision pipeline
-   (reuses `program_hash.py`'s projection functions verbatim).
-3. Introduce `ProgramInstance` with its own `ProgramInstanceStatus` enum
-   (`PLANNED/ACTIVE/PAUSED/COMPLETED/ABANDONED/SUPERSEDED` — kept separate from
-   `PlanStatus`, per ADR 0001's finding that `Macrocycle`/`Mesocycle`'s existing
-   `PlanStatus` is `PLANNED/ACTIVE/COMPLETE/ABANDONED` and has different consumers).
-   Replace `EngineState.active_program_id` with `active_instance_id`.
-4. One-time backfill: materialize a `ProgramRevision r0` from the current live `Program`
-   state, wrap existing history in a `ProgramInstance`, so historical data isn't orphaned.
+### 1.1 Expanded golden APEX baseline
 
-**Explicit design gap to close before implementation, not during it:** `PAUSED`
-semantics are new — no existing code models "pausing" a program. Define, before writing
-code: does generation stop entirely while paused? Does readiness/recovery tracking
-continue? Does a missed-day record get created for a paused week? This is a design task,
-not an implementation detail to improvise.
+Not just the final generated workout. Capture representative fixtures including:
 
-**Acceptance criterion:** APEX Bridge generates identically before and after this phase,
-verified against the Phase 1 step-1 baseline. No new programs yet.
+- resolved program topology
+- prescription hash and topology hash
+- candidate menus presented to the proposer
+- the LLM-invocation decision (quiet-week gate fired or not)
+- LLM selections, where deterministic fixtures permit
+- validator result
+- final planned exercises and planned sets
+- progression result
+- weak-point behavior
+- readiness modification
+- missed-day behavior
+- mesocycle/microcycle identity
 
----
+This baseline is what ADR 0001's acceptance invariant 10 is checked against — a narrower
+baseline (just the final workout) would let a real regression through undetected in any
+of the above dimensions.
 
-## Phase 2 — Eliminate cross-program identity collisions
+### 1.2 `ProgramRevision` schema + explicit publish lifecycle
 
-**Tag:** NEW CAPABILITY
+Introduce `ProgramRevision` and the normalized revision-table family
+(`ProgramRevisionDay`, `ProgramRevisionTier`, `ProgramRevisionExercise`,
+`ProgramRevisionMesoRotation`, `ProgramRevisionParityRotation`,
+`ProgramRevisionSlotMovementOverride`), plus a `publish` operation (validate → materialize
+→ hash → commit, atomically — see ADR "Revision Execution Model"). `ProgramRevisionExercise`
+includes slot-requirement typing (`ANCHOR`/`SEMI_ANCHOR`/`ADAPTIVE_SLOT`) from the start,
+even though the resolver/scorer that consumes it is Phase 4–6 work — this avoids a
+breaking re-migration of already-published revisions later. `ProgramRevisionEquipmentRequirement`
+(revision-bound, immutable) is introduced alongside — see Phase 4 for its relationship to
+the athlete-global `AthleteEquipment` inventory, which does **not** get introduced until
+Phase 4; Phase 1's revision schema only needs to express *requirements*, not resolve
+availability against them yet.
 
-Implements ADR 0001's implementation-sequence step 4, **before** any second program
-exists (per project direction — fix the hazard before it's reachable, not when it's hit):
+### 1.3 `ProgramInstance` lifecycle
 
-1. Split `MovementState` into athlete-global `MovementState` (calibration, e1RM,
-   equipment calibration fields — see ADR's State Ownership Model for the exact field
-   list) and new `ProgramMovementState` (progression-ladder/execution state, scoped to
-   `movement_id` + `program_instance_id` + `program_revision_day_id`).
-2. Add `program_revision_day_id` identity to `Session`, `MicrocycleSlot`, and
-   `MissedDayRecord` (migrating its existing `program_day_id` FK). Retain `day_role`/
-   `day_label` as display-only denormalized strings, never used for joins/lookups after
-   this phase.
+Introduce `ProgramInstance` with its own `ProgramInstanceStatus` enum
+(`PLANNED/ACTIVE/PAUSED/COMPLETED/ABANDONED/SUPERSEDED` — kept separate from
+`PlanStatus`, per ADR 0001's finding that `Macrocycle`/`Mesocycle`'s existing `PlanStatus`
+is `PLANNED/ACTIVE/COMPLETE/ABANDONED` and has different consumers). `PAUSED` semantics
+are defined conservatively per the ADR: no new sessions, no progression advancement,
+historical data stays readable, athlete-global state may still update, no silent
+microcycle catch-up on resume. Replace `EngineState.active_program_id` with
+`active_instance_id`.
+
+### 1.4 Legacy `r0` reconstruction/backfill
+
+Materialize a `ProgramRevision r0` from the current live `Program` state with
+`revision_origin = LEGACY_RECONSTRUCTION` (not `PUBLISHED`) and wrap existing history in
+a `ProgramInstance`. Any audit/reporting surface must render `LEGACY_RECONSTRUCTION`
+visibly differently from a real publish — this backfill gives historical sessions
+continuity, it must not imply they were generated against a real immutable revision at
+the time.
+
+### 1.5 Runtime revision execution + the definitive authority test
+
+Re-point every runtime read path identified in the current-state audit's architecture map
+(§1) — `lay_skeleton()` above all, but every row in that table is a candidate — from live
+`Program`/`ProgramDay`/`Tier`/`TierExercise` to the revision-scoped tables via the active
+`ProgramInstance`.
+
+**Required pass/fail check before this phase is considered done** (ADR 0001, "The
+definitive revision-authority test"):
+
+```
+publish APEX r1 → activate an instance on r1 → generate session A
+edit live Program authoring tables drastically (do NOT publish)
+generate session B from the SAME active instance
+    → must match session A's behavior exactly, unaffected by the live edit
+publish r2 from the edited state
+    → the still-active instance must still use r1
+    → only a newly activated instance may use r2
+```
+
+Any deviation means a read path was missed — treat it as a blocking defect, not an
+acceptable edge case.
+
+### 1.6 Collision/state-scope migration
+
+Split `MovementState` into athlete-global `MovementState` (calibration, e1RM, equipment
+calibration fields — see ADR's State Ownership Model for the exact field list) and new
+`ProgramMovementState` (progression-ladder/execution state, scoped to `movement_id` +
+`program_instance_id` + `program_revision_day_id`). Add `program_revision_day_id`
+identity to `Session` and `MicrocycleSlot`. Re-target `MissedDayRecord` to the
+instance/microcycle **occurrence**, not `ProgramRevisionDay` directly (per ADR — a missed
+workout is an event in the athlete's execution timeline, not a property of the recurring
+template day). Retain `day_role`/`day_label` as display-only denormalized strings, never
+used for joins/lookups after this phase.
 
 **This is a live-data migration**, not just a schema change (ADR Risk #3) — needs its own
-verification pass against production data before/independent of the schema migration
-itself, per the standing "no production reseeding" rule.
+verification pass against production data, per the standing "no production reseeding"
+rule.
 
-**Acceptance criterion:** golden baseline still holds; a synthetic second `Program`
-row can exist in the database without any query returning cross-program-contaminated
-`MovementState`/day data (test this directly, don't just assume the FK change is
-sufficient).
+### 1.7 Migration release gate
+
+Before touching the live database: snapshot/backup production → restore to an isolated
+scratch database → run the migration there → backfill `r0` there → run integrity checks
+→ run the full test suite → run the golden regression fixtures (1.1) → only then apply to
+production. Additive/reversible as far as practical. No reseeding, at any point.
+
+### 1.8 Regression verification
+
+Re-run the golden baseline (1.1) end to end; full test suite green; the revision-authority
+test (1.5) passing; a synthetic second `Program` row can exist in the database without any
+query returning cross-program-contaminated `MovementState`/day data (test this directly,
+don't just assume the FK change is sufficient).
+
+**Overall Phase 1 acceptance criterion (ADR 0001, invariant 10):** the same athlete state
+plus the same program revision produces the same observable prescription and
+deterministic decisions as the legacy APEX implementation, across every dimension listed
+in 1.1, except where an explicitly documented migration difference is unavoidable. No new
+programs, no AI-behavior expansion, until this holds.
 
 ---
 
-## Phase 3 — Migrate APEX to the new execution path
-
-**Tag:** EXTEND EXISTING
-
-ADR 0001's implementation-sequence step 5. All runtime read paths identified in the
-current-state audit's architecture map (§1) — `lay_skeleton()` above all, but every row
-in that table is a candidate — are re-pointed from live `Program`/`ProgramDay`/`Tier`/
-`TierExercise` to the revision-scoped tables via the active `ProgramInstance`. This is a
-pure execution-path swap: no behavior change is intended or permitted.
-
-**Acceptance criterion:** golden baseline holds exactly. This is the phase where ADR
-Risk #2 ("missed call sites") is most likely to surface — treat any baseline deviation as
-a missed call site until proven otherwise, not as an acceptable side effect.
-
----
-
-## Phase 4 — Prove generality with a second program
+## Phase 2 — Prove generality with a second program
 
 **Tag:** NEW CAPABILITY
 
@@ -133,7 +181,7 @@ surgery.
 
 ---
 
-## Phase 5 — Program catalog + manual activation
+## Phase 3 — Program catalog + manual activation
 
 **Tag:** NEW CAPABILITY (mostly additive API)
 
@@ -156,7 +204,7 @@ chooses which to run."
 
 ---
 
-## Phase 6 — Equipment & capability model
+## Phase 4 — Equipment & capability model
 
 **Tag:** NEW CAPABILITY, with rich-metadata partially EXTEND EXISTING
 
@@ -209,7 +257,7 @@ work on an existing rich model, not a new subsystem.
 
 ### 6.4 Program compatibility scoring
 
-Depends on 6.1–6.2 and Phase 5's program catalog. For each program × athlete equipment
+Depends on 6.1–6.2 and Phase 3's program catalog. For each program × athlete equipment
 combination, compute per-slot compatibility distinguishing:
 
 - **REQUIRED, no valid substitute** → program incompatible
@@ -244,7 +292,7 @@ snapshot. A revision defines slot *requirements*; this phase's resolver computes
 
 ---
 
-## Phase 7 — Generalize existing adaptive-intent architecture
+## Phase 5 — Generalize existing adaptive-intent architecture
 
 **Tag:** GENERALIZE EXISTING — not "build typed AI intents"
 
@@ -262,7 +310,7 @@ adds the policy layer that governs it, without replacing the pipeline shape:
    are legal per program/revision, their eligibility conditions, and maximum
    intervention magnitude. `PROPOSER_SYSTEM_INSTRUCTION` becomes assembled from this
    policy per program/revision, rather than one fixed global string.
-3. Candidate pools feeding the widened proposer are the output of Phase 6's
+3. Candidate pools feeding the widened proposer are the output of Phase 4's
    equipment/capability resolver — the AI selects only among already-feasible,
    already-legal candidates, never raw library-wide options.
 
@@ -272,11 +320,11 @@ deterministically and cannot bypass the validator; the existing quiet-week bypas
 
 ---
 
-## Phase 8 — Deterministic candidate scoring
+## Phase 6 — Deterministic candidate scoring
 
 **Tag:** NEW CAPABILITY, consistent with existing pipeline shape
 
-A pure deterministic ranking/filtering layer between Phase 6's feasibility resolver and
+A pure deterministic ranking/filtering layer between Phase 4's feasibility resolver and
 the (now-widened) proposer — inputs: weak-point relevance, program priority,
 movement-pattern match, recovery/readiness, historical response, exposure recency,
 equipment convenience; outputs a ranked, inspectable Top-K candidate menu per slot. Score
@@ -285,7 +333,7 @@ a deterministic scoring function, not a second LLM call.
 
 ---
 
-## Phase 9 — Mesocycle/program-boundary intelligence
+## Phase 7 — Mesocycle/program-boundary intelligence
 
 **Tag:** EXTEND EXISTING — `Macrocycle`/`Mesocycle` lifecycle infrastructure already
 supports this shape
@@ -293,15 +341,15 @@ supports this shape
 Mesocycle extension/deload recommendation, mesocycle-exit assessment, program completion
 assessment, candidate successor programs, program-transition recommendation. **All actual
 program changes require explicit user approval initially** — this phase produces
-recommendations only, using the `RECOMMEND_*` intent types from Phase 7.
+recommendations only, using the `RECOMMEND_*` intent types from Phase 5.
 
 ---
 
-## Phase 10 — Macrocycle sequencing
+## Phase 8 — Macrocycle sequencing
 
 **Tag:** EXTEND EXISTING
 
-Once individual program transitions are trustworthy (Phase 9 proven in practice), use the
+Once individual program transitions are trustworthy (Phase 7 proven in practice), use the
 existing `Macrocycle` entity for longer-range sequencing across multiple program
 instances toward a stated goal (e.g. APEX Bridge → Pivot → Strength Accumulation →
 Strength Intensification). Macrocycle provides intent/sequencing context without owning
@@ -309,7 +357,7 @@ or overriding any individual program's identity.
 
 ---
 
-## Phase 11 (DEFERRED) — Program authoring, import/export, and AI-assisted program creation
+## Phase 9 (DEFERRED) — Program authoring, import/export, and AI-assisted program creation
 
 Only after the schema from Phases 1–7 has stabilized in production across at least two
 real programs. Includes:
@@ -319,7 +367,7 @@ real programs. Includes:
 - **AI-assisted program creation, reusing the same capability engine as session
   generation** (project direction, explicitly called out as important): goal +
   constraints (days/week, duration, equipment, weak points, restrictions) →
-  deterministic capability/filter engine (Phase 6/8's machinery, not a separate
+  deterministic capability/filter engine (Phase 4/6's machinery, not a separate
   pipeline) → eligible movement pools by role → AI composes program topology from
   allowed pools only → program validator → human review → becomes a real
   `ProgramRevision` through the normal immutable-revision path. This is explicitly
@@ -344,7 +392,7 @@ real programs. Includes:
 
 ## Testing strategy (applies across all phases)
 
-- **Golden APEX tests** (Phase 1, step 1) — captured before any change, required to pass
+- **Golden APEX tests** (Phase 1, §1.1) — captured before any change, required to pass
   after every subsequent phase unless a behavior change is deliberately specified.
 - **Program-schema tests** — reject invalid movement references, impossible equipment
   requirements, invalid tier topology, contradictory adaptation policy, bad
@@ -371,5 +419,5 @@ training frequency unilaterally; silently mutate an active program definition or
 transition to another program; conflate program definition with athlete state; replace
 the planned/performed separation; duplicate `Macrocycle`/`Mesocycle`/`Microcycle`
 concepts; broaden scope into nutrition/social/gym-management features; add many programs
-before Phase 4 proves the abstraction; sacrifice deterministic test discipline for faster
+before Phase 2 proves the abstraction; sacrifice deterministic test discipline for faster
 AI iteration; reseed the production database as a migration shortcut.
