@@ -115,13 +115,18 @@ blob (JSON) of the fully resolved topology. Runtime "compiles" or loads this blo
 generates from it in memory.
 
 **Option B — Immutable normalized revision tables.** `ProgramRevision` is paired with
-revision-scoped mirrors of each authoring table — `ProgramRevisionDay`,
-`ProgramRevisionTier`, `ProgramRevisionExercise`, `ProgramRevisionMesoRotation`,
-`ProgramRevisionParityRotation`, `ProgramRevisionSlotMovementOverride` — populated by a
+revision-scoped mirrors of each authoring table whose content is program-definition
+data — `ProgramRevisionDay`, `ProgramRevisionTier`, `ProgramRevisionExercise`,
+`ProgramRevisionMesoRotation`, `ProgramRevisionParityRotation` — populated by a
 deterministic "materialize revision" step at publish time. Runtime queries the
 revision-scoped tables directly, using the same join/precedence-resolution pattern
 `lay_skeleton()` already uses today, just parameterized by revision instead of by the
-live pointer.
+live pointer. (`SlotMovementOverride` is deliberately **not** mirrored — see
+[Live overrides are not revision content](#live-overrides-are-not-revision-content)
+below, added during Phase 1 §1.2 implementation review; this list originally named a
+`ProgramRevisionSlotMovementOverride` table, which was corrected once the exclusion
+rationale was worked out — noted here rather than silently changed, since this is a
+real amendment to what this ADR originally said, not merely a clarification.)
 
 **Decision: Option B.**
 
@@ -372,6 +377,41 @@ multiple weeks.
 Not every string in the codebase needs to become a foreign key — this fix is scoped to
 the specific fields identified as acting as cross-table identity today, not a general
 string-to-FK sweep.
+
+---
+
+## Live overrides are not revision content
+
+**Amendment, added during Phase 1 §1.2 implementation review (2026-09-10).** This ADR's
+initial draft of the Option B table list named a `ProgramRevisionSlotMovementOverride`
+mirror table alongside the others. Implementation work surfaced that this was wrong, and
+the decision below corrects it rather than leaving the stale name in place uncorrected.
+
+`SlotMovementOverride` is, by its own docstring
+(`ironlog/models/program.py`), a **deliberately live, revertible, note-driven** override:
+"Base program is never mutated; revert = `active=False`." It exists specifically so an
+override can be applied and undone without going through a publish cycle — the opposite
+of what a `ProgramRevision` is for. Freezing it into a revision would break the live
+revert mechanism for any instance running that revision (reverting would have no
+effect on an already-materialized, immutable snapshot).
+
+**Decision: `SlotMovementOverride` is excluded from `ProgramRevision` entirely.** It
+remains a live table, resolved at runtime the same way it is today — structurally
+analogous to how `AthleteEquipment` availability is resolved live against a revision's
+frozen requirements (see
+[Equipment/Program-Requirement Separation](#equipment--program-requirement-separation)
+below): a revision defines the *legal baseline*; a live override (or live equipment
+state) can still change what actually happens on top of it, without that possibility
+itself needing to be frozen.
+
+**Named, unresolved consequence for a later phase:** `SlotMovementOverride` currently
+keys on the live `TierExercise.id`. Once runtime execution actually cuts over to reading
+`ProgramRevisionExercise` rows (Phase 1 §1.5, not this phase), there needs to be a real
+answer for how a live override finds "the corresponding revision-scoped slot" —
+`slot_id` string matching is the most likely bridge (both `TierExercise` and
+`ProgramRevisionExercise` carry the same `slot_id`), but this is a genuine open design
+question for that later phase, not solved here. Flagged explicitly so it isn't
+rediscovered cold.
 
 ---
 
