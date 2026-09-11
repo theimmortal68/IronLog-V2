@@ -89,12 +89,17 @@ def publish_program_revision(
         prescription_hash=prescription_hash,
         topology_hash=topology_hash,
     )
-    db.add(revision)
-    db.flush()  # assigns revision.id
+    try:
+        db.add(revision)
+        db.flush()  # assigns revision.id
 
-    _materialize_graph(program, revision, db)
+        _materialize_graph(program, revision, db)
 
-    db.commit()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
     db.refresh(revision)
     return revision
 
@@ -276,11 +281,13 @@ def _materialize_graph(
                 db.add(rev_exercise)
                 db.flush()
 
-                # MesoRotation rows (meso_number-keyed only)
+                # MesoRotation rows
+                # NOTE: materializing all meso_number rows regardless of mesocycle_id.
+                # The production cutover (scripts/migrate_phase_to_periodization.py)
+                # mutated existing rows to set mesocycle_id, but did not change meso_number semantics.
                 mrs = db.exec(
                     select(MesoRotation).where(
                         MesoRotation.tier_exercise_id == te.id,
-                        MesoRotation.mesocycle_id.is_(None),  # type: ignore[union-attr]
                     )
                 ).all()
                 for mr in mrs:

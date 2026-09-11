@@ -115,18 +115,14 @@ class ProgramRevisionExercise(SQLModel, table=True):
 
 
 class ProgramRevisionMesoRotation(SQLModel, table=True):
-    """Revision-scoped mirror of MesoRotation (meso_number-keyed only).
+    """Revision-scoped mirror of MesoRotation.
 
-    NOTE: deliberately no mesocycle_id column. The mesocycle_id-keyed lookup
-    path in skeleton.py is real and tested
-    (tests/test_generation_skeleton.py::test_meso_rotation_mesocycle_id_lookup),
-    but unused in any real seeded/production data today — program_seed.py's
-    _add_mr() never sets mesocycle_id (always None); no planning/advancement
-    script ever creates a MesoRotation row with mesocycle_id set either.
-    Because a mesocycle_id reference would point at a specific live Mesocycle
-    row (an instance-time concept, not program-definition content), it does not
-    belong in an immutable revision. This omission is deliberate per the
-    program-revision design task's grep-verified evidence, not an oversight.
+    NOTE: deliberately no mesocycle_id column. A one-time production cutover
+    (scripts/migrate_phase_to_periodization.py) mutated existing rows to set
+    mesocycle_id for live-lookup optimization, but did not change meso_number
+    semantics. No code creates divergent content keyed on mesocycle_id.
+    Therefore, meso_number remains the authoritative content key for what a
+    revision should freeze, and mesocycle_id is omitted here.
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     program_revision_exercise_id: int = Field(

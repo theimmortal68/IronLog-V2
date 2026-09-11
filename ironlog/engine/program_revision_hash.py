@@ -135,8 +135,8 @@ def _project_revision_exercise(
         "derive_ratio": getattr(exercise, "derive_ratio", None),
     }
 
-    # MesoRotation rows (meso_number-keyed only — per design decision #2,
-    # mesocycle_id-keyed rows are excluded from the revision).
+    # MesoRotation rows (per design decision #2, we include all rows regardless
+    # of mesocycle_id, because meso_number is the authoritative content key).
     exercise_id = getattr(exercise, "id", None)
     meso_rotations = []
     if exercise_id is not None and session is not None:
@@ -145,7 +145,6 @@ def _project_revision_exercise(
             select(MesoRotation)
             .where(
                 MesoRotation.tier_exercise_id == exercise_id,
-                MesoRotation.mesocycle_id.is_(None),  # type: ignore[union-attr]
             ),
         )
         meso_rotations = sorted(

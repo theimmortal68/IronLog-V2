@@ -261,7 +261,7 @@ def test_per_program_monotonic_numbering(gen_db, program):
 # Test 7: transactional atomicity — partial failure leaves zero rows
 # ---------------------------------------------------------------------------
 
-def test_transactional_atomicity_on_failure(gen_db, program):
+def test_transactional_atomicity_on_failure(gen_db, program, monkeypatch):
     # Count rows before
     rev_count_before = gen_db.exec(
         select(func.count(ProgramRevision.id))
@@ -276,22 +276,15 @@ def test_transactional_atomicity_on_failure(gen_db, program):
         select(func.count(ProgramRevisionExercise.id))
     ).one()
 
-    # Craft an invalid state by inserting a TierExercise with a bad movement_id
-    day = gen_db.exec(
-        select(ProgramDay).where(ProgramDay.program_id == program.id)
-    ).first()
-    tier = gen_db.exec(
-        select(Tier).where(Tier.program_day_id == day.id)
-    ).first()
+    # Force a failure partway through _materialize_graph by intercepting
+    # ProgramRevisionTier initialization (after ProgramRevisionDay is already added/flushed).
+    orig_init = ProgramRevisionTier.__init__
+    def broken_init(self, *args, **kwargs):
+        raise RuntimeError("Injected materialization failure")
+    
+    monkeypatch.setattr(ProgramRevisionTier, "__init__", broken_init)
 
-    bad_te = TierExercise(
-        tier_id=tier.id, slot_id="bad_slot", movement_id=999999,
-        exercise_order=99, tier_role="anchor",
-    )
-    gen_db.add(bad_te)
-    gen_db.commit()
-
-    with pytest.raises(ProgramValidationError, match="nonexistent movement_id"):
+    with pytest.raises(RuntimeError, match="Injected materialization failure"):
         publish_program_revision(program, gen_db)
 
     # Row counts unchanged — no partial revision left behind
@@ -300,9 +293,10 @@ def test_transactional_atomicity_on_failure(gen_db, program):
     assert gen_db.exec(select(func.count(ProgramRevisionTier.id))).one() == tier_count_before
     assert gen_db.exec(select(func.count(ProgramRevisionExercise.id))).one() == ex_count_before
 
-    # Clean up the bad TierExercise for other tests
-    gen_db.delete(bad_te)
-    gen_db.commit()
+    # Calling publish_program_revision() again succeeds cleanly
+    monkeypatch.undo()
+    r1 = publish_program_revision(program, gen_db)
+    assert r1.revision_number == 1
 
 
 # ---------------------------------------------------------------------------
@@ -554,39 +548,38 @@ def test_equipment_requirement_stub(gen_db, program):
 
 def test_revision_hash_includes_rotations(gen_db, program):
     """Verify that MesoRotation and ParityRotation changes affect the
-    revision prescription hash (unlike the old program_hash.py)."""
-    from ironlog.engine.program_hash import compute_program_prescription_hash
-
+    revision prescription hash, producing a new revision."""
     r1 = publish_program_revision(program, gen_db)
 
-    # Get the old-style hash for comparison
-    old_hash = compute_program_prescription_hash(program)
-
-    # The revision hash should differ from the old hash because the
-    # revision hash includes rotation data that the old hash doesn't.
-    # (Only true if there are actual rotation rows in the seeded program.)
-    auth_mr_count = gen_db.exec(
-        select(func.count(MesoRotation.id))
-        .where(MesoRotation.mesocycle_id.is_(None))  # type: ignore[union-attr]
-    ).one()
-    auth_wpr_count = gen_db.exec(
-        select(func.count(MicrocycleParityRotation.id))
-    ).one()
-
-    if auth_mr_count > 0 or auth_wpr_count > 0:
-        # If rotations exist, the wider projection should produce a different hash
-        assert r1.prescription_hash != old_hash
+    # Edit a MesoRotation row to prove its content is part of the hash
+    mr = gen_db.exec(select(MesoRotation)).first()
+    if not mr:
+        # If the seeded program has no MesoRotation, add one
+        te = gen_db.exec(select(TierExercise)).first()
+        mr = MesoRotation(
+            tier_exercise_id=te.id,
+            meso_number=2,
+            movement_id=te.movement_id,
+            rep_low=10,
+            rep_high=15,
+        )
+        gen_db.add(mr)
     else:
-        # If no rotations exist, the hash would still differ structurally because
-        # the revision projection includes the empty meso_rotations/parity_rotations
-        # keys that the old projection lacks.
-        # Either way, just confirm the revision hash is deterministic.
-        pass
+        # Edit the existing one
+        mr.rep_low = 999
+        gen_db.add(mr)
+        
+    gen_db.commit()
 
-    # Confirm topology hashes are the same shape (both only use day_index/is_rest)
-    from ironlog.engine.program_hash import compute_slot_topology_hash
-    old_topo = compute_slot_topology_hash(program)
-    assert r1.topology_hash == old_topo
+    # Publishing again should produce r2 because the hash changed
+    r2 = publish_program_revision(program, gen_db)
+    
+    assert r2.id != r1.id
+    assert r2.revision_number == 2
+    assert r2.prescription_hash != r1.prescription_hash
+
+    # Topology hash should remain unchanged (rotations do not affect topology)
+    assert r2.topology_hash == r1.topology_hash
 
 
 # ---------------------------------------------------------------------------
@@ -607,3 +600,17 @@ def test_slot_role_defaults(gen_db, program):
     for rex in rev_exercises:
         assert rex.slot_role == SlotRole.ANCHOR
         assert rex.slot_constraints is None
+
+# ---------------------------------------------------------------------------
+# Test 15: MesoRotation uniqueness invariant
+# ---------------------------------------------------------------------------
+
+def test_meso_rotation_uniqueness_invariant(gen_db):
+    """Verify that for the seeded program, there is at most one MesoRotation
+    row per (tier_exercise_id, meso_number) regardless of mesocycle_id."""
+    mrs = gen_db.exec(select(MesoRotation)).all()
+    seen = set()
+    for mr in mrs:
+        key = (mr.tier_exercise_id, mr.meso_number)
+        assert key not in seen, f"Duplicate MesoRotation found for {key}"
+        seen.add(key)
