@@ -623,29 +623,45 @@ def run_analysis(
                 d.pending_ht_plates = adv.earned_ht_plates
                 d.pending_ht_band_config = adv.earned_ht_band_config
                 d.pending_ht_unified_group = unified_group
-            # L: never let the next prescription regress below what was actually
-            # performed this session. Scoped to movements whose load field is
+            # L: bootstrap an unknown load from actual performance, or never let
+            # the next prescription regress below what was actually performed
+            # this session. Scoped to movements whose load field is
             # current_load (review finding: progression_mode == LADDER alone let a
             # future COMPOSITE-but-not-HIP_THRUST movement slip through) -- HT's
             # load lives in ht_plates/ht_band_config, not current_load (see Spec 03,
             # the assembler-side HT override fix), so HIP_THRUST is excluded
             # explicitly too, rather than floored against the wrong field.
             floor_delta = 0.0
-            if (load_field_for_mode(movement.progression_mode) == "current_load"
-                    and movement.lift_category != LiftCategory.HIP_THRUST):
+            uses_current_load = (
+                load_field_for_mode(movement.progression_mode) == "current_load"
+                and movement.lift_category != LiftCategory.HIP_THRUST
+            )
+            if uses_current_load:
                 performed_loads = [
                     sl.actual_load for sl in set_logs
                     if sl.movement_id == mid and not sl.is_warmup and sl.actual_load is not None
                 ]
                 floor_delta = performed_floor_delta(state.current_load, performed_loads)
-            if adv.earned_load_step is not None or floor_delta > 0.0:
+            # A needs-calibration movement has no established prescription to
+            # advance from. advance() is generic enough to earn a step from the
+            # clean performance alone, so suppress that step during bootstrap:
+            # the raw heaviest performed load is the entire initial value. Keep
+            # the suppression under the same current_load-mode gate as the
+            # bootstrap itself so ASSISTED/bodyweight progression is untouched.
+            earned_load_step = adv.earned_load_step or 0.0
+            if uses_current_load and state.current_load is None:
+                earned_load_step = 0.0
+            if earned_load_step or floor_delta > 0.0:
                 # K2: stage the earned load step (never current_load). commit_session
                 # applies it to current_load and clears the marker (apply-once).
                 # The staged delta stacks additively: the floor needed to not regress
                 # below a performed weight, PLUS the rule-driven clean-advance step on
                 # top (a self-selected-heavier-than-prescribed session that also earns
                 # a clean advance must get credit for both, not just whichever is larger).
-                d.pending_load_delta = floor_delta + (adv.earned_load_step or 0.0)
+                # A concurrent wizard-resolve write can race this snapshot; that
+                # accepted race is unchanged from the existing apply-once model,
+                # which assumes no concurrent MovementState writers.
+                d.pending_load_delta = floor_delta + earned_load_step
             if new_unassisted_max_rolling is not None:
                 d.new_unassisted_max_rolling = new_unassisted_max_rolling
             d.stall_signal_computed = True
