@@ -326,7 +326,13 @@ def test_bodyweight_performance_does_not_stage_load_bootstrap():
     engine = _make_engine()
     with Session(engine) as db:
         _seed_common(db)
-        _seed_movement(db, 1, progression_mode=ProgressionMode.PROTOCOL)
+        _seed_movement(
+            db,
+            1,
+            progression_mode=ProgressionMode.PROTOCOL,
+            progression_rule=ProgressionRule.RPE_8_STANDARD.value,
+            increment_ladder=[2.5],
+        )
         db.add(MovementState(
             movement_id=1,
             calibration_status=CalibrationStatus.MEASURED,
@@ -340,6 +346,7 @@ def test_bodyweight_performance_does_not_stage_load_bootstrap():
         state = db.exec(
             select(MovementState).where(MovementState.movement_id == 1)
         ).one()
+        assert state.active_rule == ProgressionRule.RPE_8_STANDARD.value
         assert state.pending_load_delta is None
 
 

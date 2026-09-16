@@ -647,11 +647,11 @@ def run_analysis(
             # clean performance alone, so suppress that step during bootstrap:
             # the raw heaviest performed load is the entire initial value. Keep
             # the suppression under the same current_load-mode gate as the
-            # bootstrap itself so ASSISTED/bodyweight progression is untouched.
+            # bootstrap itself.
             earned_load_step = adv.earned_load_step or 0.0
             if uses_current_load and state.current_load is None:
                 earned_load_step = 0.0
-            if earned_load_step or floor_delta > 0.0:
+            if uses_current_load and (earned_load_step or floor_delta > 0.0):
                 # K2: stage the earned load step (never current_load). commit_session
                 # applies it to current_load and clears the marker (apply-once).
                 # The staged delta stacks additively: the floor needed to not regress
