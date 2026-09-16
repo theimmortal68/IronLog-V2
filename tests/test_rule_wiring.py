@@ -287,6 +287,15 @@ def test_second_rule_type_single_session_advances(gen_db):
     ).one()
     vbar.progression_rule = ProgressionRule.SINGLE_SESSION.value
     gen_db.add(vbar)
+    # This movement is no longer live-wired, so baseline seeding leaves its
+    # state uncalibrated. Give this rule-focused test the established load its
+    # "on-script @60" scenario requires; current_load=None now intentionally
+    # exercises the separate performance-bootstrap path.
+    gen_db.add(MovementState(
+        movement_id=vbar.id,
+        day_id="D6 Weak Points",
+        current_load=60.0,
+    ))
     gen_db.commit()
     assert vbar.progression_rule == ProgressionRule.SINGLE_SESSION.value
     ladder = vbar.increment_ladder or []

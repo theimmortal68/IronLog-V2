@@ -591,6 +591,27 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
     objective = _effective_objective(movement, ctx)
     step, floor = _step_and_floor(movement, db)
     base = resolve_start_load(movement, state, db)
+    bootstrapped = False
+    if (
+        (base is None or (
+            state is not None
+            and state.current_load is None
+            and movement.start_ratio is not None
+            and movement.derived_from_id is not None
+        ))
+        and state is not None
+        and state.pending_load_delta is not None
+        and _progression_carry_forward_allowed(ctx)
+    ):
+        # Bootstrap: no calibrated current_load yet, but a prior completed
+        # session logged real performance and run_analysis staged the heaviest
+        # weight as pending_load_delta. Unlike the K2 bridge below, there is no
+        # existing calibrated base to add to -- the staged delta IS the base.
+        # This also deliberately supersedes a derived-ratio recommendation: a
+        # movement whose own load is still unset may resolve an anchor-derived
+        # base, but its subsequently logged performance is now authoritative.
+        base = state.pending_load_delta
+        bootstrapped = True
     if base is None:
         # needs-calibration (or bodyweight): assemble the slot structurally with
         # NO target_load — never fabricate a floor.  No prospective load to collect.
@@ -601,7 +622,8 @@ def _build_exercise(movement: Movement, ex_order: int, ctx: GenerationContext,
         # rounding/clamping so THIS session prescribes the earned load. commit_session
         # writes the result to current_load and clears the marker (apply-once).
         if (
-            state is not None
+            not bootstrapped
+            and state is not None
             and state.pending_load_delta is not None
             and _progression_carry_forward_allowed(ctx)
         ):

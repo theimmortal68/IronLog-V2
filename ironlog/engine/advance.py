@@ -67,16 +67,19 @@ def _earned_step(state, movement) -> Optional[float]:
 
 
 def performed_floor_delta(current_load: Optional[float], performed_loads: List[float]) -> float:
-    """The minimum load bump required so the next prescription is never below
-    the heaviest weight actually logged this session (L: the load ratchet).
+    """Return the load delta demonstrated by this session's heaviest set.
 
-    Returns 0.0 if current_load is None (needs-calibration -- nothing to floor
-    against) or no performed_loads exceed it. Never negative -- a lighter-than-
-    prescribed performance must not lower the next prescription.
+    For a needs-calibration movement, the heaviest performed load bootstraps
+    ``current_load`` from no value. Otherwise this is the load ratchet: it
+    returns only the bump needed to keep the next prescription from falling
+    below the heaviest weight actually logged. With no performed loads it
+    returns 0.0, and it never lowers an existing load.
     """
-    if current_load is None or not performed_loads:
+    if not performed_loads:
         return 0.0
     heaviest = max(performed_loads)
+    if current_load is None:
+        return heaviest
     return max(heaviest - current_load, 0.0)
 
 

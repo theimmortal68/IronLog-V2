@@ -140,8 +140,7 @@ def test_resolve_assisted_writes_assist_level_not_current_load():
 
 
 def test_resolve_preserves_other_movementstate_fields():
-    """Two-writer boundary: resolve writes ONLY the load field + confirmed_at,
-    never e1rm / calibration_status / counters."""
+    """Resolve changes only its documented fields, not analysis state."""
     from ironlog.models.enums import CalibrationStatus
     client, engine = _client()
     with DbSession(engine) as s:
@@ -170,6 +169,59 @@ def test_resolve_preserves_other_movementstate_fields():
         assert st.consecutive_ceiling_sessions == 2
 
     app.dependency_overrides.clear()
+
+
+def test_resolve_clears_pending_delta_before_subsequent_generation(gen_db):
+    """A manual value supersedes a staged bootstrap instead of stacking on it."""
+    from ironlog.api.app import resolve_wizard
+    from ironlog.api.schemas_wizard import WizardResolution, WizardResolveRequest
+    from ironlog.generation.baseline_seed import seed_movement_baselines
+    from ironlog.generation.fallback import program_selections
+    from ironlog.generation.loop import generate_session
+    from ironlog.generation.proposer import StubProposer
+    from ironlog.generation.skeleton import lay_skeleton
+
+    day = "D1 Upper Push"
+    seed_movement_baselines(gen_db)
+    movement = gen_db.exec(
+        select(Movement).where(Movement.name == "Bench Press [PB]")
+    ).one()
+    state = gen_db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == movement.id,
+            MovementState.day_id == day,
+        )
+    ).one()
+    state.current_load = None
+    state.pending_load_delta = 265.0
+    gen_db.add(state)
+    gen_db.commit()
+
+    program_id = gen_db.exec(
+        select(ProgramDay.program_id).where(ProgramDay.day_role == day)
+    ).one()
+
+    response = resolve_wizard(
+        program_id,
+        WizardResolveRequest(resolutions=[
+            WizardResolution(movement_id=movement.id, value=100.0),
+        ]),
+        gen_db,
+    )
+    assert response.resolved == 1
+
+    gen_db.refresh(state)
+    assert state.current_load == 100.0
+    assert state.pending_load_delta is None
+
+    skeleton = lay_skeleton(day, gen_db)
+    outcome = generate_session(
+        day,
+        gen_db,
+        StubProposer(program_selections(skeleton)),
+        lambda d: (d.isocalendar()[0], d.isocalendar()[1]),
+    )
+    assert outcome.assembled.prospective_current_loads[movement.id] == 100.0
 
 
 # ---------------------------------------------------------------------------

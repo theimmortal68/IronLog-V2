@@ -1411,9 +1411,11 @@ def resolve_wizard(program_id: int, req: WizardResolveRequest,
     picks current_load (LADDER/COMPOSITE) vs assist_level (ASSISTED) — and stamp
     confirmed_at = now. The §7.3 honesty pin: stamp confirmed_at ONLY on the
     movements in `resolutions` (the ones actually vouched for) — untouched-FRESH
-    movements keep their existing confirmed_at. Two-writer boundary: writes ONLY
-    the load field + confirmed_at; never e1rm/calibration_status/counters. Then
-    recompute needs_attention via the SHARED compute_load_trust.
+    movements keep their existing confirmed_at. Two-writer boundary: writes the
+    load field + confirmed_at and clears pending_load_delta because the manual
+    value supersedes any staged-but-unapplied advance; never writes
+    e1rm/calibration_status/counters. Then recompute needs_attention via the
+    SHARED compute_load_trust.
     """
     from datetime import datetime
 
@@ -1441,6 +1443,7 @@ def resolve_wizard(program_id: int, req: WizardResolveRequest,
             db.add(state)
         setattr(state, field, res.value)  # write ONLY the canonical load field …
         state.confirmed_at = now          # … + the confirmation event-fact
+        state.pending_load_delta = None   # manual value supersedes a staged advance
         resolved += 1
 
     db.commit()

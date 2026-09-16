@@ -16,8 +16,8 @@ import pytest
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from ironlog.models.enums import (
-    CalibrationStatus, FeedbackTap, GroupType, Objective, Phase, ProgressionRule,
-    Scheme, SetRole,
+    CalibrationStatus, FeedbackTap, GroupType, Objective, Phase, ProgressionMode,
+    ProgressionRule, Scheme, SessionStatus, SetRole,
 )
 from ironlog.models.library import E1rmHistory, EngineState, Movement, MovementState, PhasePolicy
 from ironlog.models.session import (
@@ -157,6 +157,197 @@ def test_non_advancing_session_at_heavier_load_gets_floor_only_no_earned_credit(
 
         st = db.exec(select(MovementState).where(MovementState.movement_id == 1)).one()
         assert st.pending_load_delta == 5.0
+
+
+def test_needs_calibration_bootstrap_flows_through_generation_and_commit(gen_db):
+    """A real logged load becomes the next prescription and lands exactly once."""
+    from ironlog.generation.baseline_seed import seed_movement_baselines
+    from ironlog.generation.fallback import program_selections
+    from ironlog.generation.loop import commit_session, generate_session
+    from ironlog.generation.proposer import StubProposer
+    from ironlog.generation.skeleton import lay_skeleton
+
+    day = "D1 Upper Push"
+    seed_movement_baselines(gen_db)
+    movement = gen_db.exec(
+        select(Movement).where(Movement.name == "Bench Press [PB]")
+    ).one()
+    state = gen_db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == movement.id,
+            MovementState.day_id == day,
+        )
+    ).one()
+    state.current_load = None
+    state.pending_load_delta = None
+    state.calibration_status = CalibrationStatus.CALIBRATING
+    gen_db.add(state)
+    gen_db.commit()
+
+    _seed_session(
+        gen_db,
+        9301,
+        movement.id,
+        label="T1",
+        day_role=day,
+        actual_load=145.0,
+    )
+    logged = gen_db.get(IronSession, 9301)
+    logged.status = SessionStatus.COMPLETED
+    gen_db.add(logged)
+    gen_db.commit()
+
+    run_analysis(9301, gen_db, WEEK_KEYER)
+
+    gen_db.refresh(state)
+    assert state.current_load is None, "analysis must preserve the sole-writer boundary"
+    assert state.pending_load_delta == 145.0, (
+        "bootstrap stages the raw performed load without an earned increment"
+    )
+
+    skeleton = lay_skeleton(day, gen_db)
+    outcome = generate_session(
+        day,
+        gen_db,
+        StubProposer(program_selections(skeleton)),
+        WEEK_KEYER,
+    )
+    assert outcome.assembled.prospective_current_loads[movement.id] == 145.0
+    exercise = next(
+        exercise
+        for group in outcome.assembled.session.groups
+        for exercise in group.exercises
+        if exercise.movement_id == movement.id
+    )
+    working_sets = [planned for planned in exercise.planned_sets if not planned.is_warmup]
+    assert working_sets
+    assert {planned.target_load for planned in working_sets} == {145.0}
+
+    commit_session(
+        outcome.assembled,
+        gen_db,
+        approval_mode="auto",
+        prompt={},
+        selections_dict={},
+        clamps=[],
+        repairs=[],
+        fallback_used=False,
+    )
+    gen_db.refresh(state)
+    assert state.current_load == 145.0
+    assert state.pending_load_delta is None
+
+
+def test_logged_performance_bootstrap_supersedes_uncommitted_derived_ratio(gen_db):
+    """Own performance wins when a derived recommendation was never committed."""
+    from ironlog.generation.assembler import resolve_start_load
+    from ironlog.generation.baseline_seed import seed_movement_baselines
+    from ironlog.generation.fallback import program_selections
+    from ironlog.generation.loop import commit_session, generate_session
+    from ironlog.generation.proposer import StubProposer
+    from ironlog.generation.skeleton import lay_skeleton
+
+    day = "D1 Upper Push"
+    seed_movement_baselines(gen_db)
+    movement = gen_db.exec(
+        select(Movement).where(Movement.name == "Bench Press [PB]")
+    ).one()
+    anchor = Movement(
+        name="Bootstrap ratio test anchor",
+        base_name="Bootstrap ratio test anchor",
+    )
+    gen_db.add(anchor)
+    gen_db.flush()
+    gen_db.add(MovementState(movement_id=anchor.id, e1rm=200.0))
+
+    state = gen_db.exec(
+        select(MovementState).where(
+            MovementState.movement_id == movement.id,
+            MovementState.day_id == day,
+        )
+    ).one()
+    movement.derived_from_id = anchor.id
+    movement.start_ratio = 0.8
+    state.current_load = None
+    state.pending_load_delta = None
+    gen_db.add(movement)
+    gen_db.add(state)
+    gen_db.commit()
+
+    assert resolve_start_load(movement, state, gen_db) == 160.0, (
+        "the anchor makes base non-None even though the movement's own load is unset"
+    )
+
+    _seed_session(
+        gen_db,
+        9302,
+        movement.id,
+        label="T1",
+        day_role=day,
+        actual_load=145.0,
+    )
+    logged = gen_db.get(IronSession, 9302)
+    logged.status = SessionStatus.COMPLETED
+    gen_db.add(logged)
+    gen_db.commit()
+    run_analysis(9302, gen_db, WEEK_KEYER)
+
+    gen_db.refresh(state)
+    assert state.current_load is None
+    assert state.pending_load_delta == 145.0
+
+    skeleton = lay_skeleton(day, gen_db)
+    outcome = generate_session(
+        day,
+        gen_db,
+        StubProposer(program_selections(skeleton)),
+        WEEK_KEYER,
+    )
+    assert outcome.assembled.prospective_current_loads[movement.id] == 145.0, (
+        "the raw bootstrap marker must not be added to the derived 160 base"
+    )
+
+    commit_session(
+        outcome.assembled,
+        gen_db,
+        approval_mode="auto",
+        prompt={},
+        selections_dict={},
+        clamps=[],
+        repairs=[],
+        fallback_used=False,
+    )
+    gen_db.refresh(state)
+    assert state.current_load == 145.0
+    assert state.pending_load_delta is None
+
+
+def test_bodyweight_performance_does_not_stage_load_bootstrap():
+    engine = _make_engine()
+    with Session(engine) as db:
+        _seed_common(db)
+        _seed_movement(
+            db,
+            1,
+            progression_mode=ProgressionMode.PROTOCOL,
+            progression_rule=ProgressionRule.RPE_8_STANDARD.value,
+            increment_ladder=[2.5],
+        )
+        db.add(MovementState(
+            movement_id=1,
+            calibration_status=CalibrationStatus.MEASURED,
+            current_load=None,
+        ))
+        db.commit()
+        _seed_session(db, 1, 1, label="T1", actual_load=145.0)
+
+        run_analysis(1, db, WEEK_KEYER)
+
+        state = db.exec(
+            select(MovementState).where(MovementState.movement_id == 1)
+        ).one()
+        assert state.active_rule == ProgressionRule.RPE_8_STANDARD.value
+        assert state.pending_load_delta is None
 
 
 # ---------------------------------------------------------------------------

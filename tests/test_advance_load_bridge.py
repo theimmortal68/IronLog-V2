@@ -244,8 +244,16 @@ def test_performed_floor_delta_zero_when_performed_lighter():
     assert performed_floor_delta(260.0, [250.0]) == 0.0
 
 
-def test_performed_floor_delta_zero_when_current_load_none():
-    assert performed_floor_delta(None, [265.0]) == 0.0
+def test_performed_floor_delta_bootstraps_when_current_load_none():
+    assert performed_floor_delta(None, [145.0]) == 145.0
+
+
+def test_performed_floor_delta_bootstrap_picks_heaviest_performed_load():
+    assert performed_floor_delta(None, [135.0, 145.0, 140.0]) == 145.0
+
+
+def test_performed_floor_delta_zero_when_current_load_and_performed_loads_are_empty():
+    assert performed_floor_delta(None, []) == 0.0
 
 
 def test_performed_floor_delta_zero_when_no_performed_loads():
