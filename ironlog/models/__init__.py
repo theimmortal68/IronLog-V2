@@ -18,3 +18,9 @@ from .program import (          # noqa: F401
     TierKind, Program, ProgramDay, Tier, TierExercise, MesoRotation,
     SlotMovementOverride, MissedDayRecord,
 )
+from .program_revision import (  # noqa: F401
+    RevisionOrigin, SlotRole,
+    ProgramRevision, ProgramRevisionDay, ProgramRevisionTier,
+    ProgramRevisionExercise, ProgramRevisionMesoRotation,
+    ProgramRevisionParityRotation, ProgramRevisionEquipmentRequirement,
+)

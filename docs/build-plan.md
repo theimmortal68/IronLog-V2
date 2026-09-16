@@ -158,6 +158,30 @@ file:
 14. **UX hardening, explicitly deferred by the athlete**: a confirmation step before
     final Finish & Submit; a visible "Submitting..." loading state ("we will come back
     to that later").
+15. **Golden APEX baseline (`tests/test_golden_apex_baseline.py`, added 2026-09-10 for
+    the program-library migration) doesn't pin the LLM propose/validate/repair loop
+    itself** — only the quiet-week deterministic path and the LLM-invocation gate
+    decision are pinned. A migration could regress `attempts>=1`/clamp/reject/exhaustion
+    behavior invisibly to this suite (Fable review finding, filed not fixed — may be
+    covered by the pre-existing 851 tests, but as a *golden baseline* specifically it's a
+    named gap). Also noted in the same review: `conftest.py`'s docstring (lines 13, 159)
+    places movement 146 at slot `d1_t3e`; the actual seeded topology has it at `d1_t2h`
+    and no `d1_t3e` exists in D1 — stale comment, harmless, worth a cheap fix sometime.
+16. **`tests/test_program_revision_publish.py` cannot detect a regression of the
+    `MesoRotation.mesocycle_id` fix** (Phase 1 §1.2, program-library migration). The
+    `mesocycle_id IS NULL` filter was removed from `ironlog/engine/program_publish.py`
+    and `ironlog/engine/program_revision_hash.py` (production's
+    `scripts/migrate_phase_to_periodization.py` mutates every existing `MesoRotation`
+    row to set `mesocycle_id` without changing `meso_number` — the filter would have
+    frozen zero rotation rows against real production data). But every seeded
+    `MesoRotation` row has `mesocycle_id` NULL (`program_seed.py`'s `_add_mr` never sets
+    it), so the test suite passes identically whether or not the filter is present —
+    the fix is verified only by code reading, not by a deterministic test. Also, the
+    content-fidelity test still carries two stale `MesoRotation.mesocycle_id.is_(None)`
+    filters (currently vacuously equivalent, `tests/test_program_revision_publish.py`
+    lines ~367, ~377) that would silently mask a future regression. Fix: set
+    `mesocycle_id` on one seeded row before publishing in a test, drop the two stale
+    filters, assert the row still materializes (Fable review finding, filed not fixed).
 
 ## Queued (design needed before spec-ready)
 
