@@ -25,10 +25,11 @@ depends on it, `docs/` is the source of truth.
 | Validator — deterministic hard-rule checks | **done + live** (`ironlog/engine/validator.py`, `tests/test_validator.py` + `test_ht_validator_config.py`) |
 | Generation — LLM propose → validate → approve | **done + live** (`ironlog/generation/loop.py`/`assembler.py`/`context.py`, not `ironlog/engine/generation.py` which doesn't exist), running on Gemini flash-lite behind a swappable proposer port |
 | Library seed | **done** — full movement library + D1-D6 program reconciled to authoritative YAML, calibrated baselines seeded, live on server |
-| Progression engine | **done + live** (2026-07-06 go-live) — `progression_rule` wired from YAML, advance→load bridge ratchets `current_load` on a clean top-of-range RPE-8 session |
+| Progression engine | **done + live** (2026-07-06 go-live) — `progression_rule` wired from YAML, advance→load bridge ratchets `current_load` on a clean top-of-range RPE-8 session. Since 2026-09-16, a needs-calibration movement (`current_load=None`) also bootstraps from its own logged performance (spec 60) — previously stuck permanently regardless of real logged sessions. |
 | Periodization/advancement engine | **done + live** (2026-09-04/05 go-live) — Macrocycle/Mesocycle/Microcycle hierarchy replacing the old `Phase` enum, plus the state machine that advances weeks/mesocycles over time. See `docs/build-plan.md` for open follow-up items. |
+| Program-library revision schema | **schema merged 2026-09-16, NOT cut over to runtime yet** (Phase 1 §1.2 — `ProgramRevision` + child tables, atomic publish lifecycle). Generation still reads live Program tables unchanged; the cutover is a separate later phase (§1.5). |
 | In-gym logging round-trip (client↔server) | **done + live**, athlete has trained real sessions on it |
-| Full test suite | **851 passing** (`.venv/bin/pytest -q`; re-verified 2026-09-10) |
+| Full test suite | **882 passing** (`.venv/bin/pytest -q`; re-verified 2026-09-17) |
 | **Current focus** | See `docs/build-plan.md`'s "Open items" — not a from-scratch build task |
 
 ## Commands
