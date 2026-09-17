@@ -1,9 +1,9 @@
 # IronLog-V2 Build Plan (living punch-list)
 
-**Last updated 2026-09-10.** Source of truth for the in-flight feature/bug work. The
+**Last updated 2026-09-17.** Source of truth for the in-flight feature/bug work. The
 2026-07-09 version of this file stopped tracking reality for two months — everything
 below "Shipped since 2026-07-09" was refreshed by re-reading `docs/STATE.md` in full plus
-every `.specs/*.md` file. Test count as of this refresh: **851 passing**.
+every `.specs/*.md` file. Test count as of this refresh: **882 passing**.
 
 ## ✅ Shipped + live (through 2026-07-09)
 
@@ -105,6 +105,28 @@ file:
 - 2026-09-02: stale in-memory enum caused a false 500 on `/generate` (service restart,
   not a code fix); ALT_PAIR set-ordering bug root-caused to the Android client, fixed
   there.
+- **2026-09-10: `ProgramRevision` schema + explicit publish lifecycle** (Phase 1 §1.2,
+  program-library migration; specs/ADR 0001) — immutable `ProgramRevision` + 6 child
+  tables (migration 073, additive-only), atomic validate→materialize→hash→commit
+  `publish()`, wider revision hash closing a gap in the pre-existing `program_hash.py`
+  (never hashed `MesoRotation`/`MicrocycleParityRotation`). Runtime generation is NOT
+  cut over to it yet (Phase 1 §1.5, later). **Stranded 6 days on an unmerged session
+  branch** (the session that built it never wrote its own `docs/STATE.md` close-out, so
+  no later session's start-of-session read surfaced it) — found and merged 2026-09-16.
+  One known gap, filed not fixed: Open Items #16.
+- **2026-09-16: bootstrap `current_load` from logged performance on needs-calibration
+  movements** (spec 60) — a movement stuck at `current_load=None` never acquired a real
+  value even after real logged sessions, because `commit_session` (the sole writer of
+  `current_load`) only writes from the assembler's *prescribed* load, and the assembler
+  never computes one for a needs-calibration movement. Fixed via a real consumption path
+  in the assembler (a staged `pending_load_delta` becomes the base for a needs-
+  calibration movement) plus a `/wizard-resolve` stale-marker clear. Went through 2 spec
+  revisions — v1 was Fable-REJECTed for a spec-level defect (inert fix + a stale-marker
+  corruption path), the design fork was brought back for a decision rather than
+  re-dispatching the same spec. **A DB-wide sweep after deploy found 16 more movements
+  (some stuck since 2026-07-21) with the identical symptom** — not a second bug, just
+  the same gap having existed since before any of this file's history; all 16
+  backfilled from their own most recent logged performance. **Live.**
 
 ## Open items (carried forward, not yet done)
 
@@ -135,6 +157,14 @@ file:
    unrelated pre-existing `Stryker Pad Seated OHP [DB]` vs `[PB]` mismatch, found
    2026-09-10 — same class of drift, not yet fixed); `RestTimer.kt`'s rest-suppression is
    order-naive for ALT_PAIR's interleaved final set.
+   **Re-confirmed 2026-09-17, broader than originally scoped**: the live DB's Movement
+   row is `Stryker Pad Seated OHP [PB]` (confirmed live query) with no `[DB]` variant at
+   all, but `ironlog/seed.py`, `ironlog/generation/program_seed.py` (both the
+   `PROGRAM_TO_LIBRARY` map and the `_add_te` call site), AND `rule_wiring.py` all still
+   say `[DB]` — this is the same *class* of live-vs-seed anchor-swap drift as the
+   Kickstand RDL DB→PB fix (commit `22a3f1a`), not a single stray string. A from-scratch
+   reseed today would not match production. Needs the same coordinated multi-file fix
+   Kickstand RDL got, not a one-line edit — not attempted, flagged for a proper spec.
 8. **Wide-Grip Pull-up streak anomaly** (`consecutive_advance_count` desync after a
    corrected session) — never root-caused, only made moot in practice by the window=1
    change. The underlying "a correction can silently desync progression state"
@@ -148,10 +178,11 @@ file:
 11. **`docs/program/source/2026-08-10-maintenance-block-seed-data-FINAL.md`** still
     specifies per-movement `confirmation_window` values the code no longer parses —
     needs reconciling so a future session doesn't "restore" a stale value from that doc.
-12. **`CLAUDE.md`'s "Current state" table is stale and self-flagged as such** — says
-    "744 passing" (real count: 851) and references a nonexistent
-    `ironlog/engine/generation.py` (real code is in `ironlog/generation/loop.py`
-    /`assembler.py`/`context.py`). Needs the table-wide audit its own header calls for.
+12. ~~**`CLAUDE.md`'s "Current state" table is stale and self-flagged as such**~~ —
+    **CLOSED 2026-09-10** (commit `18d5db4`, confirmed correct 2026-09-17: test count
+    and module paths both accurate as of this file's own last update above). Table
+    still needs a fresh count bump whenever this file's own header count changes
+    materially — not a standing gap, just routine upkeep.
 13. **Ad-hoc program-export script never promoted to a committed file** — hand-rebuilt
     each time it's needed, which already caused one bug (missing ALT_PAIR grouping
     display) from being non-versioned.
